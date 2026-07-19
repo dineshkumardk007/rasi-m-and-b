@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Playful Sticker design tokens (mirror of tailwind.config.ts) ────────── */
+:root {
+  --ink: #2b2140;
+  --cream: #fff9f0;
+  --paper: #ffffff;
+  --pink: #ec5d8a;
+  --mute: #6b617d;
+}
+
+@layer base {
+  body {
+    @apply bg-cream font-body text-ink;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display;
+  }
+  /* Tamil text gets its own face wherever lang is marked */
+  :lang(ta) {
+    @apply font-tamil;
+  }
+  /* WCAG: visible focus everywhere, sticker-styled */
+  :focus-visible {
+    outline: 3px solid var(--pink);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  /* Hover lift for cards & tiles — the ".pop" utility from the spec */
+  .pop {
+    transition: transform 0.16s ease;
+  }
+  .pop:hover {
+    transform: translateY(-4px) rotate(-1deg);
+  }
+
+  /* Button press feedback: shadow "sinks" as the button moves into it */
+  .btn-press {
+    transition:
+      transform 0.08s ease,
+      box-shadow 0.08s ease;
+  }
+  .btn-press:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--ink);
+  }
+
+  /* Selected category tiles sit pressed-in */
+  .tile-pressed {
+    transform: translate(3px, 3px);
+    box-shadow: 2px 2px 0 var(--ink) !important;
+  }
+
+  /* Marquee edge fade — the only mask in the system */
+  .marquee-mask {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 6%,
+      black 94%,
+      transparent 100%
+    );
+  }
+  .marquee-paused:hover .marquee-track {
+    animation-play-state: paused;
+  }
+
+  /* Hero background blobs — the ONLY place blur is allowed */
+  .blob {
+    filter: blur(48px);
+    opacity: 0.45;
+    pointer-events: none;
+  }
+}
+
+/* Motion is a garnish, never a requirement */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .pop:hover {
+    transform: none;
+  }
+}
