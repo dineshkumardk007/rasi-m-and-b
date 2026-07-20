@@ -404,3 +404,12 @@ create policy "settings public read" on settings for select using (true);
 create policy "settings owner write" on settings for all
   using (has_role(array['owner','manager']::staff_role[]))
   with check (has_role(array['owner','manager']::staff_role[]));
+
+-- ── Grants ─────────────────────────────────────────────────────────────────
+grant usage on schema public to anon, authenticated, service_role;
+grant all on all tables in schema public to anon, authenticated, service_role, postgres;
+grant all on all sequences in schema public to anon, authenticated, service_role, postgres;
+grant all on all routines in schema public to anon, authenticated, service_role, postgres;
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role, postgres;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role, postgres;
+alter default privileges in schema public grant all on routines to anon, authenticated, service_role, postgres;
