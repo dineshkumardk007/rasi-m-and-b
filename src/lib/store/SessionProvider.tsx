@@ -84,11 +84,20 @@ export function SessionProvider({
         return { ok: true };
       }
       const supabase = createClient();
-      const { data, error } = await supabase.auth.verifyOtp({
+      let { data, error } = await supabase.auth.verifyOtp({
         phone: `+91${clean}`,
         token: otp,
         type: "sms",
       });
+      if (error && error.message.includes("verification type")) {
+        const retry = await supabase.auth.verifyOtp({
+          phone: `+91${clean}`,
+          token: otp,
+          type: "phone_change",
+        });
+        data = retry.data;
+        error = retry.error;
+      }
       if (error || !data.user) return { ok: false, message: error?.message };
       if (name) await supabase.auth.updateUser({ data: { name } });
       // Ensure a customers row exists (id = auth.uid, RLS "insert own").
