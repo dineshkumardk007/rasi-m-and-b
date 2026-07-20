@@ -5,18 +5,15 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ── Enums ──────────────────────────────────────────────────────────────────
-create type milestone as enum ('newborn', 'infant', 'toddler', 'mom');
-create type category as enum
-  ('feeding', 'bath', 'toys', 'clothing', 'diapering', 'gear', 'health', 'mom');
-create type product_status as enum ('active', 'archived');
-create type order_status as enum
-  ('new', 'confirmed', 'packed', 'out_for_delivery', 'delivered', 'cancelled', 'returned');
-create type payment_method as enum ('razorpay', 'cod');
-create type payment_status as enum
-  ('pending', 'paid', 'refunded', 'cod_pending', 'cod_collected');
-create type coupon_type as enum ('percent', 'flat');
-create type review_status as enum ('pending', 'approved', 'rejected');
-create type staff_role as enum ('owner', 'manager', 'staff');
+do $$ begin create type milestone as enum ('newborn', 'infant', 'toddler', 'mom'); exception when duplicate_object then null; end $$;
+do $$ begin create type category as enum ('feeding', 'bath', 'toys', 'clothing', 'diapering', 'gear', 'health', 'mom'); exception when duplicate_object then null; end $$;
+do $$ begin create type product_status as enum ('active', 'archived'); exception when duplicate_object then null; end $$;
+do $$ begin create type order_status as enum ('new', 'confirmed', 'packed', 'out_for_delivery', 'delivered', 'cancelled', 'returned'); exception when duplicate_object then null; end $$;
+do $$ begin create type payment_method as enum ('razorpay', 'cod'); exception when duplicate_object then null; end $$;
+do $$ begin create type payment_status as enum ('pending', 'paid', 'refunded', 'cod_pending', 'cod_collected'); exception when duplicate_object then null; end $$;
+do $$ begin create type coupon_type as enum ('percent', 'flat'); exception when duplicate_object then null; end $$;
+do $$ begin create type review_status as enum ('pending', 'approved', 'rejected'); exception when duplicate_object then null; end $$;
+do $$ begin create type staff_role as enum ('owner', 'manager', 'staff'); exception when duplicate_object then null; end $$;
 
 -- ── Tables ─────────────────────────────────────────────────────────────────
 
