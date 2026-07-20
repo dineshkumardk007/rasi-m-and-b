@@ -34,7 +34,11 @@ export async function createRazorpayOrder(
       notes: { order_no: orderNo },
     }),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("Razorpay order creation failed:", res.status, errText);
+    return null;
+  }
   return (await res.json()) as { id: string };
 }
 
