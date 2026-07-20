@@ -3,6 +3,11 @@ insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true)
 on conflict (id) do nothing;
 
+drop policy if exists "product images public read" on storage.objects;
+drop policy if exists "product images staff write" on storage.objects;
+drop policy if exists "product images staff update" on storage.objects;
+drop policy if exists "product images staff delete" on storage.objects;
+
 create policy "product images public read"
   on storage.objects for select
   using (bucket_id = 'product-images');
