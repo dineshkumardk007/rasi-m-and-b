@@ -4,6 +4,11 @@
 -- server code (webhooks, order creation, seed/import) and bypasses RLS.
 -- ═══════════════════════════════════════════════════════════════════════════
 
+drop schema if exists public cascade;
+create schema public;
+grant all on schema public to postgres;
+grant all on schema public to public;
+
 -- ── Enums ──────────────────────────────────────────────────────────────────
 do $$ begin create type milestone as enum ('newborn', 'infant', 'toddler', 'mom'); exception when duplicate_object then null; end $$;
 do $$ begin create type category as enum ('feeding', 'bath', 'toys', 'clothing', 'diapering', 'gear', 'health', 'mom'); exception when duplicate_object then null; end $$;
