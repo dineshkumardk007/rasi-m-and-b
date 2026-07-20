@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Baloo_2, Karla, Noto_Sans_Tamil } from "next/font/google";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import { getLanguage } from "@/lib/i18n/server";
+import { CartProvider } from "@/lib/store/CartProvider";
+import { SessionProvider } from "@/lib/store/SessionProvider";
+import { isDemo } from "@/lib/data/mode";
 import { BUSINESS } from "@/lib/constants";
 import "./globals.css";
 
@@ -50,7 +53,11 @@ export default async function RootLayout({
       className={`${baloo.variable} ${karla.variable} ${notoTamil.variable}`}
     >
       <body className="min-h-screen antialiased">
-        <LanguageProvider initialLang={lang}>{children}</LanguageProvider>
+        <LanguageProvider initialLang={lang}>
+          <SessionProvider isDemo={isDemo()}>
+            <CartProvider>{children}</CartProvider>
+          </SessionProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -6,6 +6,7 @@ export const BUSINESS = {
   name: "Rasi Mom & Baby",
   address:
     "176, Palayamkottai Rd, opp. Rajaji Park, Thoothukudi, Tamil Nadu 628001",
+  addressShort: "176, Palayamkottai Rd, opp. Rajaji Park, Thoothukudi 628001",
   city: "Thoothukudi",
   opensAt: "9:00 AM",
   closesAt: null as string | null, // TODO: confirm closing time with owner before footer is finalized
@@ -13,6 +14,7 @@ export const BUSINESS = {
   reviewCount: 2360,
   staff: ["Nisha", "Harini", "Punitha"] as const, // consent confirmation pending
   sameDayCutoffHour: 16, // 4 PM local — same-day delivery cutoff
+  gstin: null as string | null, // TODO: owner's GST number (invoice footer)
   socials: {
     // TODO: real URLs from owner (Section 9)
     whatsapp: null as string | null,
@@ -37,23 +39,36 @@ export const CATEGORIES = [
 ] as const;
 export type Category = (typeof CATEGORIES)[number];
 
-/**
- * Category → colour + emoji badge. Class names are written out in full
- * (not template-built) so Tailwind's static extraction keeps them.
- */
+/** Milestone display metadata — copy matches the approved reference exactly. */
+export const MILESTONE_META: Record<
+  Milestone,
+  { en: string; ta: string; shortEn: string; shortTa: string; emoji: string; bg: string }
+> = {
+  newborn: { en: "Newborn 0–3 months", ta: "பிறந்த குழந்தை", shortEn: "0–3 months", shortTa: "0–3 மாதம்", emoji: "🍼", bg: "#FFE1A8" },
+  infant: { en: "Infant 3–12 months", ta: "சிசு", shortEn: "3–12 months", shortTa: "3–12 மாதம்", emoji: "🧸", bg: "#C7E9FF" },
+  toddler: { en: "Toddler 1–3 years", ta: "தளிர்நடை", shortEn: "1–3 years", shortTa: "1–3 வயது", emoji: "🚂", bg: "#D6E8B0" },
+  mom: { en: "For Mom", ta: "அம்மாவுக்காக", shortEn: "For Mom", shortTa: "அம்மாவுக்கு", emoji: "🌸", bg: "#FBD0EA" },
+};
+
+/** Category display metadata — colours and copy match the approved reference. */
 export const CATEGORY_META: Record<
   Category,
-  { bg: string; pop: string; bgClass: string; popTextClass: string; emoji: string }
+  { en: string; ta: string; emoji: string; bg: string; pop: string }
 > = {
-  feeding: { bg: "#FFE1A8", pop: "#F59E0B", bgClass: "bg-cat-feeding-bg", popTextClass: "text-cat-feeding-pop", emoji: "🍼" },
-  bath: { bg: "#C7E9FF", pop: "#3B9EDB", bgClass: "bg-cat-bath-bg", popTextClass: "text-cat-bath-pop", emoji: "🛁" },
-  toys: { bg: "#FFCBD9", pop: "#EC5D8A", bgClass: "bg-cat-toys-bg", popTextClass: "text-cat-toys-pop", emoji: "🧸" },
-  clothing: { bg: "#D6E8B0", pop: "#7CB342", bgClass: "bg-cat-clothing-bg", popTextClass: "text-cat-clothing-pop", emoji: "👶" },
-  diapering: { bg: "#E4D6FF", pop: "#9A6BE0", bgClass: "bg-cat-diapering-bg", popTextClass: "text-cat-diapering-pop", emoji: "🧷" },
-  gear: { bg: "#B9EBDD", pop: "#1FB995", bgClass: "bg-cat-gear-bg", popTextClass: "text-cat-gear-pop", emoji: "🛒" },
-  health: { bg: "#FFD6C2", pop: "#F26B4A", bgClass: "bg-cat-health-bg", popTextClass: "text-cat-health-pop", emoji: "🩹" },
-  mom: { bg: "#FBD0EA", pop: "#D65BB0", bgClass: "bg-cat-mom-bg", popTextClass: "text-cat-mom-pop", emoji: "🤱" },
+  feeding: { en: "Feeding", ta: "உணவளித்தல்", emoji: "🍼", bg: "#FFE1A8", pop: "#F59E0B" },
+  bath: { en: "Bath & Skincare", ta: "குளியல்", emoji: "🫧", bg: "#C7E9FF", pop: "#3B9EDB" },
+  toys: { en: "Toys & Play", ta: "பொம்மைகள்", emoji: "🧸", bg: "#FFCBD9", pop: "#EC5D8A" },
+  clothing: { en: "Clothing", ta: "ஆடைகள்", emoji: "👕", bg: "#D6E8B0", pop: "#7CB342" },
+  diapering: { en: "Diapering", ta: "டயப்பர்", emoji: "🧷", bg: "#E4D6FF", pop: "#9A6BE0" },
+  gear: { en: "Gear", ta: "உபகரணங்கள்", emoji: "🛒", bg: "#B9EBDD", pop: "#1FB995" },
+  health: { en: "Health & Safety", ta: "ஆரோக்கியம்", emoji: "🌡️", bg: "#FFD6C2", pop: "#F26B4A" },
+  mom: { en: "Mom Care", ta: "அம்மா பராமரிப்பு", emoji: "🌸", bg: "#FBD0EA", pop: "#D65BB0" },
 };
 
 /** The 8-swatch tile palette admins pick product tile colours from. */
-export const TILE_SWATCHES = CATEGORIES.map((c) => CATEGORY_META[c].bg);
+export const TILE_SWATCHES = [
+  "#FFE1A8", "#C7E9FF", "#FFCBD9", "#D6E8B0", "#E4D6FF", "#B9EBDD", "#FFD6C2", "#FBD0EA",
+] as const;
+
+/** Format INR like the reference: ₹1,299 */
+export const inr = (n: number) => "₹" + Number(n).toLocaleString("en-IN");

@@ -1,0 +1,69 @@
+{
+  "name": "Rasi — 05 Review request (+7d after delivery)",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "days", "daysInterval": 1 }] } },
+      "id": "cron",
+      "name": "Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select e.payload->>'order_no' as order_no, e.payload->>'phone' as phone,\n       coalesce(c.language, 'en') as language\nfrom events e\nleft join customers c on c.phone = right(regexp_replace(e.payload->>'phone', '\\D', '', 'g'), 10)\nwhere e.type = 'order.delivered'\n  and e.created_at::date = (now() - interval '7 days')::date\n  and not exists (\n    select 1 from events s\n    where s.type = 'whatsapp.review_request_sent'\n      and s.payload->>'order_no' = e.payload->>'order_no')"
+      },
+      "id": "query",
+      "name": "Delivered 7 days ago",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "credentials": { "postgres": { "name": "Supabase Postgres" } }
+    },
+    {
+      "parameters": {
+        "functionCode": "const lang = $json.language === 'ta' ? 'ta' : 'en';\nreturn [{ json: {\n  ...$json,\n  phone: '91' + String($json.phone).replace(/\\D/g, '').slice(-10),\n  templateName: `review_request_${lang}`,\n  params: [$json.order_no]\n} }];"
+      },
+      "id": "shape",
+      "name": "Shape message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://backend.aisensy.com/campaign/t1/api/v2",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ apiKey: $env.AISENSY_API_KEY, campaignName: $json.templateName, destination: $json.phone, userName: 'Rasi Mom & Baby', templateParams: $json.params }) }}",
+        "options": {}
+      },
+      "id": "send",
+      "name": "Send WhatsApp (AiSensy)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into events (type, payload) values ('whatsapp.review_request_sent', jsonb_build_object('order_no', '{{ $json.order_no }}'))"
+      },
+      "id": "mark",
+      "name": "Record send",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "credentials": { "postgres": { "name": "Supabase Postgres" } }
+    }
+  ],
+  "connections": {
+    "Daily": { "main": [[{ "node": "Delivered 7 days ago", "type": "main", "index": 0 }]] },
+    "Delivered 7 days ago": { "main": [[{ "node": "Shape message", "type": "main", "index": 0 }]] },
+    "Shape message": { "main": [[{ "node": "Send WhatsApp (AiSensy)", "type": "main", "index": 0 }]] },
+    "Send WhatsApp (AiSensy)": { "main": [[{ "node": "Record send", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

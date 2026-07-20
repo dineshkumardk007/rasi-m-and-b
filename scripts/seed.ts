@@ -5,7 +5,7 @@
  * replaces this via `pnpm import:catalog file.csv` with no code changes.
  */
 import { adminClient } from "./lib";
-import { CATALOG } from "./catalog-data";
+import { CATALOG } from "../src/lib/data/seed-catalog";
 
 async function main() {
   const supabase = adminClient();

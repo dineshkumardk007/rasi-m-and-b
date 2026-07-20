@@ -142,7 +142,8 @@ create table coupons (
 create table reviews (
   id          uuid primary key default gen_random_uuid(),
   product_id  uuid not null references products(id) on delete cascade,
-  customer_id uuid not null references customers(id) on delete cascade,
+  customer_id uuid references customers(id) on delete cascade, -- null = guest review
+  author_name text not null default 'Customer',
   rating      integer not null check (rating between 1 and 5),
   text        text not null default '',
   photos      text[] not null default '{}',

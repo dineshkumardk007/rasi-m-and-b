@@ -1,0 +1,69 @@
+{
+  "name": "Rasi — 06 Baby milestone suggestions",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "days", "daysInterval": 1 }] } },
+      "id": "cron",
+      "name": "Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select c.id, c.phone, c.name, c.language, c.baby_dob,\n  case\n    when c.baby_dob = (now() - interval '3 months')::date then 'infant'\n    when c.baby_dob = (now() - interval '12 months')::date then 'toddler'\n  end as next_stage\nfrom customers c\nwhere c.whatsapp_opt_in and c.baby_dob is not null\n  and (c.baby_dob = (now() - interval '3 months')::date\n    or c.baby_dob = (now() - interval '12 months')::date)\n  and (select count(*) from events s\n       where s.type like 'whatsapp.promo%'\n         and s.payload->>'phone' = c.phone\n         and s.created_at > now() - interval '7 days') < 2"
+      },
+      "id": "query",
+      "name": "Babies reaching a milestone today (promo cap checked)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "credentials": { "postgres": { "name": "Supabase Postgres" } }
+    },
+    {
+      "parameters": {
+        "functionCode": "const lang = $json.language === 'ta' ? 'ta' : 'en';\nreturn [{ json: {\n  ...$json,\n  phone: '91' + String($json.phone).replace(/\\D/g, '').slice(-10),\n  templateName: `milestone_${lang}`,\n  params: [$json.name, $json.next_stage, ($env.RASI_SITE_URL || '')]\n} }];"
+      },
+      "id": "shape",
+      "name": "Shape message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://backend.aisensy.com/campaign/t1/api/v2",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ apiKey: $env.AISENSY_API_KEY, campaignName: $json.templateName, destination: $json.phone, userName: 'Rasi Mom & Baby', templateParams: $json.params }) }}",
+        "options": {}
+      },
+      "id": "send",
+      "name": "Send WhatsApp (AiSensy)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into events (type, payload) values ('whatsapp.promo_milestone_sent', jsonb_build_object('phone', '{{ $json.phone }}'))"
+      },
+      "id": "mark",
+      "name": "Record promo send",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "credentials": { "postgres": { "name": "Supabase Postgres" } }
+    }
+  ],
+  "connections": {
+    "Daily": { "main": [[{ "node": "Babies reaching a milestone today (promo cap checked)", "type": "main", "index": 0 }]] },
+    "Babies reaching a milestone today (promo cap checked)": { "main": [[{ "node": "Shape message", "type": "main", "index": 0 }]] },
+    "Shape message": { "main": [[{ "node": "Send WhatsApp (AiSensy)", "type": "main", "index": 0 }]] },
+    "Send WhatsApp (AiSensy)": { "main": [[{ "node": "Record promo send", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

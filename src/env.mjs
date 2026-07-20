@@ -42,7 +42,12 @@ const clientSchema = z.object({
 });
 
 const isServer = typeof window === "undefined";
-const skip = process.env.SKIP_ENV_VALIDATION === "1";
+// DEMO MODE: with no Supabase URL configured at all, the site runs on the
+// in-memory demo store — valid keyless state, so validation is skipped.
+// A PARTIAL config (URL set but keys missing) still fails loudly below.
+// SKIP_ENV_VALIDATION is inlined into the client bundle at build time.
+const demoMode = !process.env.NEXT_PUBLIC_SUPABASE_URL;
+const skip = process.env.SKIP_ENV_VALIDATION === "1" || demoMode;
 
 /** @type {z.infer<typeof serverSchema> & z.infer<typeof clientSchema>} */
 let env = /** @type {never} */ (process.env);

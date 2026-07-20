@@ -1,0 +1,70 @@
+{
+  "name": "Rasi — 01 Order confirmation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rasi-events",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Rasi events webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.headers['x-rasi-secret'] }}",
+              "value2": "={{ $env.RASI_WEBHOOK_SECRET }}"
+            },
+            {
+              "value1": "={{ $json.body.type }}",
+              "operation": "regex",
+              "value2": "^order\\.(placed|paid)$"
+            }
+          ]
+        }
+      },
+      "id": "guard",
+      "name": "Secret + event filter",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "const p = $json.body.payload;\nconst lang = p.language === 'ta' ? 'ta' : 'en';\nreturn [{ json: {\n  phone: '91' + String(p.phone).replace(/\\D/g, '').slice(-10),\n  templateName: `order_confirmed_${lang}`,\n  params: [p.order_no, String(p.total), p.same_day ? (lang === 'ta' ? 'இன்றே' : 'today') : (lang === 'ta' ? 'நாளை' : 'tomorrow')]\n} }];"
+      },
+      "id": "shape",
+      "name": "Shape message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://backend.aisensy.com/campaign/t1/api/v2",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ apiKey: $env.AISENSY_API_KEY, campaignName: $json.templateName, destination: $json.phone, userName: 'Rasi Mom & Baby', templateParams: $json.params }) }}",
+        "options": {}
+      },
+      "id": "send",
+      "name": "Send WhatsApp (AiSensy)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [660, 0]
+    }
+  ],
+  "connections": {
+    "Rasi events webhook": { "main": [[{ "node": "Secret + event filter", "type": "main", "index": 0 }]] },
+    "Secret + event filter": { "main": [[{ "node": "Shape message", "type": "main", "index": 0 }]] },
+    "Shape message": { "main": [[{ "node": "Send WhatsApp (AiSensy)", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

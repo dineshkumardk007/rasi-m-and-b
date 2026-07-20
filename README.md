@@ -4,10 +4,21 @@ Production e-commerce site for Rasi Mom & Baby, Thoothukudi — Next.js App Rout
 TypeScript + Tailwind on Vercel, with Supabase (Postgres/Auth/Storage, RLS),
 Razorpay, and n8n + WhatsApp automation.
 
-## Setup
+## Run it now (demo mode)
 
 ```bash
 pnpm install
+pnpm dev        # http://localhost:3000 — full site on an in-memory demo store
+```
+
+With no Supabase keys the entire site (storefront, checkout with simulated
+payment, COD, tracking, invoice, admin at /admin) runs on an in-memory demo
+store that resets on restart. Adding real keys flips every data path to
+Supabase automatically — no code changes.
+
+## Go live
+
+```bash
 cp .env.example .env.local   # fill in Supabase keys (dashboard → Settings → API)
 ```
 
@@ -34,9 +45,17 @@ pnpm import:catalog path/to/catalog.csv
 Column reference: `scripts/catalog-template.csv`. `categories` and `images`
 are `|`-separated. Upserts by slug; invalid rows are reported and skipped.
 
+Then add Razorpay keys (checkout switches from simulation to live Standard
+Checkout; point the dashboard webhook at `/api/razorpay/webhook`), and import
+the n8n workflows from `/automation` for WhatsApp messaging.
+
 ## Structure
 
-- `src/app` — App Router pages (Phase 0 ships a token-showcase home)
+- `src/app` — App Router: storefront `/`, PDP `/p/[slug]`, `/admin`,
+  `/invoice/[orderNo]`, Razorpay + cron API routes, sitemap/robots/merchant feed
+- `src/components` — sticker-system UI primitives, storefront, admin
+- `src/lib/data` — repository layer: demo store ↔ Supabase, orders, events outbox
+- `automation` — importable n8n workflow JSONs (WhatsApp via AiSensy/Interakt)
 - `src/lib/i18n` — bilingual dictionary (en/ta); **no hardcoded UI strings**
 - `src/lib/supabase` — browser / server / admin (service-role) clients
 - `src/lib/constants.ts` — business data, milestones, category palette

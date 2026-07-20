@@ -1,0 +1,69 @@
+{
+  "name": "Rasi — 03 Cart abandoned reminder",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] } },
+      "id": "cron",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select e.payload->>'phone' as phone, e.payload->>'language' as language, e.id\nfrom events e\nwhere e.type = 'cart.abandoned'\n  and e.created_at between now() - interval '3 hours' and now() - interval '2 hours'\n  and not exists (\n    select 1 from events s\n    where s.type = 'whatsapp.cart_reminder_sent'\n      and s.payload->>'phone' = e.payload->>'phone'\n      and s.created_at > now() - interval '7 days'\n    having count(*) >= 2\n  )"
+      },
+      "id": "query",
+      "name": "Find 2h-old abandoned carts (max 2 promos/week)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "credentials": { "postgres": { "name": "Supabase Postgres" } }
+    },
+    {
+      "parameters": {
+        "functionCode": "const lang = $json.language === 'ta' ? 'ta' : 'en';\nreturn [{ json: {\n  phone: '91' + String($json.phone).replace(/\\D/g, '').slice(-10),\n  templateName: `cart_reminder_${lang}`,\n  params: []\n} }];"
+      },
+      "id": "shape",
+      "name": "Shape message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://backend.aisensy.com/campaign/t1/api/v2",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ apiKey: $env.AISENSY_API_KEY, campaignName: $json.templateName, destination: $json.phone, userName: 'Rasi Mom & Baby', templateParams: $json.params }) }}",
+        "options": {}
+      },
+      "id": "send",
+      "name": "Send WhatsApp (AiSensy)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into events (type, payload) values ('whatsapp.cart_reminder_sent', jsonb_build_object('phone', '{{ $json.phone }}'))"
+      },
+      "id": "mark",
+      "name": "Record send (promo cap)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "credentials": { "postgres": { "name": "Supabase Postgres" } }
+    }
+  ],
+  "connections": {
+    "Every hour": { "main": [[{ "node": "Find 2h-old abandoned carts (max 2 promos/week)", "type": "main", "index": 0 }]] },
+    "Find 2h-old abandoned carts (max 2 promos/week)": { "main": [[{ "node": "Shape message", "type": "main", "index": 0 }]] },
+    "Shape message": { "main": [[{ "node": "Send WhatsApp (AiSensy)", "type": "main", "index": 0 }]] },
+    "Send WhatsApp (AiSensy)": { "main": [[{ "node": "Record send (promo cap)", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

@@ -1,0 +1,69 @@
+{
+  "name": "Rasi — 04 Back in stock",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] } },
+      "id": "cron",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select c.phone, c.language, p.name_en, p.slug, w.customer_id, w.product_id\nfrom wishlist w\njoin customers c on c.id = w.customer_id\njoin products p on p.id = w.product_id\nwhere w.notify_restock and p.stock > 0 and c.whatsapp_opt_in"
+      },
+      "id": "query",
+      "name": "Wishlist items now in stock",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "credentials": { "postgres": { "name": "Supabase Postgres" } }
+    },
+    {
+      "parameters": {
+        "functionCode": "const lang = $json.language === 'ta' ? 'ta' : 'en';\nreturn [{ json: {\n  ...$json,\n  phone: '91' + String($json.phone).replace(/\\D/g, '').slice(-10),\n  templateName: `back_in_stock_${lang}`,\n  params: [$json.name_en, ($env.RASI_SITE_URL || '') + '/p/' + $json.slug]\n} }];"
+      },
+      "id": "shape",
+      "name": "Shape message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://backend.aisensy.com/campaign/t1/api/v2",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ apiKey: $env.AISENSY_API_KEY, campaignName: $json.templateName, destination: $json.phone, userName: 'Rasi Mom & Baby', templateParams: $json.params }) }}",
+        "options": {}
+      },
+      "id": "send",
+      "name": "Send WhatsApp (AiSensy)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update wishlist set notify_restock = false where customer_id = '{{ $json.customer_id }}' and product_id = '{{ $json.product_id }}'"
+      },
+      "id": "mark",
+      "name": "Clear notify flag",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "credentials": { "postgres": { "name": "Supabase Postgres" } }
+    }
+  ],
+  "connections": {
+    "Every hour": { "main": [[{ "node": "Wishlist items now in stock", "type": "main", "index": 0 }]] },
+    "Wishlist items now in stock": { "main": [[{ "node": "Shape message", "type": "main", "index": 0 }]] },
+    "Shape message": { "main": [[{ "node": "Send WhatsApp (AiSensy)", "type": "main", "index": 0 }]] },
+    "Send WhatsApp (AiSensy)": { "main": [[{ "node": "Clear notify flag", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
