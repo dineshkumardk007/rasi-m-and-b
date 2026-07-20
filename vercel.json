@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/drain-events",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
