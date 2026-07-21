@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Order, Product, Review, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { useSession } from "@/lib/store/SessionProvider";
@@ -298,6 +298,102 @@ async function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
+function PaymentProcessingView({
+  stage,
+  method,
+  amount,
+  isDemo,
+  onCancel,
+}: {
+  stage: "order" | "sdk" | "gateway" | "confirming";
+  method: "upi" | "card" | "razorpay";
+  amount: number;
+  isDemo: boolean;
+  onCancel: () => void;
+}) {
+  const { t } = useT();
+  const [showCancel, setShowCancel] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowCancel(true), 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="py-4 text-center">
+      {/* Animated Dual-Ring Loading Spinner & Method Emoji */}
+      <div className="relative mx-auto mb-5 flex h-24 w-24 items-center justify-center">
+        <div className="absolute inset-0 animate-spin rounded-full border-4 border-t-[#EC5D8A] border-r-transparent border-b-[#B9EBDD] border-l-transparent" />
+        <div className="absolute inset-2 animate-pulse rounded-full border-2 border-[#FFE1A8] bg-[#FFF8F0]" />
+        <div className="relative flex h-14 w-14 items-center justify-center rounded-full border-2.5 border-ink bg-paper shadow-hard-2">
+          <span className="animate-bounce text-[28px]">
+            {method === "upi" ? "📱" : method === "card" ? "💳" : "⚡"}
+          </span>
+        </div>
+      </div>
+
+      <h3 className="mb-1.5 font-display text-[22px] font-extrabold text-ink">
+        {t("checkout.processingTitle")}
+      </h3>
+
+      {/* Dynamic Status Step Pill */}
+      <div className="mb-4 inline-flex items-center gap-2 rounded-pill border-2 border-ink bg-[#FFF8F0] px-3.5 py-1.5 text-[13px] font-bold text-brand shadow-hard-2">
+        <span className="h-2 w-2 rounded-full bg-brand animate-ping" />
+        <span>
+          {stage === "order" && t("checkout.processing")}
+          {(stage === "sdk" || stage === "gateway") && t("checkout.connectingGateway")}
+          {stage === "confirming" && t("checkout.awaitingPopup")}
+        </span>
+      </div>
+
+      {/* Payment Summary Box */}
+      <div className="mx-auto mb-4 max-w-[320px] rounded-card border-3 border-ink bg-paper p-3.5 text-left shadow-hard-4">
+        <div className="flex items-center justify-between text-[11px] font-extrabold tracking-wider text-mute uppercase font-display">
+          <span>Amount to Pay</span>
+          <span className="text-ink font-extrabold">
+            {method === "upi" ? "UPI — GPay / PhonePe / Paytm" : method === "card" ? "Credit / Debit Card" : "Online Payment"}
+          </span>
+        </div>
+        <div className="mt-1 flex items-baseline justify-between">
+          <span className="font-display text-[24px] font-extrabold text-brand">
+            {inr(amount)}
+          </span>
+          <span className="text-[12px] font-extrabold text-ink">Rasi Mom & Baby</span>
+        </div>
+      </div>
+
+      {/* Security & Warning Notice Banner */}
+      <div className="mx-auto mb-3 max-w-[340px] rounded-tile border-2.5 border-ink bg-[#FFE1A8] p-3 text-[12.5px] font-bold text-ink">
+        <div className="flex items-start gap-2 text-left">
+          <span className="text-[16px] shrink-0">⚠️</span>
+          <span>{t("checkout.doNotClose")}</span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-center gap-1.5 text-[12px] font-extrabold text-mute">
+        <span>🔒</span>
+        <span>{t("checkout.secureTransaction")}</span>
+      </div>
+
+      {isDemo && (
+        <p className="mt-2 text-[12px] font-bold text-brand">{t("checkout.demo")}</p>
+      )}
+
+      {showCancel && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-[12px] font-extrabold text-mute underline hover:text-ink transition-colors"
+          >
+            {t("checkout.cancelPayment")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CheckoutModal({
   items,
   subtotal,
@@ -328,6 +424,8 @@ export function CheckoutModal({
   const [code, setCode] = useState("");
   const [coupon, setCoupon] = useState<{ code: string; discount: number } | null>(null);
   const [paying, setPaying] = useState(false);
+  const [payStage, setPayStage] = useState<"order" | "sdk" | "gateway" | "confirming">("order");
+  const [selectedMethod, setSelectedMethod] = useState<"upi" | "card" | "razorpay">("razorpay");
   const [sameDay, setSameDay] = useState<boolean | null>(null);
 
   const valid =
@@ -384,39 +482,55 @@ export function CheckoutModal({
     return result.order;
   };
 
-  const payOnline = async () => {
+  const payOnline = async (method: "upi" | "card" | "razorpay" = "razorpay") => {
+    setSelectedMethod(method);
+    setPaying(true);
+    setPayStage("order");
+
     if (isDemo) {
       // Demo simulation, mirroring the reference's 1.4s processing screen.
-      setPaying(true);
       window.setTimeout(async () => {
         const order = await placeWith("razorpay");
         if (order) onPlaced(order);
+        else setPaying(false);
       }, 1400);
       return;
     }
+
     const order = await placeWith("razorpay");
-    if (!order) return;
+    if (!order) {
+      setPaying(false);
+      return;
+    }
+
+    setPayStage("sdk");
     const loaded = await loadRazorpayScript();
     if (!loaded) {
       setPaying(false);
       notify("Razorpay unavailable — try Cash on delivery");
       return;
     }
+
+    setPayStage("gateway");
     const res = await fetch("/api/razorpay/order", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ order_no: order.order_no, phone: f.phone }),
     });
+
     if (!res.ok) {
       setPaying(false);
       notify("Payment setup failed — try Cash on delivery");
       return;
     }
+
     const { keyId, rzpOrderId, amount } = (await res.json()) as {
       keyId: string;
       rzpOrderId: string;
       amount: number;
     };
+
+    setPayStage("confirming");
     new window.Razorpay!({
       key: keyId,
       order_id: rzpOrderId,
@@ -433,7 +547,12 @@ export function CheckoutModal({
         });
         onPlaced(order);
       },
-      modal: { ondismiss: () => setPaying(false) },
+      modal: {
+        ondismiss: () => {
+          setPaying(false);
+          notify("Payment window closed");
+        },
+      },
     }).open();
   };
 
@@ -443,8 +562,19 @@ export function CheckoutModal({
   };
 
   return (
-    <Modal onClose={onClose}>
-      {step === "address" && (
+    <Modal onClose={() => { if (!paying) onClose(); }}>
+      {paying ? (
+        <PaymentProcessingView
+          stage={payStage}
+          method={selectedMethod}
+          amount={total}
+          isDemo={isDemo}
+          onCancel={() => {
+            setPaying(false);
+            notify("Payment cancelled");
+          }}
+        />
+      ) : step === "address" ? (
         <div>
           <h3 className="mb-3.5 font-display text-[24px] font-extrabold">
             {t("checkout.title")} 🚚
@@ -465,9 +595,7 @@ export function CheckoutModal({
             {t("checkout.continue")} →
           </Btn>
         </div>
-      )}
-
-      {step === "pay" && (
+      ) : (
         <div>
           <h3 className="mb-3 font-display text-[24px] font-extrabold">
             {t("checkout.payment")} 💳
@@ -514,30 +642,22 @@ export function CheckoutModal({
             </div>
           )}
 
-          {paying ? (
-            <div className="p-8 text-center">
-              <div className="text-[40px]">💳</div>
-              <p className="mt-2.5 font-display font-extrabold">{t("checkout.processing")}</p>
-              {isDemo && <p className="mt-1 text-[12px] text-mute">{t("checkout.demo")}</p>}
-            </div>
-          ) : (
-            <div className="grid gap-2.5">
-              <PaymentButton icon="📱" label={t("checkout.upi")} bg="#B9EBDD" onClick={payOnline} />
-              <PaymentButton icon="💳" label={t("checkout.card")} bg="#C7E9FF" onClick={payOnline} />
-              <PaymentButton
-                icon="💵"
-                label={t("checkout.cod")}
-                bg="#FFE1A8"
-                disabled={!codAllowed}
-                onClick={payCod}
-              />
-              {!codAllowed && (
-                <p className="text-[12px] font-bold text-mute">
-                  {t("checkout.codLimit", { limit: inr(settings.cod_limit) })}
-                </p>
-              )}
-            </div>
-          )}
+          <div className="grid gap-2.5">
+            <PaymentButton icon="📱" label={t("checkout.upi")} bg="#B9EBDD" onClick={() => payOnline("upi")} />
+            <PaymentButton icon="💳" label={t("checkout.card")} bg="#C7E9FF" onClick={() => payOnline("card")} />
+            <PaymentButton
+              icon="💵"
+              label={t("checkout.cod")}
+              bg="#FFE1A8"
+              disabled={!codAllowed}
+              onClick={payCod}
+            />
+            {!codAllowed && (
+              <p className="text-[12px] font-bold text-mute">
+                {t("checkout.codLimit", { limit: inr(settings.cod_limit) })}
+              </p>
+            )}
+          </div>
         </div>
       )}
     </Modal>
