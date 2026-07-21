@@ -752,6 +752,7 @@ export function TrackModal({ onClose }: { onClose: () => void }) {
 }
 
 /* ── Auth: phone OTP (Supabase live / simulated in demo) ─────────────────── */
+/* ── Auth: Phone + Password Register & Login (Supabase DB verified) ───────── */
 export function AuthModal({
   onClose,
   onSignedIn,
@@ -760,53 +761,207 @@ export function AuthModal({
   onSignedIn: (name: string) => void;
 }) {
   const { t } = useT();
-  const { sendOtp, verifyOtp, isDemo } = useSession();
-  const [step, setStep] = useState<"phone" | "otp">("phone");
+  const { sendOtp, verifyOtp, signInWithPassword, registerWithPassword, isDemo } = useSession();
+  const [mode, setMode] = useState<"login" | "register" | "otp">("login");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
+  const [otpStep, setOtpStep] = useState<"phone" | "otp">("phone");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleRegister = async () => {
+    setLoading(true);
+    setError(null);
+    const res = await registerWithPassword(name, phone, password);
+    setLoading(false);
+    if (res.ok) {
+      onSignedIn(res.name || name || "Customer");
+    } else {
+      setError(res.message ?? "Registration failed");
+    }
+  };
+
+  const handleLogin = async () => {
+    setLoading(true);
+    setError(null);
+    const res = await signInWithPassword(phone, password);
+    setLoading(false);
+    if (res.ok) {
+      onSignedIn(res.name || "Customer");
+    } else {
+      setError(res.message ?? "Login failed");
+    }
+  };
 
   return (
     <Modal onClose={onClose}>
-      <h3 className="mb-1 font-display text-[24px] font-extrabold">{t("auth.welcome")}</h3>
-      <p className="mb-3.5 text-[14px] text-mute">{t("auth.sub")}</p>
-      {step === "phone" && (
+      {/* Tab Switcher: Sign In vs Register */}
+      <div className="mb-4 flex rounded-pill border-2.5 border-ink bg-paper p-1 shadow-hard-2">
+        <button
+          type="button"
+          onClick={() => {
+            setMode("login");
+            setError(null);
+          }}
+          className={`flex-1 rounded-pill py-2 font-display text-[14px] font-extrabold transition-all cursor-pointer ${
+            mode === "login" ? "bg-brand text-white shadow-hard-2" : "text-mute hover:text-ink"
+          }`}
+        >
+          Sign In 🔑
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMode("register");
+            setError(null);
+          }}
+          className={`flex-1 rounded-pill py-2 font-display text-[14px] font-extrabold transition-all cursor-pointer ${
+            mode === "register" ? "bg-brand text-white shadow-hard-2" : "text-mute hover:text-ink"
+          }`}
+        >
+          Register ✨
+        </button>
+      </div>
+
+      {mode === "login" && (
         <div>
-          <Field label={t("auth.name")} value={name} onChange={setName} placeholder="Priya Raman" />
-          <Field label={t("auth.phone")} value={phone} onChange={setPhone} placeholder="98765 43210" inputMode="tel" />
-          <Btn
-            full
-            disabled={!name.trim() || phone.replace(/\D/g, "").length < 10}
-            onClick={async () => {
-              const res = await sendOtp(phone);
-              if (res.ok) {
+          <h3 className="mb-1 font-display text-[22px] font-extrabold">Welcome Back! 🛍️</h3>
+          <p className="mb-3.5 text-[13px] text-mute">Sign in with your registered phone number & password</p>
+
+          <Field
+            label="Phone Number"
+            value={phone}
+            onChange={setPhone}
+            placeholder="98765 43210"
+            inputMode="tel"
+          />
+          <Field
+            label="Password"
+            type="password"
+            value={password}
+            onChange={setPassword}
+            placeholder="••••••••"
+          />
+
+          <div className="mt-4">
+            <Btn
+              full
+              disabled={loading || phone.replace(/\D/g, "").length < 10 || !password}
+              onClick={handleLogin}
+            >
+              {loading ? "Signing in..." : "Sign In 🔑"}
+            </Btn>
+          </div>
+
+          <div className="mt-3.5 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("otp");
                 setError(null);
-                setStep("otp");
-              } else setError(res.message ?? "error");
-            }}
-          >
-            {t("auth.sendOtp")}
-          </Btn>
+              }}
+              className="text-[12px] font-extrabold text-mute underline hover:text-ink transition-colors cursor-pointer"
+            >
+              Or sign in via SMS OTP →
+            </button>
+          </div>
         </div>
       )}
-      {step === "otp" && (
+
+      {mode === "register" && (
         <div>
-          <Field label={t("auth.otp")} value={otp} onChange={(v) => setOtp(v.replace(/\D/g, "").slice(0, 6))} placeholder="123456" inputMode="numeric" maxLength={6} />
-          {isDemo && <p className="mb-3 text-[12px] text-mute">{t("auth.demoOtp")}</p>}
-          <Btn
-            full
-            onClick={async () => {
-              const res = await verifyOtp(phone, otp, name);
-              if (res.ok) onSignedIn(name || "Customer");
-              else setError(res.message ?? "error");
-            }}
-          >
-            {t("auth.verify")}
-          </Btn>
+          <h3 className="mb-1 font-display text-[22px] font-extrabold">Create Account ✨</h3>
+          <p className="mb-3.5 text-[13px] text-mute">Register your phone number & password to start shopping</p>
+
+          <Field
+            label="Full Name"
+            value={name}
+            onChange={setName}
+            placeholder="Priya Raman"
+          />
+          <Field
+            label="Phone Number"
+            value={phone}
+            onChange={setPhone}
+            placeholder="98765 43210"
+            inputMode="tel"
+          />
+          <Field
+            label="Set Password"
+            type="password"
+            value={password}
+            onChange={setPassword}
+            placeholder="Min 6 characters"
+          />
+
+          <div className="mt-4">
+            <Btn
+              full
+              disabled={loading || !name.trim() || phone.replace(/\D/g, "").length < 10 || password.length < 6}
+              onClick={handleRegister}
+            >
+              {loading ? "Creating Account..." : "Create Account ✨"}
+            </Btn>
+          </div>
         </div>
       )}
-      {error && <p className="mt-3 text-[13px] font-bold text-[#E24B4A]">{error}</p>}
+
+      {mode === "otp" && (
+        <div>
+          <h3 className="mb-1 font-display text-[22px] font-extrabold">SMS OTP Sign In 📱</h3>
+          <p className="mb-3.5 text-[13px] text-mute">Sign in using a one-time verification code</p>
+          {otpStep === "phone" ? (
+            <div>
+              <Field label="Phone Number" value={phone} onChange={setPhone} placeholder="98765 43210" inputMode="tel" />
+              <Btn
+                full
+                disabled={phone.replace(/\D/g, "").length < 10}
+                onClick={async () => {
+                  const res = await sendOtp(phone);
+                  if (res.ok) {
+                    setError(null);
+                    setOtpStep("otp");
+                  } else setError(res.message ?? "Failed to send OTP");
+                }}
+              >
+                Send OTP →
+              </Btn>
+            </div>
+          ) : (
+            <div>
+              <Field label="Enter OTP Code" value={otp} onChange={(v) => setOtp(v.replace(/\D/g, "").slice(0, 6))} placeholder="123456" inputMode="numeric" maxLength={6} />
+              {isDemo && <p className="mb-3 text-[12px] text-mute">{t("auth.demoOtp")}</p>}
+              <Btn
+                full
+                onClick={async () => {
+                  const res = await verifyOtp(phone, otp, name);
+                  if (res.ok) onSignedIn(name || "Customer");
+                  else setError(res.message ?? "Invalid OTP code");
+                }}
+              >
+                Verify & Sign In ✓
+              </Btn>
+            </div>
+          )}
+
+          <div className="mt-3.5 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setError(null);
+              }}
+              className="text-[12px] font-extrabold text-mute underline hover:text-ink transition-colors cursor-pointer"
+            >
+              ← Back to Password Login
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && <p className="mt-3 text-[13px] font-bold text-[#E24B4A] text-center">{error}</p>}
     </Modal>
   );
 }

@@ -10,11 +10,14 @@ import {
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { registerCustomerAction } from "@/app/actions";
+import {
+  registerCustomerAction,
+  registerCustomerWithPasswordAction,
+  signInWithPasswordAction,
+} from "@/app/actions";
 
 /**
- * Customer session. Live mode = Supabase phone OTP (primary auth per spec).
- * Demo mode (no Supabase keys) = simulated OTP so flows stay testable.
+ * Customer session. Supports phone OTP & Phone + Password authentication.
  */
 
 export interface CustomerSession {
@@ -27,6 +30,8 @@ interface SessionContextValue {
   isDemo: boolean;
   sendOtp: (phone: string) => Promise<{ ok: boolean; message?: string }>;
   verifyOtp: (phone: string, otp: string, name: string) => Promise<{ ok: boolean; message?: string }>;
+  signInWithPassword: (phone: string, password: string) => Promise<{ ok: boolean; name?: string; message?: string }>;
+  registerWithPassword: (name: string, phone: string, password: string) => Promise<{ ok: boolean; name?: string; message?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -115,6 +120,34 @@ export function SessionProvider({
     [isDemo],
   );
 
+  const signInWithPassword = useCallback(
+    async (phone: string, password: string) => {
+      const res = await signInWithPasswordAction(phone, password);
+      if (res.ok && res.name && res.phone) {
+        const s = { name: res.name, phone: res.phone };
+        if (isDemo) window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        setSession(s);
+        return { ok: true, name: res.name };
+      }
+      return { ok: false, message: res.error ?? "Login failed" };
+    },
+    [isDemo],
+  );
+
+  const registerWithPassword = useCallback(
+    async (name: string, phone: string, password: string) => {
+      const res = await registerCustomerWithPasswordAction(name, phone, password);
+      if (res.ok && res.name && res.phone) {
+        const s = { name: res.name, phone: res.phone };
+        if (isDemo) window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        setSession(s);
+        return { ok: true, name: res.name };
+      }
+      return { ok: false, message: res.error ?? "Registration failed" };
+    },
+    [isDemo],
+  );
+
   const signOut = useCallback(async () => {
     if (isDemo) {
       window.localStorage.removeItem(DEMO_KEY);
@@ -125,8 +158,16 @@ export function SessionProvider({
   }, [isDemo]);
 
   const value = useMemo(
-    () => ({ session, isDemo, sendOtp, verifyOtp, signOut }),
-    [session, isDemo, sendOtp, verifyOtp, signOut],
+    () => ({
+      session,
+      isDemo,
+      sendOtp,
+      verifyOtp,
+      signInWithPassword,
+      registerWithPassword,
+      signOut,
+    }),
+    [session, isDemo, sendOtp, verifyOtp, signInWithPassword, registerWithPassword, signOut],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

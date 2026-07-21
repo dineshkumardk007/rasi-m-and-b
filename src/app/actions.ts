@@ -140,3 +140,119 @@ export async function registerCustomerAction(
   if (error) return { ok: false, error: error.message };
   return { ok: true, customerId: data?.id };
 }
+
+/** Register a new customer with unique phone & password */
+export async function registerCustomerWithPasswordAction(
+  name: string,
+  phone: string,
+  password: string,
+): Promise<{ ok: boolean; name?: string; phone?: string; error?: string }> {
+  const clean = phone.replace(/\D/g, "").slice(-10);
+  if (clean.length !== 10) return { ok: false, error: "Please enter a valid 10-digit phone number." };
+  if (!name.trim()) return { ok: false, error: "Please enter your full name." };
+  if (!password || password.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
+
+  const customerName = name.trim();
+
+  if (isDemo()) {
+    const db = demoDB();
+    let c = db.customers.find((x) => x.phone === clean);
+    if (c) {
+      if (c.password && c.password !== password) {
+        return { ok: false, error: "Phone number already registered. Please sign in with your password." };
+      }
+      c.name = customerName;
+      c.password = password;
+    } else {
+      c = {
+        id: `demo-c-${clean}`,
+        name: customerName,
+        phone: clean,
+        email: null,
+        language: "en",
+        whatsapp_opt_in: true,
+        baby_dob: null,
+        notes: "",
+        password,
+        created_at: new Date().toISOString(),
+      };
+      db.customers.unshift(c);
+    }
+    return { ok: true, name: customerName, phone: clean };
+  }
+
+  const supabase = createAdminClient();
+  const { data: existing } = await supabase
+    .from("customers")
+    .select("id, password")
+    .eq("phone", clean)
+    .maybeSingle();
+
+  if (existing) {
+    if (existing.password && existing.password !== password) {
+      return { ok: false, error: "Phone number already registered. Please sign in with your password." };
+    }
+    await supabase
+      .from("customers")
+      .update({ name: customerName, password })
+      .eq("id", existing.id);
+    return { ok: true, name: customerName, phone: clean };
+  }
+
+  const { error } = await supabase
+    .from("customers")
+    .insert({
+      name: customerName,
+      phone: clean,
+      password,
+      language: "en",
+      whatsapp_opt_in: true,
+    });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, name: customerName, phone: clean };
+}
+
+/** Verify user login with unique phone & password */
+export async function signInWithPasswordAction(
+  phone: string,
+  password: string,
+): Promise<{ ok: boolean; name?: string; phone?: string; error?: string }> {
+  const clean = phone.replace(/\D/g, "").slice(-10);
+  if (clean.length !== 10) return { ok: false, error: "Please enter a valid 10-digit phone number." };
+  if (!password) return { ok: false, error: "Please enter your password." };
+
+  if (isDemo()) {
+    const db = demoDB();
+    const c = db.customers.find((x) => x.phone === clean);
+    if (!c) {
+      return { ok: false, error: "Account not found with this phone number. Please register first." };
+    }
+    if (c.password && c.password !== password) {
+      return { ok: false, error: "Incorrect password. Please try again." };
+    }
+    if (!c.password) c.password = password;
+    return { ok: true, name: c.name || "Customer", phone: clean };
+  }
+
+  const supabase = createAdminClient();
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("id, name, password")
+    .eq("phone", clean)
+    .maybeSingle();
+
+  if (!customer) {
+    return { ok: false, error: "Account not found with this phone number. Please register first." };
+  }
+
+  if (customer.password && customer.password !== password) {
+    return { ok: false, error: "Incorrect password. Please try again." };
+  }
+
+  if (!customer.password) {
+    await supabase.from("customers").update({ password }).eq("id", customer.id);
+  }
+
+  return { ok: true, name: customer.name || "Customer", phone: clean };
+}

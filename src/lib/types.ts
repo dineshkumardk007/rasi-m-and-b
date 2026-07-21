@@ -115,6 +115,7 @@ export interface CustomerRecord {
   whatsapp_opt_in: boolean;
   baby_dob: string | null;
   notes: string;
+  password?: string | null;
   created_at: string;
 }
 
