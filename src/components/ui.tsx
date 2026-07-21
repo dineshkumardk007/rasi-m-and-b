@@ -184,15 +184,17 @@ export function Modal({
   onClose,
   children,
   wide,
+  hideClose,
 }: {
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
+  hideClose?: boolean;
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
-      style={{ background: "rgba(43,33,64,0.55)" }}
+      className="animate-backdrop fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+      style={{ background: "rgba(43,33,64,0.6)" }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -200,8 +202,18 @@ export function Modal({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: wide ? 640 : 440 }}
-        className="max-h-[92vh] w-full overflow-y-auto rounded-t-modal border-4 border-ink bg-cream p-[22px] shadow-hard-6 sm:rounded-modal"
+        className="animate-modal relative max-h-[92vh] w-full overflow-y-auto rounded-t-modal border-4 border-ink bg-cream p-[22px] shadow-hard-6 sm:rounded-modal"
       >
+        {!hideClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close modal"
+            className="btn-press absolute right-3.5 top-3.5 z-30 flex h-9 w-9 items-center justify-center rounded-full border-2.5 border-ink bg-[#FFE1A8] font-display text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] active:scale-90 transition-all cursor-pointer"
+          >
+            ✕
+          </button>
+        )}
         {children}
       </div>
     </div>

@@ -176,6 +176,15 @@ export function ProductModal({
           </div>
         </div>
       </div>
+      <div className="mt-4 border-t-2 border-dashed border-[#E5DBCC] pt-3 text-center">
+        <button
+          type="button"
+          onClick={onClose}
+          className="btn-press rounded-pill border-2.5 border-ink bg-[#F2EAE0] px-5 py-2 font-display text-[13px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] transition-all cursor-pointer"
+        >
+          Close Window ✕
+        </button>
+      </div>
     </Modal>
   );
 }
