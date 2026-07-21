@@ -95,22 +95,14 @@ export async function loginAdminAction(
   username: string,
   passcode: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const validUsername = (process.env.ADMIN_USERNAME || "admin").trim().toLowerCase();
-  const validPasscode = (process.env.ADMIN_PASSCODE || "1234").trim();
+  const validUsername = (process.env.ADMIN_USERNAME || "rasiadmin").trim().toLowerCase();
+  const validPasscode = (process.env.ADMIN_PASSCODE || "RasiAdmin@2403").trim();
 
   const cleanUser = username.trim().toLowerCase();
   const cleanPass = passcode.trim();
 
-  const isUserValid =
-    cleanUser === validUsername ||
-    cleanUser === "admin" ||
-    cleanUser === "rasi" ||
-    cleanUser === "rasiadmin";
-
-  const isPassValid =
-    cleanPass === validPasscode ||
-    cleanPass === "rasi2026" ||
-    cleanPass === "1234";
+  const isUserValid = cleanUser === validUsername;
+  const isPassValid = cleanPass === validPasscode;
 
   if (isUserValid && isPassValid) {
     const cookieStore = await cookies();
