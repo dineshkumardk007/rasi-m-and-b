@@ -24,6 +24,15 @@ const serverSchema = z.object({
   // ---- Phase 4: make these required when automation ships ----
   N8N_WEBHOOK_URL: z.string().url().optional(),
   N8N_WEBHOOK_SECRET: z.string().optional(),
+
+  // ---- Admin login: optional here so a keyless demo still boots, but /admin
+  // refuses every login unless all three are present (see lib/admin-session).
+  ADMIN_USERNAME: z.string().optional(),
+  ADMIN_PASSWORD_HASH: z.string().optional(),
+  ADMIN_SESSION_SECRET: z
+    .string()
+    .min(32, "ADMIN_SESSION_SECRET must be 32+ characters (pnpm admin:password --secret)")
+    .optional(),
 });
 
 const clientSchema = z.object({

@@ -34,6 +34,21 @@ pnpm seed          # load the 40-SKU placeholder catalog
 pnpm dev           # http://localhost:3000 — Phase 0 design-token showcase
 ```
 
+## Admin login (/admin)
+
+Credentials come from the environment only — no fallback, so `/admin` stays
+locked on any deploy that hasn't configured it. Generate the values:
+
+```bash
+pnpm admin:password "your-password"   # → ADMIN_PASSWORD_HASH (scrypt)
+pnpm admin:password --secret          # → ADMIN_SESSION_SECRET (32 bytes)
+```
+
+Put `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` and `ADMIN_SESSION_SECRET` in
+`.env.local` and in Vercel → Settings → Environment Variables. Sessions are
+HMAC-signed cookies that expire after 12h; rotating the secret signs everyone
+out. Five failed logins from one IP trigger a 15-minute lockout.
+
 ## Catalog import
 
 Real product data drops in without code changes:

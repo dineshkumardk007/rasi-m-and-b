@@ -88,40 +88,68 @@ export async function updateSettingsAction(patch: Partial<StoreSettings>) {
   revalidatePath("/");
 }
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import {
+  ADMIN_COOKIE,
+  SESSION_TTL_SECONDS,
+  clearAttempts,
+  createSessionToken,
+  isLockedOut,
+  recordFailedAttempt,
+  verifyAdminCredentials,
+} from "@/lib/admin-session";
 
-/** Admin Username & Password login */
+/** Throttle key: the client IP as Vercel reports it, "unknown" behind a proxy that strips it. */
+async function clientKey() {
+  const h = await headers();
+  return (h.get("x-forwarded-for") ?? "").split(",")[0]?.trim() || "unknown";
+}
+
+/** Admin Username & Password login — issues an HMAC-signed session cookie. */
 export async function loginAdminAction(
   username: string,
   passcode: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const validUsername = (process.env.ADMIN_USERNAME || "rasiadmin").trim().toLowerCase();
-  const validPasscode = (process.env.ADMIN_PASSCODE || "RasiAdmin@2403").trim();
+  const key = await clientKey();
 
-  const cleanUser = username.trim().toLowerCase();
-  const cleanPass = passcode.trim();
-
-  const isUserValid = cleanUser === validUsername;
-  const isPassValid = cleanPass === validPasscode;
-
-  if (isUserValid && isPassValid) {
-    const cookieStore = await cookies();
-    cookieStore.set("rasi_admin_session", "authenticated", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 7, // 7 days session
-      path: "/",
-      sameSite: "lax",
-    });
-    revalidatePath("/admin");
-    return { ok: true };
+  if (isLockedOut(key)) {
+    return { ok: false, error: "Too many failed attempts. Try again in 15 minutes." };
   }
-  return { ok: false, error: "Incorrect Admin Username or Password." };
+
+  const result = verifyAdminCredentials(username, passcode);
+
+  if (!result.ok) {
+    recordFailedAttempt(key);
+    return {
+      ok: false,
+      error:
+        result.reason === "not_configured"
+          ? "Admin login is not configured on this deployment. Set ADMIN_USERNAME, ADMIN_PASSWORD_HASH and ADMIN_SESSION_SECRET."
+          : "Incorrect Admin Username or Password.",
+    };
+  }
+
+  const token = createSessionToken();
+  if (!token) {
+    return { ok: false, error: "Admin session secret is missing or too short (32+ characters)." };
+  }
+
+  clearAttempts(key);
+  const cookieStore = await cookies();
+  cookieStore.set(ADMIN_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: SESSION_TTL_SECONDS,
+    path: "/",
+    sameSite: "lax",
+  });
+  revalidatePath("/admin");
+  return { ok: true };
 }
 
 /** Admin logout */
 export async function logoutAdminAction() {
   const cookieStore = await cookies();
-  cookieStore.delete("rasi_admin_session");
+  cookieStore.delete(ADMIN_COOKIE);
   revalidatePath("/admin");
 }

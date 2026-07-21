@@ -22,14 +22,13 @@ import { logEvent } from "./events";
  */
 
 import { cookies } from "next/headers";
+import { ADMIN_COOKIE, verifySessionToken } from "@/lib/admin-session";
 
 export async function requireStaff(): Promise<{ userId: string } | null> {
   try {
     const cookieStore = await cookies();
-    const adminCookie = cookieStore.get("rasi_admin_session");
-    if (adminCookie?.value === "authenticated") {
-      return { userId: "admin-owner" };
-    }
+    const subject = verifySessionToken(cookieStore.get(ADMIN_COOKIE)?.value);
+    if (subject) return { userId: subject };
   } catch {
     /* ignore */
   }

@@ -13,6 +13,10 @@ declare module "@/env.mjs" {
     // Server (Phase 4)
     N8N_WEBHOOK_URL?: string;
     N8N_WEBHOOK_SECRET?: string;
+    // Server — admin login (/admin is disabled unless all three are set)
+    ADMIN_USERNAME?: string;
+    ADMIN_PASSWORD_HASH?: string;
+    ADMIN_SESSION_SECRET?: string;
     // Client (required)
     NEXT_PUBLIC_SUPABASE_URL: string;
     NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
