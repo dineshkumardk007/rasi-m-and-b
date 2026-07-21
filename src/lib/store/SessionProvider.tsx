@@ -161,9 +161,20 @@ export function SessionProvider({
 
   const signInWithEmail = useCallback(
     async (email: string, password: string) => {
-      const res = await signInWithEmailAction(email, password);
-      if (res.ok && res.name && res.email) {
-        const s = { name: res.name, phone: "", email: res.email };
+      const cleanEmail = email.trim().toLowerCase();
+      if (!isDemo) {
+        const supabase = createClient();
+        const { error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+        if (error) {
+          return { ok: false, message: error.message };
+        }
+      }
+      const res = await signInWithEmailAction(cleanEmail, password);
+      if (res.ok && res.name) {
+        const s = { name: res.name, phone: "", email: cleanEmail };
         if (isDemo) window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
         setSession(s);
         return { ok: true, name: res.name };
@@ -175,12 +186,29 @@ export function SessionProvider({
 
   const registerWithEmail = useCallback(
     async (name: string, email: string, password: string) => {
-      const res = await registerCustomerWithEmailAction(name, email, password);
-      if (res.ok && res.name && res.email) {
-        const s = { name: res.name, phone: "", email: res.email };
+      const customerName = name.trim() || "Customer";
+      const cleanEmail = email.trim().toLowerCase();
+
+      if (!isDemo) {
+        const supabase = createClient();
+        const { error: authError } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: {
+            data: { name: customerName },
+          },
+        });
+        if (authError) {
+          return { ok: false, message: authError.message };
+        }
+      }
+
+      const res = await registerCustomerWithEmailAction(customerName, cleanEmail, password);
+      if (res.ok) {
+        const s = { name: customerName, phone: "", email: cleanEmail };
         if (isDemo) window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
         setSession(s);
-        return { ok: true, name: res.name };
+        return { ok: true, name: customerName };
       }
       return { ok: false, message: res.error ?? "Registration failed" };
     },
