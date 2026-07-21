@@ -147,14 +147,14 @@ export default function Storefront(props: StorefrontProps) {
         >
           <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-tile border-3 border-ink bg-white p-1 shadow-hard-3 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Rasi Mom & Baby" className="h-full w-full object-contain" />
+            <img src="/logo.png" alt="Rasi Logo" className="h-full w-full object-contain" />
           </div>
-          <div className="text-left leading-none">
-            <div className="font-display text-[20px] font-extrabold">Rasi</div>
-            <div className="text-[10px] font-extrabold uppercase tracking-[2px] text-brand font-display">
-              Mom & Baby
-            </div>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand-text-logo.png"
+            alt="Rasi Mom and Baby"
+            className="h-[32px] sm:h-[38px] w-auto object-contain"
+          />
         </button>
         <div className="flex-1" />
         <Pill bg="#B9EBDD" onClick={() => setLang(lang === "en" ? "ta" : "en")}>
@@ -329,12 +329,15 @@ export default function Storefront(props: StorefrontProps) {
       {toast && <Toast message={toast} />}
 
       {/* footer */}
-      <footer className="border-t-4 border-ink bg-brand p-[22px] text-center text-white flex flex-col items-center justify-center gap-2">
-        <div className="flex h-14 w-14 items-center justify-center rounded-tile border-3 border-ink bg-white p-1.5 shadow-hard-3">
+      <footer className="border-t-4 border-ink bg-brand p-[22px] text-center text-white flex flex-col items-center justify-center gap-3">
+        <div className="flex items-center gap-3 rounded-card border-3 border-ink bg-white px-4 py-2 shadow-hard-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-tile border-2.5 border-ink bg-white p-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Rasi Logo" className="h-full w-full object-contain" />
+          </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Rasi Mom & Baby" className="h-full w-full object-contain" />
+          <img src="/brand-text-logo.png" alt="Rasi Mom and Baby" className="h-[32px] w-auto object-contain" />
         </div>
-        <div className="font-display text-[18px] font-extrabold">{BUSINESS.name}</div>
         <div className="text-[13px] opacity-95">{BUSINESS.addressShort}</div>
         <div className="text-[13px] opacity-95">{t("footer.hours")}</div>
         {isDemo && (

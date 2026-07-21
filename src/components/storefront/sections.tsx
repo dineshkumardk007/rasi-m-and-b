@@ -58,17 +58,19 @@ export function Hero() {
         </div>
         <div className="relative hidden h-[290px] md:block" aria-hidden>
           <div
-            className="pop absolute z-10 flex flex-col items-center justify-center rounded-modal border-3 border-ink bg-white p-3 shadow-hard-6"
+            className="pop absolute z-10 flex flex-col items-center justify-center rounded-modal border-3 border-ink bg-white p-3.5 shadow-hard-6"
             style={{
-              left: 80,
-              top: 70,
-              width: 140,
-              height: 140,
+              left: 60,
+              top: 50,
+              width: 170,
+              height: 170,
               transform: "rotate(-3deg)",
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Rasi Mom & Baby" className="h-full w-full object-contain" />
+            <img src="/logo.png" alt="Rasi Logo" className="h-[90px] w-auto object-contain mb-1" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand-text-logo.png" alt="Rasi Mom and Baby" className="h-[28px] w-auto object-contain" />
           </div>
           {stickers.map((b, i) => (
             <div
@@ -456,6 +458,14 @@ export function Trust() {
     <div className="mx-auto mb-10 mt-4 max-w-[1080px] px-5">
       <div className="grid items-center gap-5 rounded-card border-3 border-ink bg-[#FFE1A8] p-6 shadow-hard-6 md:grid-cols-[1.2fr_1fr]">
         <div>
+          <div className="mb-3 flex items-center gap-3 bg-white px-4 py-2.5 rounded-card border-3 border-ink shadow-hard-3 w-fit">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-tile border-2.5 border-ink bg-white p-0.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="Rasi Logo" className="h-full w-full object-contain" />
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand-text-logo.png" alt="Rasi Mom and Baby" className="h-[30px] w-auto object-contain" />
+          </div>
           <h2 className="font-display text-[24px] font-extrabold">{t("trust.title")} 💛</h2>
           <p className="mb-3 mt-2 text-[14px] leading-[1.5] text-[#7A5A1E]">{t("trust.sub")}</p>
           <div className="text-[13px] font-bold">📍 {BUSINESS.addressShort}</div>
