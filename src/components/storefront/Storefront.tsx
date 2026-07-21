@@ -37,6 +37,7 @@ export type ModalState =
   | { type: "orderDone"; order: Order }
   | { type: "track" }
   | { type: "auth" }
+  | { type: "confirmSignOut" }
   | null;
 
 export default function Storefront(props: StorefrontProps) {
@@ -180,11 +181,7 @@ export default function Storefront(props: StorefrontProps) {
         {session ? (
           <Pill
             bg="#FFCBD9"
-            onClick={async () => {
-              await signOut();
-              setRoute("home");
-              notify(t("auth.signedOut"));
-            }}
+            onClick={() => setModal({ type: "confirmSignOut" })}
           >
             {t("nav.signOut")}
           </Pill>
@@ -321,9 +318,46 @@ export default function Storefront(props: StorefrontProps) {
           onClose={() => setModal(null)}
           onSignedIn={(name) => {
             setModal(null);
-            notify(`${t("auth.welcomeBack")}, ${name.split(" ")[0]}! 🎉`);
+            notify(`Welcome, ${name.split(" ")[0]}! 🎉`);
           }}
         />
+      )}
+      {modal?.type === "confirmSignOut" && (
+        <Modal onClose={() => setModal(null)}>
+          <div className="py-2 text-center">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border-3 border-ink bg-[#FFE1A8] font-display text-[26px] shadow-hard-3">
+              👋
+            </div>
+            <h3 className="font-display text-[22px] font-extrabold text-ink">
+              Do you want to sign out?
+            </h3>
+            <p className="mt-2 text-[14px] leading-[1.5] text-mute">
+              Are you sure you want to sign out of your Rasi Mom & Baby account?
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={async () => {
+                  setModal(null);
+                  await signOut();
+                  setRoute("home");
+                  notify("Signed out successfully. Come back soon! 👋💛");
+                }}
+                className="btn-press flex-1 rounded-pill border-2.5 border-ink bg-[#FFCBD9] py-2.5 font-display text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-[#E24B4A] hover:text-white transition-all cursor-pointer"
+              >
+                Yes, Sign Out
+              </button>
+              <button
+                type="button"
+                onClick={() => setModal(null)}
+                className="btn-press flex-1 rounded-pill border-2.5 border-ink bg-[#F2EAE0] py-2.5 font-display text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] transition-all cursor-pointer"
+              >
+                No, Stay Signed In
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {toast && <Toast message={toast} />}

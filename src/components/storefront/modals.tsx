@@ -762,7 +762,7 @@ export function AuthModal({
 }) {
   const { t } = useT();
   const { sendOtp, verifyOtp, signInWithPassword, registerWithPassword, isDemo } = useSession();
-  const [mode, setMode] = useState<"login" | "register" | "otp">("login");
+  const [mode, setMode] = useState<"register" | "login" | "otp">("register");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
