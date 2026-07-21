@@ -131,20 +131,7 @@ export function Marquee({
     if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     resumeTimerRef.current = setTimeout(() => {
       isInteractingRef.current = false;
-    }, 2000);
-  };
-
-  const handleScroll = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const halfWidth = el.scrollWidth / 2;
-    if (halfWidth > 0) {
-      if (el.scrollLeft >= halfWidth * 1.8) {
-        el.scrollLeft -= halfWidth;
-      } else if (el.scrollLeft <= 0) {
-        el.scrollLeft += halfWidth;
-      }
-    }
+    }, 2500);
   };
 
   return (
@@ -163,8 +150,8 @@ export function Marquee({
           onTouchStart={handleInteractionStart}
           onTouchEnd={handleInteractionEnd}
           onTouchCancel={handleInteractionEnd}
-          onScroll={handleScroll}
-          className="no-scrollbar flex w-full overflow-x-auto gap-[18px] px-5 touch-pan-x cursor-grab active:cursor-grabbing scroll-smooth"
+          onScroll={handleInteractionStart}
+          className="no-scrollbar flex w-full overflow-x-auto gap-[18px] px-5 touch-pan-x cursor-grab active:cursor-grabbing"
         >
           {[...products, ...products].map((p, i) => (
             <button
