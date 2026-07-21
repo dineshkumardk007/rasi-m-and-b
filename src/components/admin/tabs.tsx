@@ -278,7 +278,25 @@ function ProductForm({
   );
 }
 
-/* ── Customers / CRM with segments ───────────────────────────────────────── */
+function formatActivityTime(dateStr?: string | null): { text: string; isToday: boolean } {
+  if (!dateStr) return { text: "No activity recorded yet", isToday: false };
+  const d = new Date(dateStr);
+  const now = new Date();
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+
+  if (isToday) {
+    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return { text: `Active Today, ${time}`, isToday: true };
+  }
+  const diffHours = Math.floor((now.getTime() - d.getTime()) / (1000 * 3600));
+  if (diffHours < 48) return { text: "Active Yesterday", isToday: false };
+  return { text: `Active ${d.toLocaleDateString("en-IN", { month: "short", day: "numeric" })}`, isToday: false };
+}
+
+/* ── Customers / CRM with segments & active user tracking ─────────────────── */
 export function CustomersTab({
   customers,
   orders,
@@ -293,8 +311,10 @@ export function CustomersTab({
         (o) => o.address_snapshot.phone.replace(/\D/g, "").slice(-10) === c.phone,
       );
       const ltv = theirOrders.reduce((s, o) => s + o.total, 0);
-      const last = theirOrders[0] ? new Date(theirOrders[0].placed_at).getTime() : 0;
-      return { c, theirOrders, ltv, last };
+      const lastOrderTime = theirOrders[0] ? new Date(theirOrders[0].placed_at).getTime() : 0;
+      const lastLoginTime = c.last_login_at ? new Date(c.last_login_at).getTime() : lastOrderTime;
+      const activity = formatActivityTime(c.last_login_at || (theirOrders[0]?.placed_at ?? c.created_at));
+      return { c, theirOrders, ltv, last: lastOrderTime, lastLoginTime, activity };
     });
     const sortedByLtv = [...rows].sort((a, b) => b.ltv - a.ltv);
     const topCount = Math.max(1, Math.ceil(rows.length / 10));
@@ -314,6 +334,11 @@ export function CustomersTab({
     }));
   }, [customers, orders]);
 
+  const activeTodayCount = useMemo(
+    () => withStats.filter((r) => r.activity.isToday).length,
+    [withStats],
+  );
+
   const segColor: Record<string, string> = {
     new: "#C7E9FF",
     repeat: "#D6E8B0",
@@ -323,19 +348,37 @@ export function CustomersTab({
 
   return (
     <div className="grid gap-3">
+      {/* Activity Summary Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border-3 border-ink bg-white p-4 shadow-hard-3">
+        <div className="flex items-center gap-3">
+          <span className="font-display text-[20px] font-extrabold text-ink">
+            👥 {customers.length} Members
+          </span>
+          <span className="rounded-pill border-2 border-ink bg-[#D6E8B0] px-3 py-1 font-display text-[13px] font-extrabold text-ink shadow-hard-2">
+            🟢 {activeTodayCount} Active Today
+          </span>
+        </div>
+        <div className="text-[13px] font-bold text-mute">
+          Tracking daily sign-ins & active store users
+        </div>
+      </div>
+
       {withStats.length === 0 && (
         <p className="text-mute">Customer records appear after the first order or signup.</p>
       )}
-      {withStats.map(({ c, theirOrders, ltv, segment }) => (
+      {withStats.map(({ c, theirOrders, ltv, segment, activity }) => (
         <Card key={c.id} className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <span className="font-display font-extrabold">{c.name}</span>{" "}
+              <span className="font-display text-[16px] font-extrabold text-ink">{c.name}</span>{" "}
               <span className="text-[14px] text-mute">· {c.phone}</span>{" "}
               <Badge bg={segColor[segment] ?? "#F2EAE0"}>{segment}</Badge>{" "}
-              <Badge bg={c.language === "ta" ? "#FBD0EA" : "#E4D6FF"}>
-                {c.language === "ta" ? "தமிழ்" : "EN"}
+              <Badge bg={activity.isToday ? "#D6E8B0" : "#F2EAE0"}>
+                {activity.isToday ? `🟢 ${activity.text}` : `🕒 ${activity.text}`}
               </Badge>
+              {c.login_count && c.login_count > 1 && (
+                <Badge bg="#FFE1A8">🔑 {c.login_count} logins</Badge>
+              )}
             </div>
             <div className="text-[14px]">
               {theirOrders.length} orders ·{" "}

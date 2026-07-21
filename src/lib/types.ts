@@ -116,6 +116,8 @@ export interface CustomerRecord {
   baby_dob: string | null;
   notes: string;
   password?: string | null;
+  last_login_at?: string | null;
+  login_count?: number;
   created_at: string;
 }
 

@@ -11,6 +11,7 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
+  recordCustomerActivityAction,
   registerCustomerAction,
   registerCustomerWithPasswordAction,
   signInWithPasswordAction,
@@ -51,7 +52,11 @@ export function SessionProvider({
     if (isDemo) {
       try {
         const raw = window.localStorage.getItem(DEMO_KEY);
-        if (raw) setSession(JSON.parse(raw) as CustomerSession);
+        if (raw) {
+          const s = JSON.parse(raw) as CustomerSession;
+          setSession(s);
+          if (s?.phone) recordCustomerActivityAction(s.phone);
+        }
       } catch {
         /* ignore */
       }
@@ -59,11 +64,12 @@ export function SessionProvider({
     }
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user)
-        setSession({
-          name: (data.user.user_metadata?.name as string) ?? "",
-          phone: data.user.phone ?? "",
-        });
+      if (data.user) {
+        const name = (data.user.user_metadata?.name as string) ?? "";
+        const phone = data.user.phone ?? "";
+        setSession({ name, phone });
+        if (phone) recordCustomerActivityAction(phone);
+      }
     });
   }, [isDemo]);
 

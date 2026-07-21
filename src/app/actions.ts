@@ -199,8 +199,10 @@ export async function registerCustomerWithPasswordAction(
       name: customerName,
       phone: clean,
       password,
-      language: "en",
+      language: "en" as const,
       whatsapp_opt_in: true,
+      last_login_at: new Date().toISOString(),
+      login_count: 1,
     });
 
   if (error) return { ok: false, error: error.message };
@@ -215,6 +217,7 @@ export async function signInWithPasswordAction(
   const clean = phone.replace(/\D/g, "").slice(-10);
   if (clean.length !== 10) return { ok: false, error: "Please enter a valid 10-digit phone number." };
   if (!password) return { ok: false, error: "Please enter your password." };
+  const now = new Date().toISOString();
 
   if (isDemo()) {
     const db = demoDB();
@@ -226,13 +229,15 @@ export async function signInWithPasswordAction(
       return { ok: false, error: "Incorrect password. Please try again." };
     }
     if (!c.password) c.password = password;
+    c.last_login_at = now;
+    c.login_count = (c.login_count || 0) + 1;
     return { ok: true, name: c.name || "Customer", phone: clean };
   }
 
   const supabase = createAdminClient();
   const { data: customer } = await supabase
     .from("customers")
-    .select("id, name, password")
+    .select("id, name, password, login_count")
     .eq("phone", clean)
     .maybeSingle();
 
@@ -244,9 +249,48 @@ export async function signInWithPasswordAction(
     return { ok: false, error: "Incorrect password. Please try again." };
   }
 
-  if (!customer.password) {
-    await supabase.from("customers").update({ password }).eq("id", customer.id);
-  }
+  await supabase
+    .from("customers")
+    .update({
+      last_login_at: now,
+      login_count: (customer.login_count || 0) + 1,
+      ...(!customer.password ? { password } : {}),
+    })
+    .eq("id", customer.id);
 
   return { ok: true, name: customer.name || "Customer", phone: clean };
+}
+
+/** Record customer activity timestamp & increment sign-in count */
+export async function recordCustomerActivityAction(phone: string): Promise<boolean> {
+  const clean = phone.replace(/\D/g, "").slice(-10);
+  if (clean.length !== 10) return false;
+  const now = new Date().toISOString();
+
+  if (isDemo()) {
+    const c = demoDB().customers.find((x) => x.phone === clean);
+    if (c) {
+      c.last_login_at = now;
+      c.login_count = (c.login_count || 0) + 1;
+    }
+    return true;
+  }
+
+  const supabase = createAdminClient();
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("id, login_count")
+    .eq("phone", clean)
+    .maybeSingle();
+
+  if (customer) {
+    await supabase
+      .from("customers")
+      .update({
+        last_login_at: now,
+        login_count: (customer.login_count || 0) + 1,
+      })
+      .eq("id", customer.id);
+  }
+  return true;
 }
