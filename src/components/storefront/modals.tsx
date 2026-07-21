@@ -778,6 +778,15 @@ export function AuthModal({
     setLoading(false);
     if (res.ok) {
       onSignedIn(res.name || name || "Customer");
+    } else if (
+      res.message?.includes("ALREADY_REGISTERED") ||
+      res.message?.toLowerCase().includes("already registered")
+    ) {
+      setError("You already have an account with this number! Switching to Sign In...");
+      setTimeout(() => {
+        setMode("login");
+        setError("Account already exists for this number. Please enter your password to sign in.");
+      }, 1000);
     } else {
       setError(res.message ?? "Registration failed");
     }

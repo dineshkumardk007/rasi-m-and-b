@@ -156,47 +156,41 @@ export async function registerCustomerWithPasswordAction(
 
   if (isDemo()) {
     const db = demoDB();
-    let c = db.customers.find((x) => x.phone === clean);
-    if (c) {
-      if (c.password && c.password !== password) {
-        return { ok: false, error: "Phone number already registered. Please sign in with your password." };
-      }
-      c.name = customerName;
-      c.password = password;
-    } else {
-      c = {
-        id: `demo-c-${clean}`,
-        name: customerName,
-        phone: clean,
-        email: null,
-        language: "en",
-        whatsapp_opt_in: true,
-        baby_dob: null,
-        notes: "",
-        password,
-        created_at: new Date().toISOString(),
+    const existing = db.customers.find((x) => x.phone === clean);
+    if (existing) {
+      return {
+        ok: false,
+        error: "ALREADY_REGISTERED: You already have an account with this phone number. Please sign in.",
       };
-      db.customers.unshift(c);
     }
+    const c = {
+      id: `demo-c-${clean}`,
+      name: customerName,
+      phone: clean,
+      email: null,
+      language: "en" as const,
+      whatsapp_opt_in: true,
+      baby_dob: null,
+      notes: "",
+      password,
+      created_at: new Date().toISOString(),
+    };
+    db.customers.unshift(c);
     return { ok: true, name: customerName, phone: clean };
   }
 
   const supabase = createAdminClient();
   const { data: existing } = await supabase
     .from("customers")
-    .select("id, password")
+    .select("id")
     .eq("phone", clean)
     .maybeSingle();
 
   if (existing) {
-    if (existing.password && existing.password !== password) {
-      return { ok: false, error: "Phone number already registered. Please sign in with your password." };
-    }
-    await supabase
-      .from("customers")
-      .update({ name: customerName, password })
-      .eq("id", existing.id);
-    return { ok: true, name: customerName, phone: clean };
+    return {
+      ok: false,
+      error: "ALREADY_REGISTERED: You already have an account with this phone number. Please sign in.",
+    };
   }
 
   const { error } = await supabase
