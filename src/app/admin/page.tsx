@@ -20,27 +20,13 @@ export const metadata = { title: "Admin" };
  * Live mode: requires a signed-in user present in staff_roles (RLS-enforced
  * on top of this gate). Demo mode: open, with a banner.
  */
+import { AdminLoginForm } from "@/components/admin/AdminLoginForm";
+
 export default async function AdminPage() {
   const staff = await requireStaff();
 
   if (!staff) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-cream p-6 text-ink">
-        <div className="max-w-[440px] rounded-modal border-4 border-ink bg-paper p-8 text-center shadow-hard-6">
-          <div className="text-[40px]">🔒</div>
-          <h1 className="mt-2 font-display text-[24px] font-extrabold">Staff only</h1>
-          <p className="mt-2 text-mute">
-            Sign in on the store with a staff phone number, then come back here.
-          </p>
-          <Link
-            href="/"
-            className="mt-4 inline-block rounded-pill border-3 border-ink bg-brand px-5 py-2.5 font-display font-extrabold text-white shadow-hard-3"
-          >
-            ← Back to store
-          </Link>
-        </div>
-      </main>
-    );
+    return <AdminLoginForm />;
   }
 
   const [orders, products, customers, coupons, reviews, settings] = await Promise.all([

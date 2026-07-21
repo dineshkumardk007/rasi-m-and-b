@@ -164,12 +164,6 @@ export default function Storefront(props: StorefrontProps) {
         <Pill bg="#FFE1A8" onClick={() => setModal({ type: "track" })}>
           {t("nav.track")}
         </Pill>
-        <Link
-          href="/admin"
-          className="btn-press whitespace-nowrap rounded-pill border-2.5 border-ink bg-[#E4D6FF] px-3.5 py-[7px] font-display text-[13px] font-extrabold shadow-hard-2 min-h-[38px] inline-flex items-center"
-        >
-          {t("nav.admin")}
-        </Link>
         {session && (
           <Pill
             bg="#D6E8B0"

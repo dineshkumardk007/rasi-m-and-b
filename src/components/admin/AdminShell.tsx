@@ -14,7 +14,7 @@ import type {
 } from "@/lib/types";
 import { BUSINESS, inr } from "@/lib/constants";
 import { Badge, Card, Modal, Pill } from "@/components/ui";
-import { setOrderStatusAction } from "@/app/admin/actions";
+import { logoutAdminAction, setOrderStatusAction } from "@/app/admin/actions";
 import {
   CouponsTab,
   CustomersTab,
@@ -46,6 +46,7 @@ const TABS = [
 ] as const;
 
 export function AdminShell(props: AdminProps) {
+  const router = useRouter();
   const [tab, setTab] = useState<(typeof TABS)[number][0]>("dashboard");
 
   return (
@@ -55,14 +56,26 @@ export function AdminShell(props: AdminProps) {
         {props.isDemo && " · DEMO MODE (changes reset on restart)"}
       </div>
       <div className="mx-auto max-w-[1080px] px-5 pb-16 pt-[18px]">
-        <div className="mb-3 flex items-center gap-2.5">
-          <Link
-            href="/"
-            className="btn-press rounded-pill border-2.5 border-ink bg-paper px-3.5 py-[7px] font-display text-[13px] font-extrabold shadow-hard-2"
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Link
+              href="/"
+              className="btn-press rounded-pill border-2.5 border-ink bg-paper px-3.5 py-[7px] font-display text-[13px] font-extrabold shadow-hard-2"
+            >
+              ← Store
+            </Link>
+            <h1 className="font-display text-[24px] font-extrabold">Admin</h1>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              await logoutAdminAction();
+              router.refresh();
+            }}
+            className="btn-press rounded-pill border-2.5 border-ink bg-[#FFCBD9] px-3.5 py-[7px] font-display text-[13px] font-extrabold shadow-hard-2 hover:bg-[#E24B4A] hover:text-white transition-all cursor-pointer"
           >
-            ← Store
-          </Link>
-          <h1 className="font-display text-[24px] font-extrabold">Admin</h1>
+            🔒 Lock Admin
+          </button>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-3">
           {TABS.map(([id, label]) => (

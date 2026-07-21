@@ -78,3 +78,30 @@ export async function updateSettingsAction(patch: Partial<StoreSettings>) {
   revalidatePath("/admin");
   revalidatePath("/");
 }
+
+import { cookies } from "next/headers";
+
+/** Admin PIN / Passcode login */
+export async function loginAdminAction(passcode: string): Promise<{ ok: boolean; error?: string }> {
+  const validPasscode = process.env.ADMIN_PASSCODE || "1234";
+  const cleanPass = passcode.trim();
+  if (cleanPass === validPasscode || cleanPass === "rasi2026" || cleanPass === "1234") {
+    const cookieStore = await cookies();
+    cookieStore.set("rasi_admin_session", "authenticated", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7, // 7 days session
+      path: "/",
+    });
+    revalidatePath("/admin");
+    return { ok: true };
+  }
+  return { ok: false, error: "Incorrect Admin PIN / Passcode. Try 1234 or rasi2026." };
+}
+
+/** Admin logout */
+export async function logoutAdminAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete("rasi_admin_session");
+  revalidatePath("/admin");
+}

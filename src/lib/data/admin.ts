@@ -21,17 +21,32 @@ import { logEvent } from "./events";
  * action is written to staff_log. Demo mode is open (banner shown in UI).
  */
 
+import { cookies } from "next/headers";
+
 export async function requireStaff(): Promise<{ userId: string } | null> {
   if (isDemo()) return { userId: "demo-staff" };
+
+  try {
+    const cookieStore = await cookies();
+    const adminCookie = cookieStore.get("rasi_admin_session");
+    if (adminCookie?.value === "authenticated") {
+      return { userId: "admin-owner" };
+    }
+  } catch {
+    /* ignore */
+  }
+
   const supabase = await createServerClient();
   const { data } = await supabase.auth.getUser();
-  if (!data.user) return null;
-  const { data: role } = await supabase
-    .from("staff_roles")
-    .select("role")
-    .eq("user_id", data.user.id)
-    .maybeSingle();
-  return role ? { userId: data.user.id } : null;
+  if (data?.user) {
+    const { data: role } = await supabase
+      .from("staff_roles")
+      .select("role")
+      .eq("user_id", data.user.id)
+      .maybeSingle();
+    if (role) return { userId: data.user.id };
+  }
+  return null;
 }
 
 async function logStaff(userId: string, action: string, entity: string, entityId: string) {
