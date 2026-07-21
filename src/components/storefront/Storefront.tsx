@@ -19,7 +19,6 @@ import {
 } from "./sections";
 import { AuthModal, CartModal, CheckoutModal, ProductModal, TrackModal } from "./modals";
 import { Ribbon } from "./Ribbon";
-import Link from "next/link";
 import { BUSINESS } from "@/lib/constants";
 
 export interface StorefrontProps {
