@@ -81,6 +81,15 @@
     opacity: 0.45;
     pointer-events: none;
   }
+
+  /* Scrollbar hiding utility for touch scroll marquee */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 /* Motion is a garnish, never a requirement */

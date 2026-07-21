@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { Bundle, Product } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import {
@@ -73,7 +74,7 @@ export function Hero() {
   );
 }
 
-/* ── Auto-scrolling "Fresh picks" marquee ────────────────────────────────── */
+/* ── Auto-scrolling & touch-swipeable "Fresh picks" marquee ──────────────── */
 export function Marquee({
   products,
   openProduct,
@@ -82,7 +83,70 @@ export function Marquee({
   openProduct: (p: Product) => void;
 }) {
   const { t, lang } = useT();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isInteractingRef = useRef(false);
+  const resumeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || products.length === 0) return;
+
+    let animId: number;
+    let lastTime = performance.now();
+    const speed = 36; // speed in pixels per second
+
+    const step = (now: number) => {
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+
+      if (!isInteractingRef.current && el) {
+        el.scrollLeft += speed * dt;
+        const halfWidth = el.scrollWidth / 2;
+        if (halfWidth > 0 && el.scrollLeft >= halfWidth) {
+          el.scrollLeft -= halfWidth;
+        }
+      }
+      animId = requestAnimationFrame(step);
+    };
+
+    animId = requestAnimationFrame((now) => {
+      lastTime = now;
+      step(now);
+    });
+
+    return () => {
+      cancelAnimationFrame(animId);
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    };
+  }, [products]);
+
   if (products.length === 0) return null;
+
+  const handleInteractionStart = () => {
+    isInteractingRef.current = true;
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+  };
+
+  const handleInteractionEnd = () => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      isInteractingRef.current = false;
+    }, 2000);
+  };
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const halfWidth = el.scrollWidth / 2;
+    if (halfWidth > 0) {
+      if (el.scrollLeft >= halfWidth * 1.8) {
+        el.scrollLeft -= halfWidth;
+      } else if (el.scrollLeft <= 0) {
+        el.scrollLeft += halfWidth;
+      }
+    }
+  };
+
   return (
     <div className="mb-1.5 mt-[18px]">
       <div className="mx-auto flex max-w-[1080px] items-baseline gap-2 px-5 pb-2">
@@ -91,8 +155,17 @@ export function Marquee({
           · {t("marquee.sub")} ✨
         </span>
       </div>
-      <div className="marquee-mask marquee-paused overflow-hidden pb-3 pt-1.5">
-        <div className="marquee-track flex w-max animate-marquee gap-[18px]">
+      <div className="marquee-mask overflow-hidden pb-3 pt-1.5">
+        <div
+          ref={scrollRef}
+          onMouseEnter={handleInteractionStart}
+          onMouseLeave={handleInteractionEnd}
+          onTouchStart={handleInteractionStart}
+          onTouchEnd={handleInteractionEnd}
+          onTouchCancel={handleInteractionEnd}
+          onScroll={handleScroll}
+          className="no-scrollbar flex w-full overflow-x-auto gap-[18px] px-5 touch-pan-x cursor-grab active:cursor-grabbing scroll-smooth"
+        >
           {[...products, ...products].map((p, i) => (
             <button
               key={i}
