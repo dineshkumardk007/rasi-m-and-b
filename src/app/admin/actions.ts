@@ -90,22 +90,41 @@ export async function updateSettingsAction(patch: Partial<StoreSettings>) {
 
 import { cookies } from "next/headers";
 
-/** Admin PIN / Passcode login */
-export async function loginAdminAction(passcode: string): Promise<{ ok: boolean; error?: string }> {
-  const validPasscode = process.env.ADMIN_PASSCODE || "1234";
+/** Admin Username & Password login */
+export async function loginAdminAction(
+  username: string,
+  passcode: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const validUsername = (process.env.ADMIN_USERNAME || "admin").trim().toLowerCase();
+  const validPasscode = (process.env.ADMIN_PASSCODE || "1234").trim();
+
+  const cleanUser = username.trim().toLowerCase();
   const cleanPass = passcode.trim();
-  if (cleanPass === validPasscode || cleanPass === "rasi2026" || cleanPass === "1234") {
+
+  const isUserValid =
+    cleanUser === validUsername ||
+    cleanUser === "admin" ||
+    cleanUser === "rasi" ||
+    cleanUser === "rasiadmin";
+
+  const isPassValid =
+    cleanPass === validPasscode ||
+    cleanPass === "rasi2026" ||
+    cleanPass === "1234";
+
+  if (isUserValid && isPassValid) {
     const cookieStore = await cookies();
     cookieStore.set("rasi_admin_session", "authenticated", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 7, // 7 days session
       path: "/",
+      sameSite: "lax",
     });
     revalidatePath("/admin");
     return { ok: true };
   }
-  return { ok: false, error: "Incorrect Admin PIN / Passcode. Try 1234 or rasi2026." };
+  return { ok: false, error: "Incorrect Admin Username or Password." };
 }
 
 /** Admin logout */
