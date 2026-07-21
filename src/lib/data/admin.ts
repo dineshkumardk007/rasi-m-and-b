@@ -24,8 +24,6 @@ import { logEvent } from "./events";
 import { cookies } from "next/headers";
 
 export async function requireStaff(): Promise<{ userId: string } | null> {
-  if (isDemo()) return { userId: "demo-staff" };
-
   try {
     const cookieStore = await cookies();
     const adminCookie = cookieStore.get("rasi_admin_session");
@@ -36,16 +34,23 @@ export async function requireStaff(): Promise<{ userId: string } | null> {
     /* ignore */
   }
 
-  const supabase = await createServerClient();
-  const { data } = await supabase.auth.getUser();
-  if (data?.user) {
-    const { data: role } = await supabase
-      .from("staff_roles")
-      .select("role")
-      .eq("user_id", data.user.id)
-      .maybeSingle();
-    if (role) return { userId: data.user.id };
+  if (!isDemo()) {
+    try {
+      const supabase = await createServerClient();
+      const { data } = await supabase.auth.getUser();
+      if (data?.user) {
+        const { data: role } = await supabase
+          .from("staff_roles")
+          .select("role")
+          .eq("user_id", data.user.id)
+          .maybeSingle();
+        if (role) return { userId: data.user.id };
+      }
+    } catch {
+      /* ignore */
+    }
   }
+
   return null;
 }
 
