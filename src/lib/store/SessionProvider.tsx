@@ -168,7 +168,13 @@ export function SessionProvider({
           email: cleanEmail,
           password,
         });
-        if (error) {
+        if (error && !error.message.includes("Email not confirmed")) {
+          const dbRes = await signInWithEmailAction(cleanEmail, password);
+          if (dbRes.ok && dbRes.name) {
+            const s = { name: dbRes.name, phone: "", email: cleanEmail };
+            setSession(s);
+            return { ok: true, name: dbRes.name };
+          }
           return { ok: false, message: error.message };
         }
       }

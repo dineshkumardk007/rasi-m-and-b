@@ -349,10 +349,11 @@ export async function registerCustomerWithEmailAction(
     };
   }
 
+  const fallbackPhone = `90${Math.floor(10000000 + Math.random() * 90000000)}`;
   const { error } = await supabase.from("customers").insert({
     name: customerName,
     email: cleanEmail,
-    phone: `e_${Date.now().toString().slice(-8)}`,
+    phone: fallbackPhone,
     password,
     language: "en" as const,
     whatsapp_opt_in: false,
