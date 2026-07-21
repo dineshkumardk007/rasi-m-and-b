@@ -310,7 +310,7 @@ export async function registerCustomerWithEmailAction(
 
   if (isDemo()) {
     const db = demoDB();
-    let existing = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
+    const existing = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
     if (existing) {
       if (existing.password && existing.password !== password) {
         return {
