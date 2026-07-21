@@ -145,8 +145,9 @@ export default function Storefront(props: StorefrontProps) {
           className="flex items-center gap-2.5"
           aria-label={BUSINESS.name}
         >
-          <div className="flex h-[42px] w-[42px] items-center justify-center rounded-tile border-3 border-ink bg-brand font-display text-[19px] font-extrabold text-white shadow-hard-3">
-            ர
+          <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-tile border-3 border-ink bg-white p-1 shadow-hard-3 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Rasi Mom & Baby" className="h-full w-full object-contain" />
           </div>
           <div className="text-left leading-none">
             <div className="font-display text-[20px] font-extrabold">Rasi</div>
@@ -328,7 +329,11 @@ export default function Storefront(props: StorefrontProps) {
       {toast && <Toast message={toast} />}
 
       {/* footer */}
-      <footer className="border-t-4 border-ink bg-brand p-[22px] text-center text-white">
+      <footer className="border-t-4 border-ink bg-brand p-[22px] text-center text-white flex flex-col items-center justify-center gap-2">
+        <div className="flex h-14 w-14 items-center justify-center rounded-tile border-3 border-ink bg-white p-1.5 shadow-hard-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Rasi Mom & Baby" className="h-full w-full object-contain" />
+        </div>
         <div className="font-display text-[18px] font-extrabold">{BUSINESS.name}</div>
         <div className="text-[13px] opacity-95">{BUSINESS.addressShort}</div>
         <div className="text-[13px] opacity-95">{t("footer.hours")}</div>

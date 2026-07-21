@@ -34,10 +34,16 @@ export function Hero() {
       <div className="blob absolute -left-8 bottom-0 h-[140px] w-[140px] rounded-full bg-[#C7E9FF]" />
       <div className="relative z-[1] grid items-center gap-[26px] md:grid-cols-[1.1fr_1fr]">
         <div>
-          <span className="inline-block rounded-[30px] border-3 border-ink bg-paper px-4 py-[7px] font-display text-[14px] font-extrabold shadow-hard-3">
-            ⭐ {BUSINESS.rating} · {BUSINESS.reviewCount.toLocaleString("en-IN")}+ {t("hero.badge")}
-          </span>
-          <h1 className="my-2.5 mt-4 font-display text-[34px] font-extrabold leading-[1.06] md:text-[44px]">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-tile border-3 border-ink bg-white p-1 shadow-hard-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="Rasi Mom & Baby" className="h-full w-full object-contain" />
+            </div>
+            <span className="inline-block rounded-[30px] border-3 border-ink bg-paper px-4 py-[7px] font-display text-[14px] font-extrabold shadow-hard-3">
+              ⭐ {BUSINESS.rating} · {BUSINESS.reviewCount.toLocaleString("en-IN")}+ {t("hero.badge")}
+            </span>
+          </div>
+          <h1 className="my-2.5 font-display text-[34px] font-extrabold leading-[1.06] md:text-[44px]">
             {t("hero.headline1")}
             <br />
             <span className="text-brand">{t("hero.headline2")}</span> 🎈
@@ -51,6 +57,19 @@ export function Hero() {
           </div>
         </div>
         <div className="relative hidden h-[290px] md:block" aria-hidden>
+          <div
+            className="pop absolute z-10 flex flex-col items-center justify-center rounded-modal border-3 border-ink bg-white p-3 shadow-hard-6"
+            style={{
+              left: 80,
+              top: 70,
+              width: 140,
+              height: 140,
+              transform: "rotate(-3deg)",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Rasi Mom & Baby" className="h-full w-full object-contain" />
+          </div>
           {stickers.map((b, i) => (
             <div
               key={i}
