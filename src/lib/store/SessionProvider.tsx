@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { registerCustomerAction } from "@/app/actions";
 
 /**
  * Customer session. Live mode = Supabase phone OTP (primary auth per spec).
@@ -76,13 +77,17 @@ export function SessionProvider({
   const verifyOtp = useCallback<SessionContextValue["verifyOtp"]>(
     async (phone, otp, name) => {
       const clean = phone.replace(/\D/g, "").slice(-10);
+      const customerName = name.trim() || "Customer";
+
       if (isDemo) {
         if (!/^\d{6}$/.test(otp)) return { ok: false, message: "bad_otp" };
-        const s = { name: name || "Customer", phone: clean };
+        await registerCustomerAction(customerName, clean);
+        const s = { name: customerName, phone: clean };
         window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
         setSession(s);
         return { ok: true };
       }
+
       const supabase = createClient();
       let { data, error } = await supabase.auth.verifyOtp({
         phone: `+91${clean}`,
@@ -99,12 +104,12 @@ export function SessionProvider({
         error = retry.error;
       }
       if (error || !data.user) return { ok: false, message: error?.message };
-      if (name) await supabase.auth.updateUser({ data: { name } });
-      // Ensure a customers row exists (id = auth.uid, RLS "insert own").
-      await supabase
-        .from("customers")
-        .upsert({ id: data.user.id, name: name || "Customer", phone: clean }, { onConflict: "id" });
-      setSession({ name: name || "Customer", phone: clean });
+      if (name) await supabase.auth.updateUser({ data: { name: customerName } });
+
+      // Upsert customer record by unique phone number in database
+      await registerCustomerAction(customerName, clean);
+
+      setSession({ name: customerName, phone: clean });
       return { ok: true };
     },
     [isDemo],

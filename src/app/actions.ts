@@ -76,3 +76,67 @@ export async function submitReviewAction(
   });
   return !error;
 }
+
+/** Register or update customer record in database by unique phone number */
+export async function registerCustomerAction(
+  name: string,
+  phone: string,
+): Promise<{ ok: boolean; customerId?: string; error?: string }> {
+  const clean = phone.replace(/\D/g, "").slice(-10);
+  if (clean.length !== 10) return { ok: false, error: "Invalid 10-digit phone number" };
+  const customerName = name.trim() || "Customer";
+
+  if (isDemo()) {
+    const db = demoDB();
+    let c = db.customers.find((x) => x.phone === clean);
+    if (c) {
+      c.name = customerName;
+    } else {
+      c = {
+        id: `demo-c-${clean}`,
+        name: customerName,
+        phone: clean,
+        email: null,
+        language: "en",
+        whatsapp_opt_in: true,
+        baby_dob: null,
+        notes: "",
+        created_at: new Date().toISOString(),
+      };
+      db.customers.unshift(c);
+    }
+    return { ok: true, customerId: c.id };
+  }
+
+  const supabase = createAdminClient();
+  // Check if customer with this unique phone already exists
+  const { data: existing } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("phone", clean)
+    .maybeSingle();
+
+  if (existing) {
+    // Update existing customer's name (no duplicate phone entries)
+    await supabase
+      .from("customers")
+      .update({ name: customerName })
+      .eq("id", existing.id);
+    return { ok: true, customerId: existing.id };
+  }
+
+  // Insert new unique customer record
+  const { data, error } = await supabase
+    .from("customers")
+    .insert({
+      name: customerName,
+      phone: clean,
+      language: "en",
+      whatsapp_opt_in: true,
+    })
+    .select("id")
+    .single();
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, customerId: data?.id };
+}

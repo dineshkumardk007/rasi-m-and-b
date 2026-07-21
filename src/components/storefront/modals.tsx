@@ -777,6 +777,7 @@ export function AuthModal({
           <Field label={t("auth.phone")} value={phone} onChange={setPhone} placeholder="98765 43210" inputMode="tel" />
           <Btn
             full
+            disabled={!name.trim() || phone.replace(/\D/g, "").length < 10}
             onClick={async () => {
               const res = await sendOtp(phone);
               if (res.ok) {
