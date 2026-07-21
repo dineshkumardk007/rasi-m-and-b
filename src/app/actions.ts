@@ -294,3 +294,113 @@ export async function recordCustomerActivityAction(phone: string): Promise<boole
   }
   return true;
 }
+
+/** Register with Email & Password via Supabase Auth & Database */
+export async function registerCustomerWithEmailAction(
+  name: string,
+  email: string,
+  password: string,
+): Promise<{ ok: boolean; name?: string; email?: string; error?: string }> {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail.includes("@")) return { ok: false, error: "Please enter a valid email address." };
+  if (!name.trim()) return { ok: false, error: "Please enter your full name." };
+  if (!password || password.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
+
+  const customerName = name.trim();
+
+  if (isDemo()) {
+    const db = demoDB();
+    const existing = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
+    if (existing) {
+      return {
+        ok: false,
+        error: "ALREADY_REGISTERED: Account with this email already exists. Please sign in.",
+      };
+    }
+    const c = {
+      id: `demo-c-${Date.now()}`,
+      name: customerName,
+      phone: "0000000000",
+      email: cleanEmail,
+      language: "en" as const,
+      whatsapp_opt_in: false,
+      baby_dob: null,
+      notes: "",
+      password,
+      last_login_at: new Date().toISOString(),
+      login_count: 1,
+      created_at: new Date().toISOString(),
+    };
+    db.customers.unshift(c);
+    return { ok: true, name: customerName, email: cleanEmail };
+  }
+
+  const supabase = createAdminClient();
+  const { data: existing } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("email", cleanEmail)
+    .maybeSingle();
+
+  if (existing) {
+    return {
+      ok: false,
+      error: "ALREADY_REGISTERED: Account with this email already exists. Please sign in.",
+    };
+  }
+
+  const { error } = await supabase.from("customers").insert({
+    name: customerName,
+    email: cleanEmail,
+    phone: `e_${Date.now().toString().slice(-8)}`,
+    password,
+    language: "en" as const,
+    whatsapp_opt_in: false,
+    last_login_at: new Date().toISOString(),
+    login_count: 1,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, name: customerName, email: cleanEmail };
+}
+
+/** Sign in with Email & Password */
+export async function signInWithEmailAction(
+  email: string,
+  password: string,
+): Promise<{ ok: boolean; name?: string; email?: string; error?: string }> {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail.includes("@")) return { ok: false, error: "Please enter a valid email address." };
+  if (!password) return { ok: false, error: "Please enter your password." };
+  const now = new Date().toISOString();
+
+  if (isDemo()) {
+    const db = demoDB();
+    const c = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
+    if (!c) return { ok: false, error: "Account not found with this email. Please register first." };
+    if (c.password && c.password !== password) return { ok: false, error: "Incorrect password. Please try again." };
+    c.last_login_at = now;
+    c.login_count = (c.login_count || 0) + 1;
+    return { ok: true, name: c.name || "Customer", email: cleanEmail };
+  }
+
+  const supabase = createAdminClient();
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("id, name, password, login_count")
+    .eq("email", cleanEmail)
+    .maybeSingle();
+
+  if (!customer) return { ok: false, error: "Account not found with this email. Please register first." };
+  if (customer.password && customer.password !== password) return { ok: false, error: "Incorrect password. Please try again." };
+
+  await supabase
+    .from("customers")
+    .update({
+      last_login_at: now,
+      login_count: (customer.login_count || 0) + 1,
+    })
+    .eq("id", customer.id);
+
+  return { ok: true, name: customer.name || "Customer", email: cleanEmail };
+}

@@ -761,9 +761,19 @@ export function AuthModal({
   onSignedIn: (name: string) => void;
 }) {
   const { t } = useT();
-  const { sendOtp, verifyOtp, signInWithPassword, registerWithPassword, isDemo } = useSession();
+  const {
+    sendOtp,
+    verifyOtp,
+    signInWithPassword,
+    registerWithPassword,
+    signInWithEmail,
+    registerWithEmail,
+    isDemo,
+  } = useSession();
   const [mode, setMode] = useState<"register" | "login" | "otp">("register");
+  const [authType, setAuthType] = useState<"phone" | "email">("phone");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
@@ -774,7 +784,10 @@ export function AuthModal({
   const handleRegister = async () => {
     setLoading(true);
     setError(null);
-    const res = await registerWithPassword(name, phone, password);
+    const res =
+      authType === "email"
+        ? await registerWithEmail(name, email, password)
+        : await registerWithPassword(name, phone, password);
     setLoading(false);
     if (res.ok) {
       onSignedIn(res.name || name || "Customer");
@@ -783,7 +796,7 @@ export function AuthModal({
       res.message?.toLowerCase().includes("already registered")
     ) {
       setMode("login");
-      setError("Account already exists for this phone number! Switched to Sign In.");
+      setError(`Account already exists for this ${authType}! Switched to Sign In.`);
     } else {
       setError(res.message ?? "Registration failed");
     }
@@ -792,7 +805,10 @@ export function AuthModal({
   const handleLogin = async () => {
     setLoading(true);
     setError(null);
-    const res = await signInWithPassword(phone, password);
+    const res =
+      authType === "email"
+        ? await signInWithEmail(email, password)
+        : await signInWithPassword(phone, password);
     setLoading(false);
     if (res.ok) {
       onSignedIn(res.name || "Customer");
@@ -803,20 +819,8 @@ export function AuthModal({
 
   return (
     <Modal onClose={onClose}>
-      {/* Tab Switcher: Sign In vs Register */}
-      <div className="mb-4 flex rounded-pill border-2.5 border-ink bg-paper p-1 shadow-hard-2">
-        <button
-          type="button"
-          onClick={() => {
-            setMode("login");
-            setError(null);
-          }}
-          className={`flex-1 rounded-pill py-2 font-display text-[14px] font-extrabold transition-all cursor-pointer ${
-            mode === "login" ? "bg-brand text-white shadow-hard-2" : "text-mute hover:text-ink"
-          }`}
-        >
-          Sign In 🔑
-        </button>
+      {/* Primary Tab Switcher: Register vs Sign In */}
+      <div className="mb-3 flex rounded-pill border-2.5 border-ink bg-paper p-1 shadow-hard-2">
         <button
           type="button"
           onClick={() => {
@@ -829,20 +833,138 @@ export function AuthModal({
         >
           Register ✨
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMode("login");
+            setError(null);
+          }}
+          className={`flex-1 rounded-pill py-2 font-display text-[14px] font-extrabold transition-all cursor-pointer ${
+            mode === "login" ? "bg-brand text-white shadow-hard-2" : "text-mute hover:text-ink"
+          }`}
+        >
+          Sign In 🔑
+        </button>
       </div>
+
+      {/* Secondary Method Toggle: Phone vs Email */}
+      {mode !== "otp" && (
+        <div className="mb-4 flex justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setAuthType("phone");
+              setError(null);
+            }}
+            className={`rounded-pill border-2 border-ink px-3 py-1 text-[12px] font-extrabold transition-all cursor-pointer ${
+              authType === "phone" ? "bg-[#FFE1A8] text-ink shadow-hard-2" : "bg-white text-mute hover:bg-paper"
+            }`}
+          >
+            📱 Use Phone Number
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAuthType("email");
+              setError(null);
+            }}
+            className={`rounded-pill border-2 border-ink px-3 py-1 text-[12px] font-extrabold transition-all cursor-pointer ${
+              authType === "email" ? "bg-[#C7E9FF] text-ink shadow-hard-2" : "bg-white text-mute hover:bg-paper"
+            }`}
+          >
+            ✉️ Use Email Address
+          </button>
+        </div>
+      )}
+
+      {mode === "register" && (
+        <div>
+          <h3 className="mb-1 font-display text-[22px] font-extrabold">Create Account ✨</h3>
+          <p className="mb-3.5 text-[13px] text-mute">
+            {authType === "email"
+              ? "Register using your Email & Password (no SMS required)"
+              : "Register using your Phone Number & Password"}
+          </p>
+
+          <Field
+            label="Full Name"
+            value={name}
+            onChange={setName}
+            placeholder="Priya Raman"
+          />
+
+          {authType === "email" ? (
+            <Field
+              label="Email Address"
+              type="email"
+              value={email}
+              onChange={setEmail}
+              placeholder="priya@example.com"
+              inputMode="email"
+            />
+          ) : (
+            <Field
+              label="Phone Number"
+              value={phone}
+              onChange={setPhone}
+              placeholder="98765 43210"
+              inputMode="tel"
+            />
+          )}
+
+          <Field
+            label="Set Password"
+            type="password"
+            value={password}
+            onChange={setPassword}
+            placeholder="Min 6 characters"
+          />
+
+          <div className="mt-4">
+            <Btn
+              full
+              disabled={
+                loading ||
+                !name.trim() ||
+                (authType === "phone" ? phone.replace(/\D/g, "").length < 10 : !email.includes("@")) ||
+                password.length < 6
+              }
+              onClick={handleRegister}
+            >
+              {loading ? "Creating Account..." : "Create Account ✨"}
+            </Btn>
+          </div>
+        </div>
+      )}
 
       {mode === "login" && (
         <div>
           <h3 className="mb-1 font-display text-[22px] font-extrabold">Welcome Back! 🛍️</h3>
-          <p className="mb-3.5 text-[13px] text-mute">Sign in with your registered phone number & password</p>
+          <p className="mb-3.5 text-[13px] text-mute">
+            {authType === "email"
+              ? "Sign in with your registered email address & password"
+              : "Sign in with your registered phone number & password"}
+          </p>
 
-          <Field
-            label="Phone Number"
-            value={phone}
-            onChange={setPhone}
-            placeholder="98765 43210"
-            inputMode="tel"
-          />
+          {authType === "email" ? (
+            <Field
+              label="Email Address"
+              type="email"
+              value={email}
+              onChange={setEmail}
+              placeholder="priya@example.com"
+              inputMode="email"
+            />
+          ) : (
+            <Field
+              label="Phone Number"
+              value={phone}
+              onChange={setPhone}
+              placeholder="98765 43210"
+              inputMode="tel"
+            />
+          )}
+
           <Field
             label="Password"
             type="password"
@@ -854,7 +976,11 @@ export function AuthModal({
           <div className="mt-4">
             <Btn
               full
-              disabled={loading || phone.replace(/\D/g, "").length < 10 || !password}
+              disabled={
+                loading ||
+                (authType === "phone" ? phone.replace(/\D/g, "").length < 10 : !email.includes("@")) ||
+                !password
+              }
               onClick={handleLogin}
             >
               {loading ? "Signing in..." : "Sign In 🔑"}
@@ -872,44 +998,6 @@ export function AuthModal({
             >
               Or sign in via SMS OTP →
             </button>
-          </div>
-        </div>
-      )}
-
-      {mode === "register" && (
-        <div>
-          <h3 className="mb-1 font-display text-[22px] font-extrabold">Create Account ✨</h3>
-          <p className="mb-3.5 text-[13px] text-mute">Register your phone number & password to start shopping</p>
-
-          <Field
-            label="Full Name"
-            value={name}
-            onChange={setName}
-            placeholder="Priya Raman"
-          />
-          <Field
-            label="Phone Number"
-            value={phone}
-            onChange={setPhone}
-            placeholder="98765 43210"
-            inputMode="tel"
-          />
-          <Field
-            label="Set Password"
-            type="password"
-            value={password}
-            onChange={setPassword}
-            placeholder="Min 6 characters"
-          />
-
-          <div className="mt-4">
-            <Btn
-              full
-              disabled={loading || !name.trim() || phone.replace(/\D/g, "").length < 10 || password.length < 6}
-              onClick={handleRegister}
-            >
-              {loading ? "Creating Account..." : "Create Account ✨"}
-            </Btn>
           </div>
         </div>
       )}

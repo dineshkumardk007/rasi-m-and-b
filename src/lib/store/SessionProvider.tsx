@@ -13,17 +13,20 @@ import { createClient } from "@/lib/supabase/client";
 import {
   recordCustomerActivityAction,
   registerCustomerAction,
+  registerCustomerWithEmailAction,
   registerCustomerWithPasswordAction,
+  signInWithEmailAction,
   signInWithPasswordAction,
 } from "@/app/actions";
 
 /**
- * Customer session. Supports phone OTP & Phone + Password authentication.
+ * Customer session. Supports phone OTP, Phone + Password, & Email + Password authentication.
  */
 
 export interface CustomerSession {
   name: string;
   phone: string;
+  email?: string;
 }
 
 interface SessionContextValue {
@@ -33,6 +36,8 @@ interface SessionContextValue {
   verifyOtp: (phone: string, otp: string, name: string) => Promise<{ ok: boolean; message?: string }>;
   signInWithPassword: (phone: string, password: string) => Promise<{ ok: boolean; name?: string; message?: string }>;
   registerWithPassword: (name: string, phone: string, password: string) => Promise<{ ok: boolean; name?: string; message?: string }>;
+  signInWithEmail: (email: string, password: string) => Promise<{ ok: boolean; name?: string; message?: string }>;
+  registerWithEmail: (name: string, email: string, password: string) => Promise<{ ok: boolean; name?: string; message?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -154,6 +159,34 @@ export function SessionProvider({
     [isDemo],
   );
 
+  const signInWithEmail = useCallback(
+    async (email: string, password: string) => {
+      const res = await signInWithEmailAction(email, password);
+      if (res.ok && res.name && res.email) {
+        const s = { name: res.name, phone: "", email: res.email };
+        if (isDemo) window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        setSession(s);
+        return { ok: true, name: res.name };
+      }
+      return { ok: false, message: res.error ?? "Login failed" };
+    },
+    [isDemo],
+  );
+
+  const registerWithEmail = useCallback(
+    async (name: string, email: string, password: string) => {
+      const res = await registerCustomerWithEmailAction(name, email, password);
+      if (res.ok && res.name && res.email) {
+        const s = { name: res.name, phone: "", email: res.email };
+        if (isDemo) window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        setSession(s);
+        return { ok: true, name: res.name };
+      }
+      return { ok: false, message: res.error ?? "Registration failed" };
+    },
+    [isDemo],
+  );
+
   const signOut = useCallback(async () => {
     if (isDemo) {
       window.localStorage.removeItem(DEMO_KEY);
@@ -171,9 +204,21 @@ export function SessionProvider({
       verifyOtp,
       signInWithPassword,
       registerWithPassword,
+      signInWithEmail,
+      registerWithEmail,
       signOut,
     }),
-    [session, isDemo, sendOtp, verifyOtp, signInWithPassword, registerWithPassword, signOut],
+    [
+      session,
+      isDemo,
+      sendOtp,
+      verifyOtp,
+      signInWithPassword,
+      registerWithPassword,
+      signInWithEmail,
+      registerWithEmail,
+      signOut,
+    ],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
