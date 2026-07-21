@@ -359,11 +359,11 @@ export async function registerCustomerWithEmailAction(
     return { ok: true, name: existing.name || customerName, email: cleanEmail };
   }
 
-  const fallbackPhone = `90${Math.floor(10000000 + Math.random() * 90000000)}`;
+  const emailPhoneIdentifier = cleanEmail;
   const { error } = await supabase.from("customers").insert({
     name: customerName,
     email: cleanEmail,
-    phone: fallbackPhone,
+    phone: emailPhoneIdentifier,
     password,
     language: "en" as const,
     whatsapp_opt_in: false,
@@ -392,7 +392,7 @@ export async function signInWithEmailAction(
       c = {
         id: `demo-c-${Date.now()}`,
         name: "Customer",
-        phone: "0000000000",
+        phone: cleanEmail,
         email: cleanEmail,
         language: "en" as const,
         whatsapp_opt_in: false,
@@ -420,13 +420,12 @@ export async function signInWithEmailAction(
     .maybeSingle();
 
   if (!customer) {
-    const fallbackPhone = `90${Math.floor(10000000 + Math.random() * 90000000)}`;
     const { data: created, error: createError } = await supabase
       .from("customers")
       .insert({
         name: "Customer",
         email: cleanEmail,
-        phone: fallbackPhone,
+        phone: cleanEmail,
         password,
         language: "en" as const,
         whatsapp_opt_in: false,
