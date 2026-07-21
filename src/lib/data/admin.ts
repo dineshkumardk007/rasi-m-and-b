@@ -239,6 +239,24 @@ export async function upsertProduct(staffId: string, input: ProductInput): Promi
   return productId;
 }
 
+export async function updateProductStock(staffId: string, productId: string, stockDelta: number): Promise<boolean> {
+  if (isDemo()) {
+    const p = demoDB().products.find((x) => x.id === productId);
+    if (!p) return false;
+    p.stock = Math.max(0, p.stock + stockDelta);
+    await logStaff(staffId, `stock:${stockDelta > 0 ? "+" : ""}${stockDelta}`, "product", productId);
+    return true;
+  }
+  const supabase = createAdminClient();
+  const { data: p } = await supabase.from("products").select("stock").eq("id", productId).single();
+  if (!p) return false;
+  const newStock = Math.max(0, (p.stock || 0) + stockDelta);
+  const { error } = await supabase.from("products").update({ stock: newStock }).eq("id", productId);
+  if (error) return false;
+  await logStaff(staffId, `stock_update:${newStock}`, "product", productId);
+  return true;
+}
+
 /** Archive, never delete (spec rule). */
 export async function archiveProduct(staffId: string, id: string): Promise<void> {
   if (isDemo()) {

@@ -27,6 +27,7 @@ import {
   deleteCouponAction,
   moderateReviewAction,
   saveCustomerNoteAction,
+  updateProductStockAction,
   updateSettingsAction,
   upsertProductAction,
 } from "@/app/admin/actions";
@@ -36,45 +37,168 @@ export function ProductsTab({ products }: { products: Product[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Product | null | "new">(null);
   const [confirmArchive, setConfirmArchive] = useState<Product | null>(null);
-  const active = products.filter((p) => p.status === "active");
+  const [search, setSearch] = useState("");
+  const [catFilter, setCatFilter] = useState<string>("all");
+  const [stockFilter, setStockFilter] = useState<"all" | "low" | "out">("all");
+  const [stockUpdating, setStockUpdating] = useState<string | null>(null);
+
+  const active = useMemo(() => {
+    return products.filter((p) => {
+      if (p.status === "archived") return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const matchName = p.name_en.toLowerCase().includes(q) || p.name_ta.includes(q);
+        const matchBrand = p.brand.toLowerCase().includes(q);
+        if (!matchName && !matchBrand) return false;
+      }
+      if (catFilter !== "all" && !p.categories.includes(catFilter as Category)) return false;
+      if (stockFilter === "low" && (p.stock > p.low_stock_threshold || p.stock === 0)) return false;
+      if (stockFilter === "out" && p.stock > 0) return false;
+      return true;
+    });
+  }, [products, search, catFilter, stockFilter]);
+
   const archived = products.filter((p) => p.status === "archived");
+
+  const handleStockDelta = async (productId: string, delta: number) => {
+    setStockUpdating(productId);
+    await updateProductStockAction(productId, delta);
+    setStockUpdating(null);
+    router.refresh();
+  };
 
   return (
     <div>
-      <Btn onClick={() => setEditing("new")}>➕ Add new product</Btn>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Btn onClick={() => setEditing("new")}>➕ Add New Product</Btn>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search products by name/brand..."
+            className="rounded-pill border-2.5 border-ink bg-white px-3.5 py-1.5 text-[13px] outline-none shadow-hard-2 focus:border-brand min-w-[220px]"
+          />
+          <select
+            value={catFilter}
+            onChange={(e) => setCatFilter(e.target.value)}
+            className="rounded-pill border-2.5 border-ink bg-white px-3 py-1.5 text-[13px] font-extrabold outline-none shadow-hard-2"
+          >
+            <option value="all">All Categories</option>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {CATEGORY_META[c].emoji} {CATEGORY_META[c].en}
+              </option>
+            ))}
+          </select>
+          <select
+            value={stockFilter}
+            onChange={(e) => setStockFilter(e.target.value as "all" | "low" | "out")}
+            className="rounded-pill border-2.5 border-ink bg-white px-3 py-1.5 text-[13px] font-extrabold outline-none shadow-hard-2"
+          >
+            <option value="all">All Stock Status</option>
+            <option value="low">⚠️ Low Stock (&lt; 5)</option>
+            <option value="out">🔴 Out of Stock</option>
+          </select>
+        </div>
+      </div>
+
       <div className="mt-4 grid gap-3">
-        {active.map((p) => (
-          <Card key={p.id} className="flex items-center gap-3 p-3">
-            <div className="w-[54px] shrink-0">
-              <Art emoji={p.emoji} bg={p.tile_color} h={54} image={p.images[0]} alt="" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[14px] font-bold">{p.name_en}</div>
-              <div className="text-[12px] text-mute">
-                {inr(p.price)} · stock {p.stock} · {MILESTONE_META[p.milestone].shortEn}
+        {active.map((p) => {
+          const isLow = p.stock > 0 && p.stock <= p.low_stock_threshold;
+          const isOut = p.stock === 0;
+
+          return (
+            <Card key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-[54px] shrink-0">
+                  <Art emoji={p.emoji} bg={p.tile_color} h={54} image={p.images[0]} alt="" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-[15px] font-bold">{p.name_en}</span>
+                    {isOut ? (
+                      <span className="rounded-full bg-[#FFCBD9] px-2 py-0.5 text-[10px] font-extrabold text-[#E24B4A]">
+                        Out of Stock
+                      </span>
+                    ) : isLow ? (
+                      <span className="rounded-full bg-[#FFE1A8] px-2 py-0.5 text-[10px] font-extrabold text-[#946800]">
+                        Low Stock ({p.stock} left)
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-[#D6E8B0] px-2 py-0.5 text-[10px] font-extrabold text-[#386B00]">
+                        In Stock ({p.stock})
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[12px] text-mute">
+                    {inr(p.price)} {p.mrp > p.price && <span className="line-through text-mute">{inr(p.mrp)}</span>} · Brand: {p.brand || "Rasi"} · {MILESTONE_META[p.milestone].shortEn}
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {p.categories.map((c) => (
+                      <span
+                        key={c}
+                        className="rounded-[10px] border-[1.5px] border-ink bg-[#D6E8B0] px-2 py-[2px] text-[10px] font-extrabold"
+                      >
+                        {CATEGORY_META[c].en}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {p.categories.map((c) => (
-                  <span
-                    key={c}
-                    className="rounded-[10px] border-[1.5px] border-ink bg-[#D6E8B0] px-2 py-[2px] text-[10px] font-extrabold"
+
+              {/* Quick Stock Controls & Actions */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-dashed border-[#E5DBCC]">
+                <div className="flex items-center rounded-pill border-2 border-ink bg-paper px-2 py-1 gap-1">
+                  <span className="text-[11px] font-extrabold uppercase text-mute mr-1">Stock:</span>
+                  <button
+                    type="button"
+                    disabled={stockUpdating === p.id || p.stock === 0}
+                    onClick={() => handleStockDelta(p.id, -1)}
+                    className="h-6 w-6 rounded-full border border-ink bg-white font-extrabold text-[12px] hover:bg-[#FFCBD9] disabled:opacity-40 cursor-pointer"
+                    title="Decrease stock by 1"
                   >
-                    {CATEGORY_META[c].en}
-                  </span>
-                ))}
+                    -1
+                  </button>
+                  <span className="w-7 text-center font-display text-[14px] font-extrabold">{p.stock}</span>
+                  <button
+                    type="button"
+                    disabled={stockUpdating === p.id}
+                    onClick={() => handleStockDelta(p.id, 5)}
+                    className="h-6 px-1.5 rounded-full border border-ink bg-white font-extrabold text-[11px] hover:bg-[#D6E8B0] disabled:opacity-40 cursor-pointer"
+                    title="Add 5 items to stock"
+                  >
+                    +5
+                  </button>
+                  <button
+                    type="button"
+                    disabled={stockUpdating === p.id}
+                    onClick={() => handleStockDelta(p.id, 10)}
+                    className="h-6 px-1.5 rounded-full border border-ink bg-white font-extrabold text-[11px] hover:bg-[#D6E8B0] disabled:opacity-40 cursor-pointer"
+                    title="Add 10 items to stock"
+                  >
+                    +10
+                  </button>
+                </div>
+
+                <Btn small bg="#C7E9FF" color="#2B2140" onClick={() => setEditing(p)}>
+                  Edit ✏️
+                </Btn>
+                <Btn small bg="#FFCBD9" color="#2B2140" onClick={() => setConfirmArchive(p)}>
+                  Archive 📦
+                </Btn>
               </div>
-            </div>
-            <Btn small bg="#C7E9FF" color="#2B2140" onClick={() => setEditing(p)}>
-              Edit
-            </Btn>
-            <Btn small bg="#FFCBD9" color="#2B2140" onClick={() => setConfirmArchive(p)}>
-              Archive
-            </Btn>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
+        {active.length === 0 && (
+          <div className="rounded-modal border-2.5 border-dashed border-ink bg-paper p-8 text-center text-mute font-extrabold">
+            No products match your current search/filter.
+          </div>
+        )}
         {archived.length > 0 && (
-          <p className="text-[12px] text-mute">
-            {archived.length} archived product(s) — hidden from the store, kept for records.
+          <p className="mt-2 text-[12px] text-mute">
+            {archived.length} archived product(s) — hidden from the store, kept for past order records.
           </p>
         )}
       </div>

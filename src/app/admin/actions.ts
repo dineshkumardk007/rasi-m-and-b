@@ -9,6 +9,7 @@ import {
   requireStaff,
   saveCustomerNote,
   setOrderStatus,
+  updateProductStock,
   updateSettings,
   upsertProduct,
   type ProductInput,
@@ -44,6 +45,14 @@ export async function archiveProductAction(id: string) {
   await archiveProduct(userId, id);
   revalidatePath("/admin");
   revalidatePath("/");
+}
+
+export async function updateProductStockAction(id: string, delta: number) {
+  const userId = await gate();
+  const ok = await updateProductStock(userId, id, delta);
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return ok;
 }
 
 export async function addCouponAction(coupon: Omit<Coupon, "used_count">) {

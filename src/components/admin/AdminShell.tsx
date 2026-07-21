@@ -14,7 +14,7 @@ import type {
 } from "@/lib/types";
 import { BUSINESS, inr } from "@/lib/constants";
 import { Badge, Card, Modal, Pill } from "@/components/ui";
-import { logoutAdminAction, setOrderStatusAction } from "@/app/admin/actions";
+import { logoutAdminAction, setOrderStatusAction, updateProductStockAction } from "@/app/admin/actions";
 import {
   CouponsTab,
   CustomersTab,
@@ -98,8 +98,47 @@ export function AdminShell(props: AdminProps) {
   );
 }
 
-/* ── Dashboard: today's numbers on one screen (acceptance #4) ────────────── */
+/* ── CSV Exporter Helper ─────────────────────────────────────────────────── */
+function exportOrdersToCSV(orders: Order[]) {
+  const headers = [
+    "Order No",
+    "Customer Name",
+    "Phone",
+    "Status",
+    "Payment Method",
+    "Payment Status",
+    "Items Count",
+    "Total (INR)",
+    "Placed At",
+  ];
+  const rows = orders.map((o) => [
+    o.order_no,
+    `"${(o.address_snapshot.name || "").replace(/"/g, '""')}"`,
+    `"${o.address_snapshot.phone || ""}"`,
+    o.status,
+    o.payment_method,
+    o.payment_status,
+    o.items.reduce((s, i) => s + i.qty, 0),
+    o.total,
+    new Date(o.placed_at).toLocaleString("en-IN"),
+  ]);
+
+  const csvString = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+  const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `rasi_orders_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/* ── Dashboard: today's numbers on one screen ────────────────────────────── */
 function Dashboard({ orders, products }: AdminProps) {
+  const router = useRouter();
+  const [restocking, setRestocking] = useState<string | null>(null);
+
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfWeek = new Date(startOfDay);
@@ -125,8 +164,32 @@ function Dashboard({ orders, products }: AdminProps) {
     ["COD to collect", inr(codUnreconciled), "#FFCBD9"],
   ];
 
+  const handleRestock = async (productId: string) => {
+    setRestocking(productId);
+    await updateProductStockAction(productId, 10);
+    setRestocking(null);
+    router.refresh();
+  };
+
   return (
     <div>
+      {/* Quick Action Toolbar */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-card border-3 border-ink bg-white p-3.5 shadow-hard-3">
+        <div className="flex items-center gap-2">
+          <span className="font-display text-[15px] font-extrabold text-ink">⚡ Quick Tools:</span>
+          <button
+            type="button"
+            onClick={() => exportOrdersToCSV(orders)}
+            className="btn-press rounded-pill border-2 border-ink bg-[#D6E8B0] px-3 py-1 font-display text-[12px] font-extrabold shadow-hard-2 hover:opacity-90 cursor-pointer"
+          >
+            📥 Export Orders CSV
+          </button>
+        </div>
+        <div className="text-[12px] font-bold text-mute">
+          Live Store Metrics · Rasi Mom & Baby
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {metrics.map(([label, value, bg]) => (
           <div key={label} className="rounded-card border-3 border-ink p-4 shadow-hard-4" style={{ background: bg }}>
@@ -137,34 +200,72 @@ function Dashboard({ orders, products }: AdminProps) {
       </div>
 
       <Card className="mt-4 p-[18px]">
-        <h3 className="mb-2 font-display font-extrabold">⚠️ Low stock</h3>
+        <h3 className="mb-2.5 font-display text-[18px] font-extrabold text-ink">⚠️ Inventory Alerts (Low Stock)</h3>
         {lowStock.length === 0 ? (
-          <p className="text-[14px] text-mute">All products well stocked.</p>
+          <p className="text-[14px] text-mute">All active products are well stocked! 👍</p>
         ) : (
-          lowStock.map((p) => (
-            <div
-              key={p.id}
-              className="flex justify-between border-b-2 border-dashed border-[#E5DBCC] py-1.5 text-[14px]"
-            >
-              <span>{p.name_en}</span>
-              <span className="font-extrabold text-brand">{p.stock} left</span>
-            </div>
-          ))
+          <div className="grid gap-2">
+            {lowStock.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between border-b-2 border-dashed border-[#E5DBCC] pb-2 text-[14px]"
+              >
+                <div>
+                  <span className="font-bold text-ink">{p.name_en}</span>
+                  <span className="ml-2 rounded-full bg-[#FFE1A8] px-2 py-0.5 text-[11px] font-extrabold text-[#946800]">
+                    {p.stock === 0 ? "Out of Stock" : `${p.stock} left`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  disabled={restocking === p.id}
+                  onClick={() => handleRestock(p.id)}
+                  className="btn-press rounded-pill border-2 border-ink bg-[#C7E9FF] px-3 py-1 text-[12px] font-extrabold shadow-hard-2 hover:bg-[#D6E8B0] cursor-pointer disabled:opacity-50 transition-all"
+                >
+                  {restocking === p.id ? "Restocking..." : "⚡ Restock +10"}
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </Card>
 
       <Card className="mt-4 p-[18px]">
-        <h3 className="mb-2 font-display font-extrabold">Recent orders</h3>
-        {orders.length === 0 && <p className="text-[14px] text-mute">No orders yet.</p>}
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="font-display text-[18px] font-extrabold text-ink">Recent Orders 🚚</h3>
+          {orders.length > 0 && (
+            <button
+              type="button"
+              onClick={() => exportOrdersToCSV(orders)}
+              className="text-[12px] font-extrabold text-brand underline hover:text-ink transition-colors cursor-pointer"
+            >
+              Export All Orders CSV →
+            </button>
+          )}
+        </div>
+        {orders.length === 0 && <p className="text-[14px] text-mute">No orders placed yet.</p>}
         {orders.slice(0, 5).map((o) => (
           <div
             key={o.id}
-            className="flex justify-between border-b-2 border-dashed border-[#E5DBCC] py-1.5 text-[14px]"
+            className="flex items-center justify-between border-b-2 border-dashed border-[#E5DBCC] py-2 text-[14px]"
           >
-            <span>
-              {o.order_no} · {o.address_snapshot.name}
-            </span>
-            <span className="font-extrabold">{inr(o.total)}</span>
+            <div>
+              <span className="font-bold">{o.order_no}</span> · <span>{o.address_snapshot.name}</span>{" "}
+              <span className="text-[12px] text-mute">({o.payment_method.toUpperCase()})</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-display font-extrabold text-ink">{inr(o.total)}</span>
+              <a
+                href={`https://wa.me/91${o.address_snapshot.phone.replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(
+                  `Hi ${o.address_snapshot.name}, greeting from Rasi Mom & Baby regarding order #${o.order_no}!`,
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full border border-ink bg-[#D6E8B0] px-2.5 py-0.5 text-[11px] font-extrabold hover:bg-[#B9EBDD] transition-colors"
+              >
+                💬 WhatsApp
+              </a>
+            </div>
           </div>
         ))}
       </Card>
@@ -194,7 +295,20 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
 
   return (
     <div className="grid gap-3">
-      {orders.length === 0 && <p className="text-mute">Orders will appear here.</p>}
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-display text-[18px] font-extrabold">🚚 Orders Management ({orders.length})</span>
+        {orders.length > 0 && (
+          <button
+            type="button"
+            onClick={() => exportOrdersToCSV(orders)}
+            className="btn-press rounded-pill border-2 border-ink bg-[#D6E8B0] px-3.5 py-1.5 font-display text-[13px] font-extrabold shadow-hard-2 hover:opacity-90 cursor-pointer"
+          >
+            📥 Export Orders CSV
+          </button>
+        )}
+      </div>
+
+      {orders.length === 0 && <p className="text-mute">Orders will appear here once customers place them.</p>}
       {orders.map((o) => (
         <Card key={o.id} className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
