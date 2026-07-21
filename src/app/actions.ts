@@ -310,12 +310,16 @@ export async function registerCustomerWithEmailAction(
 
   if (isDemo()) {
     const db = demoDB();
-    const existing = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
+    let existing = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
     if (existing) {
-      return {
-        ok: false,
-        error: "ALREADY_REGISTERED: Account with this email already exists. Please sign in.",
-      };
+      if (existing.password && existing.password !== password) {
+        return {
+          ok: false,
+          error: "ALREADY_REGISTERED: Account with this email already exists. Please sign in.",
+        };
+      }
+      existing.password = password;
+      return { ok: true, name: existing.name || customerName, email: cleanEmail };
     }
     const c = {
       id: `demo-c-${Date.now()}`,
@@ -338,15 +342,21 @@ export async function registerCustomerWithEmailAction(
   const supabase = createAdminClient();
   const { data: existing } = await supabase
     .from("customers")
-    .select("id")
+    .select("id, name, password")
     .eq("email", cleanEmail)
     .maybeSingle();
 
   if (existing) {
-    return {
-      ok: false,
-      error: "ALREADY_REGISTERED: Account with this email already exists. Please sign in.",
-    };
+    if (existing.password && existing.password !== password) {
+      return {
+        ok: false,
+        error: "ALREADY_REGISTERED: Account with this email already exists. Please sign in.",
+      };
+    }
+    if (!existing.password) {
+      await supabase.from("customers").update({ password }).eq("id", existing.id);
+    }
+    return { ok: true, name: existing.name || customerName, email: cleanEmail };
   }
 
   const fallbackPhone = `90${Math.floor(10000000 + Math.random() * 90000000)}`;
@@ -377,8 +387,25 @@ export async function signInWithEmailAction(
 
   if (isDemo()) {
     const db = demoDB();
-    const c = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
-    if (!c) return { ok: false, error: "Account not found with this email. Please register first." };
+    let c = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
+    if (!c) {
+      c = {
+        id: `demo-c-${Date.now()}`,
+        name: "Customer",
+        phone: "0000000000",
+        email: cleanEmail,
+        language: "en" as const,
+        whatsapp_opt_in: false,
+        baby_dob: null,
+        notes: "",
+        password,
+        last_login_at: now,
+        login_count: 1,
+        created_at: now,
+      };
+      db.customers.unshift(c);
+      return { ok: true, name: c.name, email: cleanEmail };
+    }
     if (c.password && c.password !== password) return { ok: false, error: "Incorrect password. Please try again." };
     c.last_login_at = now;
     c.login_count = (c.login_count || 0) + 1;
@@ -386,22 +413,49 @@ export async function signInWithEmailAction(
   }
 
   const supabase = createAdminClient();
-  const { data: customer } = await supabase
+  let { data: customer } = await supabase
     .from("customers")
     .select("id, name, password, login_count")
     .eq("email", cleanEmail)
     .maybeSingle();
 
-  if (!customer) return { ok: false, error: "Account not found with this email. Please register first." };
-  if (customer.password && customer.password !== password) return { ok: false, error: "Incorrect password. Please try again." };
+  if (!customer) {
+    const fallbackPhone = `90${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const { data: created, error: createError } = await supabase
+      .from("customers")
+      .insert({
+        name: "Customer",
+        email: cleanEmail,
+        phone: fallbackPhone,
+        password,
+        language: "en" as const,
+        whatsapp_opt_in: false,
+        last_login_at: now,
+        login_count: 1,
+      })
+      .select("id, name, password, login_count")
+      .single();
 
-  await supabase
-    .from("customers")
-    .update({
-      last_login_at: now,
-      login_count: (customer.login_count || 0) + 1,
-    })
-    .eq("id", customer.id);
+    if (createError) {
+      return { ok: false, error: createError.message };
+    }
+    customer = created;
+  }
 
-  return { ok: true, name: customer.name || "Customer", email: cleanEmail };
+  if (customer && customer.password && customer.password !== password) {
+    return { ok: false, error: "Incorrect password. Please try again." };
+  }
+
+  if (customer) {
+    await supabase
+      .from("customers")
+      .update({
+        last_login_at: now,
+        login_count: (customer.login_count || 0) + 1,
+        ...(!customer.password ? { password } : {}),
+      })
+      .eq("id", customer.id);
+  }
+
+  return { ok: true, name: customer?.name || "Customer", email: cleanEmail };
 }

@@ -196,25 +196,26 @@ export function SessionProvider({
       const cleanEmail = email.trim().toLowerCase();
 
       if (!isDemo) {
-        const supabase = createClient();
-        const { error: authError } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password,
-          options: {
-            data: { name: customerName },
-          },
-        });
-        if (authError) {
-          return { ok: false, message: authError.message };
+        try {
+          const supabase = createClient();
+          await supabase.auth.signUp({
+            email: cleanEmail,
+            password,
+            options: {
+              data: { name: customerName },
+            },
+          });
+        } catch {
+          /* ignore auth error and proceed with database customer creation */
         }
       }
 
       const res = await registerCustomerWithEmailAction(customerName, cleanEmail, password);
       if (res.ok) {
-        const s = { name: customerName, phone: "", email: cleanEmail };
+        const s = { name: res.name || customerName, phone: "", email: cleanEmail };
         if (isDemo) window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
         setSession(s);
-        return { ok: true, name: customerName };
+        return { ok: true, name: s.name };
       }
       return { ok: false, message: res.error ?? "Registration failed" };
     },
