@@ -70,5 +70,34 @@ export const TILE_SWATCHES = [
   "#FFE1A8", "#C7E9FF", "#FFCBD9", "#D6E8B0", "#E4D6FF", "#B9EBDD", "#FFD6C2", "#FBD0EA",
 ] as const;
 
+/**
+ * Hover glow: each pastel tile swatch maps to its saturated twin from
+ * CATEGORY_META.pop, so a lit-up card stays inside the eight brand colours
+ * instead of introducing a ninth. Unknown colours fall back to brand pink.
+ */
+const TILE_GLOW: Record<string, string> = {
+  "#FFE1A8": "#F59E0B", // amber
+  "#C7E9FF": "#3B9EDB", // blue
+  "#FFCBD9": "#EC5D8A", // pink
+  "#D6E8B0": "#7CB342", // green
+  "#E4D6FF": "#9A6BE0", // violet
+  "#B9EBDD": "#1FB995", // teal
+  "#FFD6C2": "#F26B4A", // coral
+  "#FBD0EA": "#D65BB0", // magenta
+};
+
+export const glowFor = (tile: string): string =>
+  TILE_GLOW[tile.trim().toUpperCase()] ?? "#EC5D8A";
+
+/** Inline `--glow` for the .glow-card utility. */
+export const glowStyle = (tile: string): Record<string, string> => ({ "--glow": glowFor(tile) });
+
+/**
+ * Absolute site origin, never with a trailing slash — NEXT_PUBLIC_SITE_URL is
+ * commonly pasted with one, which was producing "//c/feeding" in the sitemap.
+ */
+export const siteUrl = (): string =>
+  (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+
 /** Format INR like the reference: ₹1,299 */
 export const inr = (n: number) => "₹" + Number(n).toLocaleString("en-IN");

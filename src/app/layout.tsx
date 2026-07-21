@@ -5,7 +5,8 @@ import { getLanguage } from "@/lib/i18n/server";
 import { CartProvider } from "@/lib/store/CartProvider";
 import { SessionProvider } from "@/lib/store/SessionProvider";
 import { isDemo } from "@/lib/data/mode";
-import { BUSINESS } from "@/lib/constants";
+import { BUSINESS, siteUrl } from "@/lib/constants";
+import { Analytics } from "@/components/Analytics";
 import "./globals.css";
 
 const baloo = Baloo_2({
@@ -29,13 +30,27 @@ const notoTamil = Noto_Sans_Tamil({
   display: "swap",
 });
 
+const DESCRIPTION =
+  "Thoothukudi's most-loved baby store. Baby products, toys, clothing and mom care — same-day delivery in Thoothukudi for orders before 4 PM.";
+
 export const metadata: Metadata = {
+  // Required for OG/canonical URLs to resolve to absolute links — without it
+  // a shared link renders no preview card at all.
+  metadataBase: new URL(siteUrl()),
   title: {
     default: `${BUSINESS.name} — Baby Store, Thoothukudi`,
     template: `%s · ${BUSINESS.name}`,
   },
-  description:
-    "Thoothukudi's most-loved baby store. Baby products, toys, clothing and mom care — same-day delivery in Thoothukudi for orders before 4 PM.",
+  description: DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: BUSINESS.name,
+    locale: "en_IN",
+    title: `${BUSINESS.name} — Baby Store, Thoothukudi`,
+    description: DESCRIPTION,
+    images: [{ url: "/logo.png", width: 512, height: 512, alt: BUSINESS.name }],
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {
@@ -58,6 +73,7 @@ export default async function RootLayout({
             <CartProvider>{children}</CartProvider>
           </SessionProvider>
         </LanguageProvider>
+        <Analytics />
       </body>
     </html>
   );

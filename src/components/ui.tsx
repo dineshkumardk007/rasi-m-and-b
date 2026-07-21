@@ -6,6 +6,7 @@
  * modals 4px/r24/shadow6 (bottom sheet on phones), inputs 2.5px/r14.
  */
 import type { CSSProperties, ReactNode } from "react";
+import Image from "next/image";
 
 export function Btn({
   children,
@@ -135,7 +136,7 @@ export function Field({
   );
 }
 
-/** Emoji product tile — the framed placeholder that real photos later fill. */
+/** Product tile — a real photo when one exists, the emoji placeholder until then. */
 export function Art({
   emoji,
   bg,
@@ -143,6 +144,8 @@ export function Art({
   isBundle,
   image,
   alt,
+  priority,
+  sizes = "(max-width: 640px) 45vw, 260px",
 }: {
   emoji: string;
   bg: string;
@@ -150,6 +153,10 @@ export function Art({
   isBundle?: boolean;
   image?: string;
   alt?: string;
+  /** Set on above-the-fold tiles so the browser fetches them first. */
+  priority?: boolean;
+  /** Widths this tile occupies, so Next serves an appropriately sized file. */
+  sizes?: string;
 }) {
   return (
     <div
@@ -157,8 +164,14 @@ export function Art({
       className="relative flex items-center justify-center overflow-hidden rounded-tile border-2.5 border-ink"
     >
       {image ? (
-        // eslint-disable-next-line @next/next/no-img-element -- storage URLs are dynamic
-        <img src={image} alt={alt ?? ""} className="h-full w-full object-cover" />
+        <Image
+          src={image}
+          alt={alt ?? ""}
+          fill
+          sizes={sizes}
+          priority={priority}
+          className="object-cover"
+        />
       ) : (
         <span aria-hidden>{emoji}</span>
       )}

@@ -9,6 +9,7 @@ import {
   CATEGORY_META,
   MILESTONES,
   MILESTONE_META,
+  glowStyle,
   inr,
   type Category,
   type Milestone,
@@ -178,7 +179,8 @@ export function Marquee({
             <button
               key={i}
               onClick={() => openProduct(p)}
-              className="pop w-[150px] shrink-0 rounded-card border-3 border-ink bg-paper p-2.5 text-left shadow-hard-4"
+              style={glowStyle(p.tile_color)}
+              className="pop glow-card w-[150px] shrink-0 rounded-card border-3 border-ink bg-paper p-2.5 text-left shadow-hard-4"
               tabIndex={i < products.length ? 0 : -1}
             >
               <Art emoji={p.emoji} bg={p.tile_color} h={90} image={p.images[0]} alt={p.name_en} />
@@ -227,8 +229,8 @@ export function CategoryGrid({
                 setCategory(on ? "all" : c);
                 scrollShop();
               }}
-              style={{ background: meta.bg }}
-              className={`pop flex flex-col items-center gap-[7px] rounded-tile-lg border-3 border-ink px-2.5 py-4 shadow-hard-5 ${
+              style={{ background: meta.bg, ...glowStyle(meta.bg) }}
+              className={`pop glow-tile flex flex-col items-center gap-[7px] rounded-tile-lg border-3 border-ink px-2.5 py-4 shadow-hard-5 ${
                 on ? "tile-pressed" : ""
               }`}
             >
@@ -264,7 +266,7 @@ export function BuyAgain({
       <h2 className="mb-3 font-display text-[22px] font-extrabold">🔁 {t("buyAgain.title")}</h2>
       <div className="flex gap-3 overflow-x-auto pb-2">
         {products.map((p) => (
-          <Card key={p.id} className="w-40 shrink-0 p-2.5">
+          <Card key={p.id} className="pop glow-card w-40 shrink-0 p-2.5" style={glowStyle(p.tile_color)}>
             <Art emoji={p.emoji} bg={p.tile_color} h={90} image={p.images[0]} alt={p.name_en} />
             <div className="mt-2 text-[12px] font-bold leading-[1.2]">{nameOf(p, lang)}</div>
             <div className="mt-1 font-display font-extrabold text-brand">{inr(p.price)}</div>
@@ -296,7 +298,7 @@ export function BundlesSection({
       <p className="mb-3.5 text-[14px] text-mute">{t("bundles.sub")}</p>
       <div className="grid grid-cols-2 gap-3.5 md:grid-cols-3">
         {bundles.map((b) => (
-          <Card key={b.id} className="flex flex-col p-3">
+          <Card key={b.id} className="pop glow-card flex flex-col p-3" style={glowStyle(b.tile_color)}>
             <Art emoji={b.emoji} bg={b.tile_color} h={100} isBundle />
             <div className="mt-2.5 font-display font-extrabold">
               {lang === "ta" ? b.name_ta : b.name_en}
@@ -399,7 +401,11 @@ export function ShopGrid({
 
       <div className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-4">
         {filtered.map((p) => (
-          <div key={p.id} className="pop flex flex-col rounded-card border-3 border-ink bg-paper p-2.5 shadow-hard-4">
+          <div
+            key={p.id}
+            style={glowStyle(p.tile_color)}
+            className="pop glow-card flex flex-col rounded-card border-3 border-ink bg-paper p-2.5 shadow-hard-4"
+          >
             <button onClick={() => openProduct(p)} aria-label={nameOf(p, lang)}>
               <Art emoji={p.emoji} bg={p.tile_color} h={130} image={p.images[0]} alt={p.name_en} />
             </button>

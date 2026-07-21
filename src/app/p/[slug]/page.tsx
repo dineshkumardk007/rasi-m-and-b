@@ -21,10 +21,37 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const product = await getProductBySlug(slug);
   if (!product) return {};
   const lang = await getLanguage();
+  const name = lang === "ta" ? product.name_ta : product.name_en;
+  const description = lang === "ta" ? product.description_ta : product.description_en;
+
+  /**
+   * The preview card a customer sees when this link lands in WhatsApp. Price
+   * goes in the description because that is the line people actually read in
+   * the card; the product photo is the image when there is one, falling back
+   * to the shop logo so the card is never blank.
+   */
   return {
-    title: lang === "ta" ? product.name_ta : product.name_en,
-    description: lang === "ta" ? product.description_ta : product.description_en,
+    title: name,
+    description,
     alternates: { canonical: `/p/${slug}` },
+    openGraph: {
+      type: "website",
+      siteName: BUSINESS.name,
+      title: `${name} — ${inr(product.price)}`,
+      description,
+      url: `/p/${slug}`,
+      images: [
+        {
+          url: product.images[0] ?? "/logo.png",
+          alt: name,
+        },
+      ],
+    },
+    twitter: {
+      card: product.images[0] ? "summary_large_image" : "summary",
+      title: `${name} — ${inr(product.price)}`,
+      description,
+    },
   };
 }
 

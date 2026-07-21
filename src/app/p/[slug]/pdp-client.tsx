@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Product, Review } from "@/lib/types";
 import { useCart } from "@/lib/store/CartProvider";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { inr, MILESTONE_META } from "@/lib/constants";
 import { Art, Badge, Btn, Stars, Toast } from "@/components/ui";
+import { ShareButton } from "@/components/storefront/ShareButton";
+import { trackAddToCart, trackViewContent } from "@/lib/analytics";
 
 /** Client half of the SEO PDP — framed tile, buy box, approved reviews. */
 export function PdpClient({ product: p, reviews }: { product: Product; reviews: Review[] }) {
@@ -15,6 +17,11 @@ export function PdpClient({ product: p, reviews }: { product: Product; reviews: 
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const meta = MILESTONE_META[p.milestone];
+
+  // Shared links land here, so this page is a first touch for many customers.
+  useEffect(() => {
+    trackViewContent({ id: p.id, name: p.name_en, price: p.price });
+  }, [p.id, p.name_en, p.price]);
 
   return (
     <div className="rounded-card border-3 border-ink bg-paper p-4 shadow-hard-4">
@@ -52,6 +59,7 @@ export function PdpClient({ product: p, reviews }: { product: Product; reviews: 
           disabled={p.stock === 0}
           onClick={() => {
             cart.add(p.id);
+            trackAddToCart({ id: p.id, name: p.name_en, price: p.price });
             setToast(t("toast.addedToCart"));
             window.setTimeout(() => {
               setToast(null);
@@ -61,6 +69,16 @@ export function PdpClient({ product: p, reviews }: { product: Product; reviews: 
         >
           {p.stock === 0 ? t("shop.soldOut") : `${t("shop.addToCart")} — ${inr(p.price)}`}
         </Btn>
+      </div>
+
+      <div className="mt-2.5">
+        <ShareButton
+          product={p}
+          notify={(m) => {
+            setToast(m);
+            window.setTimeout(() => setToast(null), 2200);
+          }}
+        />
       </div>
 
       {reviews.length > 0 && (

@@ -159,6 +159,28 @@ export interface ProductInput {
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 
+/**
+ * products.slug is UNIQUE, and the slug is derived from the English name — so
+ * two products named alike ("Cotton Frock") would collide and the insert would
+ * fail. Suffix the slug instead, keeping the shareable /p/[slug] link working
+ * for both rather than rejecting the second product.
+ */
+async function uniqueSlug(
+  supabase: ReturnType<typeof createAdminClient>,
+  base: string,
+): Promise<string> {
+  for (let n = 1; n <= 50; n++) {
+    const candidate = n === 1 ? base : `${base}-${n}`;
+    const { data } = await supabase
+      .from("products")
+      .select("id")
+      .eq("slug", candidate)
+      .maybeSingle();
+    if (!data) return candidate;
+  }
+  return `${base}-${Date.now()}`; // 50 same-named products: fall back to unique-by-time
+}
+
 export async function listAllProducts(): Promise<Product[]> {
   if (isDemo()) return demoDB().products;
   const supabase = createAdminClient();
@@ -229,7 +251,7 @@ export async function upsertProduct(staffId: string, input: ProductInput): Promi
   } else {
     const { data, error } = await supabase
       .from("products")
-      .insert({ ...row, slug })
+      .insert({ ...row, slug: await uniqueSlug(supabase, slug) })
       .select("id")
       .single();
     if (error || !data) return null;

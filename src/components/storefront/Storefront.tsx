@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Bundle, Order, Product, Review, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { useCart } from "@/lib/store/CartProvider";
@@ -8,6 +9,13 @@ import { useSession } from "@/lib/store/SessionProvider";
 import { inr } from "@/lib/constants";
 import { Badge, Card, Modal, Pill, Toast, Btn } from "@/components/ui";
 import { myOrdersAction } from "@/app/customer-actions";
+import {
+  trackAddToCart,
+  trackBeginCheckout,
+  trackPurchase,
+  trackSearch,
+  trackViewContent,
+} from "@/lib/analytics";
 import {
   BundlesSection,
   BuyAgain,
@@ -27,6 +35,10 @@ export interface StorefrontProps {
   reviews: Review[];
   settings: StoreSettings;
   isDemo: boolean;
+  /** Filters restored from the URL — category from the path, the rest from the query. */
+  initialCategory?: string;
+  initialMilestone?: string;
+  initialQuery?: string;
 }
 
 export type ModalState =
@@ -44,11 +56,50 @@ export default function Storefront(props: StorefrontProps) {
   const { t, lang, setLang } = useT();
   const cart = useCart();
   const { session, signOut } = useSession();
+  const router = useRouter();
 
   const [route, setRoute] = useState<"home" | "orders">("home");
-  const [milestone, setMilestone] = useState<string>("all");
-  const [category, setCategory] = useState<string>("all");
-  const [query, setQuery] = useState("");
+  const [milestone, setMilestoneState] = useState<string>(props.initialMilestone ?? "all");
+  const [category, setCategoryState] = useState<string>(props.initialCategory ?? "all");
+  const [query, setQueryState] = useState(props.initialQuery ?? "");
+
+  /**
+   * Filters are mirrored into the URL so a filtered view can be shared, linked
+   * and indexed. Category is a route change (each category is its own page);
+   * age and search only rewrite the address bar via the history API, which
+   * keeps typing instant instead of firing a server render per keystroke.
+   */
+  const urlFor = useCallback((cat: string, ms: string, q: string) => {
+    const params = new URLSearchParams();
+    if (ms !== "all") params.set("age", ms);
+    if (q.trim()) params.set("q", q.trim());
+    const qs = params.toString();
+    return `${cat === "all" ? "/" : `/c/${cat}`}${qs ? `?${qs}` : ""}`;
+  }, []);
+
+  const setCategory = useCallback(
+    (c: string) => {
+      setCategoryState(c);
+      router.push(urlFor(c, milestone, query), { scroll: false });
+    },
+    [router, urlFor, milestone, query],
+  );
+
+  const setMilestone = useCallback(
+    (m: string) => {
+      setMilestoneState(m);
+      window.history.replaceState(null, "", urlFor(category, m, query));
+    },
+    [urlFor, category, query],
+  );
+
+  const setQuery = useCallback(
+    (q: string) => {
+      setQueryState(q);
+      window.history.replaceState(null, "", urlFor(category, milestone, q));
+    },
+    [urlFor, category, milestone],
+  );
   const [modal, setModal] = useState<ModalState>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
@@ -76,9 +127,34 @@ export default function Storefront(props: StorefrontProps) {
     (itemId: string) => {
       cart.add(itemId);
       notify(t("toast.addedToCart"));
+
+      // Bundles carry a "b:" prefix; report either one as a trackable line.
+      const bundle = itemId.startsWith("b:")
+        ? bundles.find((b) => b.id === itemId.slice(2))
+        : undefined;
+      const product = bundle ? undefined : products.find((p) => p.id === itemId);
+      if (bundle) {
+        trackAddToCart({ id: bundle.id, name: bundle.name_en, price: bundle.bundle_price });
+      } else if (product) {
+        trackAddToCart({ id: product.id, name: product.name_en, price: product.price });
+      }
     },
-    [cart, notify, t],
+    [cart, notify, t, products, bundles],
   );
+
+  /** Quick view — the moment a customer shows interest in one product. */
+  const openProduct = useCallback((p: Product) => {
+    trackViewContent({ id: p.id, name: p.name_en, price: p.price });
+    setModal({ type: "product", product: p });
+  }, []);
+
+  // Search terms, once typing settles — noisy per-keystroke events help nobody.
+  useEffect(() => {
+    const term = query.trim();
+    if (term.length < 3) return;
+    const timer = window.setTimeout(() => trackSearch(term), 900);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   // Resolve cart lines against the catalog
   const cartItems = useMemo(
@@ -138,9 +214,13 @@ export default function Storefront(props: StorefrontProps) {
       <div className="mx-auto flex max-w-[1080px] flex-wrap items-center gap-2.5 px-5 py-3.5">
         <button
           onClick={() => {
+            // Full reset — go straight to "/" rather than composing a URL from
+            // the individual setters, whose closures still hold the old values.
             setRoute("home");
-            setMilestone("all");
-            setCategory("all");
+            setMilestoneState("all");
+            setCategoryState("all");
+            setQueryState("");
+            router.push("/");
           }}
           className="flex items-center gap-2.5"
           aria-label={BUSINESS.name}
@@ -200,7 +280,7 @@ export default function Storefront(props: StorefrontProps) {
       {route === "home" && (
         <div>
           <Hero />
-          <Marquee products={products.slice(0, 8)} openProduct={(p) => setModal({ type: "product", product: p })} />
+          <Marquee products={products.slice(0, 8)} openProduct={openProduct} />
           <CategoryGrid category={category} setCategory={setCategory} />
           <BuyAgain products={buyAgain} addToCart={addToCart} />
           <BundlesSection bundles={bundles} addToCart={(b) => addToCart(`b:${b.id}`)} />
@@ -213,7 +293,7 @@ export default function Storefront(props: StorefrontProps) {
             query={query}
             setQuery={setQuery}
             addToCart={addToCart}
-            openProduct={(p) => setModal({ type: "product", product: p })}
+            openProduct={openProduct}
           />
           <Trust />
         </div>
@@ -262,7 +342,17 @@ export default function Storefront(props: StorefrontProps) {
           settings={settings}
           setQty={cart.setQty}
           onClose={() => setModal(null)}
-          onCheckout={() => setModal({ type: "checkout" })}
+          onCheckout={() => {
+            trackBeginCheckout(
+              cartItems.map((c) => ({
+                id: c.itemId,
+                name: c.name,
+                price: c.price,
+                qty: c.qty,
+              })),
+            );
+            setModal({ type: "checkout" });
+          }}
         />
       )}
       {modal?.type === "checkout" && (
@@ -273,6 +363,17 @@ export default function Storefront(props: StorefrontProps) {
           isDemo={isDemo}
           onClose={() => setModal(null)}
           onPlaced={(order) => {
+            // Report the charged total (delivery and discount included) so ad
+            // platforms optimise against real revenue, not the cart subtotal.
+            trackPurchase(
+              order.total,
+              order.items.map((i) => ({
+                id: i.product_id,
+                name: i.name_snapshot,
+                price: i.price_snapshot,
+                qty: i.qty,
+              })),
+            );
             cart.clear();
             setModal({ type: "orderDone", order });
           }}

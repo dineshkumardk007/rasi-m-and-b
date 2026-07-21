@@ -163,9 +163,17 @@ const en = {
   "auth.signedOut": "Signed out",
   "auth.welcomeBack": "Welcome back",
 
+  // Share
+  "product.viewPage": "Open full page →",
+  "share.button": "Share",
+  "share.whatsapp": "Share on WhatsApp",
+  "share.copyLink": "Copy link",
+  "share.message": "Look at this from {store} 👶",
+
   // Toasts
   "toast.addedToCart": "Added to cart 🛒",
   "toast.reviewThanks": "Thanks for your review! 💛",
+  "toast.linkCopied": "Link copied — paste it anywhere 🔗",
 
   // Orders page
   "orders.title": "My orders",
@@ -323,8 +331,15 @@ const ta: Record<TranslationKey, string> = {
   "auth.signedOut": "வெளியேறினீர்கள்",
   "auth.welcomeBack": "வரவேற்கிறோம்",
 
+  "product.viewPage": "முழு பக்கம் →",
+  "share.button": "பகிர்",
+  "share.whatsapp": "வாட்ஸ்அப்பில் பகிர்",
+  "share.copyLink": "இணைப்பை நகலெடு",
+  "share.message": "{store} கடையில் இதைப் பாருங்கள் 👶",
+
   "toast.addedToCart": "கூடையில் சேர்க்கப்பட்டது 🛒",
   "toast.reviewThanks": "நன்றி! 💛",
+  "toast.linkCopied": "இணைப்பு நகலெடுக்கப்பட்டது 🔗",
 
   "orders.title": "என் ஆர்டர்கள்",
   "orders.none": "இன்னும் ஆர்டர்கள் இல்லை.",

@@ -49,6 +49,48 @@ Put `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` and `ADMIN_SESSION_SECRET` in
 HMAC-signed cookies that expire after 12h; rotating the secret signs everyone
 out. Five failed logins from one IP trigger a 15-minute lockout.
 
+## Analytics
+
+Set `NEXT_PUBLIC_META_PIXEL_ID` and/or `NEXT_PUBLIC_GA4_MEASUREMENT_ID` (see
+`.env.example`). With neither set, no tag is injected and no request leaves the
+page — dev and keyless deploys stay clean. Events fire to whichever is present:
+
+| Action | Meta | GA4 |
+| --- | --- | --- |
+| Page load | `PageView` | `page_view` |
+| Quick view / product page | `ViewContent` | `view_item` |
+| Add to cart | `AddToCart` | `add_to_cart` |
+| Checkout opened | `InitiateCheckout` | `begin_checkout` |
+| Order placed | `Purchase` | `purchase` |
+| Shop search (debounced) | `Search` | `search` |
+
+`Purchase` reports the charged total, delivery and discount included. Events
+carry product ids, names, prices and totals — never a customer's name, phone,
+address or order number. Call sites live in `src/lib/analytics.ts`.
+
+## Product photos
+
+Two ways in, both landing in the `product-images` Supabase Storage bucket:
+
+- **Admin panel** — `/admin` → Products → Edit → *Add photos*. Upload one or
+  many, drop the ones you don't want, "Make main" picks the tile image.
+- **Bulk, from a folder**:
+
+  ```bash
+  pnpm import:images "C:/path/to/photos" --dry   # preview the matches
+  pnpm import:images "C:/path/to/photos"         # upload and attach
+  ```
+
+  Filenames match products by slug — `sebamed-baby-wash-200ml.jpg`. Add `-2`,
+  `-3` for extra photos of the same product. A re-run replaces that product's
+  photos, so the folder stays the source of truth. `--dry` prints every product
+  slug, which is the quickest way to see what to rename a file to.
+
+Uploads go through the service-role client in a server action: the bucket's
+write policy wants `is_staff()`, and the admin session is a signed cookie
+rather than a Supabase auth user, so a browser-side upload would fail RLS.
+Products with no photo fall back to their emoji tile.
+
 ## Catalog import
 
 Real product data drops in without code changes:

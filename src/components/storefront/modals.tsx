@@ -14,6 +14,7 @@ import {
   trackOrderAction,
 } from "@/app/actions";
 import { notifyRestockAction } from "@/app/customer-actions";
+import { ShareButton } from "./ShareButton";
 
 /* ── Product quick view ──────────────────────────────────────────────────── */
 export function ProductModal({
@@ -115,6 +116,17 @@ export function ProductModal({
             🔔 {t("product.notifyMe")}
           </Btn>
         )}
+      </div>
+
+      {/* Share + permanent link to the product's own page */}
+      <div className="mt-2.5 flex items-center gap-2.5">
+        <ShareButton product={p} notify={notify} small />
+        <a
+          href={`/p/${p.slug}`}
+          className="text-[13px] font-bold text-mute underline"
+        >
+          {t("product.viewPage")}
+        </a>
       </div>
 
       {/* Reviews */}

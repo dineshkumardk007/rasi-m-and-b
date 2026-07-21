@@ -6,11 +6,20 @@ import {
   getSettings,
 } from "@/lib/data/catalog";
 import { isDemo } from "@/lib/data/mode";
-import { BUSINESS } from "@/lib/constants";
+import { BUSINESS, MILESTONES } from "@/lib/constants";
 
 export const dynamic = "force-dynamic"; // live stock + settings on every view
 
-export default async function HomePage() {
+interface Props {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function HomePage({ searchParams }: Props) {
+  // Age and search survive a reload / shared link; category has its own route.
+  const sp = await searchParams;
+  const age = typeof sp.age === "string" ? sp.age : undefined;
+  const query = typeof sp.q === "string" ? sp.q : undefined;
+
   const [products, bundles, reviews, settings] = await Promise.all([
     getActiveProducts(),
     getActiveBundles(),
@@ -50,6 +59,10 @@ export default async function HomePage() {
         reviews={reviews}
         settings={settings}
         isDemo={isDemo()}
+        initialMilestone={
+          age && (MILESTONES as readonly string[]).includes(age) ? age : undefined
+        }
+        initialQuery={query}
       />
     </>
   );

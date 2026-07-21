@@ -62,6 +62,7 @@
   }
 
   /* Marquee edge fade — the only mask in the system */
+  /* (the .glow-card hover lives in the utilities layer, below) */
   .marquee-mask {
     mask-image: linear-gradient(
       to right,
@@ -118,6 +119,81 @@
 
   .animate-modal {
     animation: modalSlideUp 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+@layer utilities {
+  /**
+   * Hover glow for product / bundle / category boxes. Each card carries its own
+   * --glow (see glowStyle in constants.ts), so the grid lights up in eight
+   * different colours rather than one.
+   *
+   * The lit state keeps the system's hard offset shadow and adds a soft halo in
+   * the same colour — the one deliberate exception to "never blur", alongside
+   * the hero blobs. Lives in the utilities layer so :hover (0,2,0) outranks the
+   * shadow-hard-* utility the cards already carry.
+   */
+  .glow-card,
+  .glow-tile {
+    --glow: var(--ink);
+    transition:
+      transform 0.16s ease,
+      box-shadow 0.2s ease,
+      background-color 0.2s ease;
+  }
+
+  /*
+   * Resting state is restated here, rather than left to the shadow-hard-*
+   * utility, for two reasons: !important is needed to outrank that utility at
+   * all, and both states must carry the SAME number of shadows or the browser
+   * cannot interpolate between them — the glow would snap on instead of fading.
+   * The second shadow is a zero-size transparent placeholder that the lit state
+   * grows into.
+   */
+  .glow-card {
+    box-shadow:
+      4px 4px 0 var(--ink),
+      0 0 0 -6px transparent !important;
+  }
+  .glow-tile:not(.tile-pressed) {
+    box-shadow:
+      5px 5px 0 var(--ink),
+      0 0 0 -6px transparent !important;
+  }
+
+  /* Lit: hard offset shadow in the box's own colour, plus a soft halo. */
+  .glow-card:hover,
+  .glow-card:focus-within {
+    box-shadow:
+      4px 4px 0 var(--glow),
+      0 0 20px -4px var(--glow) !important;
+  }
+
+  /*
+   * Inner wash: the card's white surface takes a tint of its own colour.
+   *
+   * This is the element's own background-color, NOT a gradient overlay — an
+   * overlay sits behind the card's contents, so the opaque product tile covers
+   * most of it and the white strip below barely tints. A background-color
+   * reaches every white area evenly, transitions natively, and still can't
+   * cast colour over a product photo (the photo paints on top of it).
+   */
+  .glow-card:hover,
+  .glow-card:focus-within {
+    background-color: color-mix(in srgb, var(--glow) 16%, #fff) !important;
+  }
+  .glow-tile:hover,
+  .glow-tile:focus-within {
+    box-shadow:
+      5px 5px 0 var(--glow),
+      0 0 24px -4px var(--glow) !important;
+  }
+  /* A selected (pressed-in) tile stays pressed while it glows */
+  .tile-pressed.glow-tile:hover,
+  .tile-pressed.glow-tile:focus-within {
+    box-shadow:
+      2px 2px 0 var(--glow),
+      0 0 18px -6px var(--glow) !important;
   }
 }
 

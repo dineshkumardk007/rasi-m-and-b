@@ -15,6 +15,17 @@ import {
   type ProductInput,
 } from "@/lib/data/admin";
 import type { Coupon, OrderStatus, StoreSettings } from "@/lib/types";
+import { randomUUID } from "node:crypto";
+import { isDemo } from "@/lib/data/mode";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { env } from "@/env.mjs";
+import {
+  PRODUCT_IMAGE_BUCKET,
+  imageObjectPath,
+  objectPathFromUrl,
+  publicUrlFor,
+  validateImage,
+} from "@/lib/images";
 
 /** Every admin action re-checks the staff gate server-side, then audits. */
 
@@ -22,6 +33,59 @@ async function gate() {
   const staff = await requireStaff();
   if (!staff) throw new Error("Not authorized");
   return staff.userId;
+}
+
+/**
+ * Upload one product photo to Supabase Storage and return its public URL.
+ *
+ * Goes through the service-role client because the bucket's write policy wants
+ * is_staff(), and the admin session is a signed cookie rather than a Supabase
+ * auth user — so RLS would reject an anon-key upload from the browser. The
+ * gate() above is therefore the only thing standing between a caller and the
+ * bucket: keep it first.
+ *
+ * The returned URL is held in form state and persisted by upsertProductAction,
+ * so an abandoned form leaves an orphan object but never a broken product row.
+ */
+export async function uploadProductImageAction(
+  formData: FormData,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  await gate();
+
+  if (isDemo()) {
+    return { ok: false, error: "Image upload needs Supabase keys — currently in demo mode." };
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) return { ok: false, error: "No file received." };
+
+  const check = validateImage(file.type, file.size);
+  if (!check.ok) return { ok: false, error: check.error };
+
+  const slugHint = (formData.get("slug") as string | null) ?? "product";
+  const objectPath = imageObjectPath(slugHint, file.type, randomUUID());
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.storage
+    .from(PRODUCT_IMAGE_BUCKET)
+    .upload(objectPath, await file.arrayBuffer(), {
+      contentType: file.type,
+      cacheControl: "31536000", // immutable: the random key changes on re-upload
+      upsert: false,
+    });
+
+  if (error) return { ok: false, error: `Upload failed: ${error.message}` };
+
+  return { ok: true, url: publicUrlFor(env.NEXT_PUBLIC_SUPABASE_URL, objectPath) };
+}
+
+/** Remove a product photo from storage. Ignores images hosted elsewhere. */
+export async function deleteProductImageAction(url: string): Promise<void> {
+  await gate();
+  if (isDemo()) return;
+  const objectPath = objectPathFromUrl(url);
+  if (!objectPath) return;
+  await createAdminClient().storage.from(PRODUCT_IMAGE_BUCKET).remove([objectPath]);
 }
 
 export async function setOrderStatusAction(orderId: string, status: OrderStatus) {

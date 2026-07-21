@@ -25,6 +25,8 @@ import {
   addCouponAction,
   archiveProductAction,
   deleteCouponAction,
+  deleteProductImageAction,
+  uploadProductImageAction,
   moderateReviewAction,
   saveCustomerNoteAction,
   updateProductStockAction,
@@ -266,8 +268,10 @@ function ProductForm({
     tile_color: product?.tile_color ?? "#FFE1A8",
     description_en: product?.description_en ?? "",
     description_ta: product?.description_ta ?? "",
+    images: product?.images ?? [],
   });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const toggleCat = (c: Category) =>
     setF((prev) => ({
       ...prev,
@@ -279,7 +283,8 @@ function ProductForm({
   const save = async () => {
     if (!f.name_en || !f.price || f.categories.length === 0) return;
     setSaving(true);
-    await upsertProductAction({
+    setSaveError(null);
+    const id = await upsertProductAction({
       id: product?.id,
       name_en: f.name_en,
       name_ta: f.name_ta,
@@ -293,7 +298,15 @@ function ProductForm({
       emoji: f.emoji,
       description_en: f.description_en,
       description_ta: f.description_ta,
+      images: f.images,
     });
+    // upsertProduct returns null when the database rejects the row. Closing the
+    // form regardless made a failed save look like a successful one.
+    if (!id) {
+      setSaving(false);
+      setSaveError("Could not save this product. Check the fields and try again.");
+      return;
+    }
     onSaved();
   };
 
@@ -386,10 +399,29 @@ function ProductForm({
           className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2.5 font-body text-[15px] outline-none"
         />
       </label>
-      <p className="mb-3 text-[12px] text-mute">
-        📷 Photo upload connects to Supabase Storage once keys are added — the emoji tile
-        shows until then.
-      </p>
+      <ProductImages
+        images={f.images}
+        slugHint={f.name_en || product?.slug || "product"}
+        onChange={(images) => setF({ ...f, images })}
+      />
+      {product && (
+        <p className="mb-3 text-[12px] text-mute">
+          Shareable link:{" "}
+          <a
+            href={`/p/${product.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-bold text-ink underline"
+          >
+            /p/{product.slug}
+          </a>
+        </p>
+      )}
+
+      {saveError && (
+        <p className="mb-3 text-[13px] font-bold text-[#E24B4A]">{saveError}</p>
+      )}
+
       <div className="flex gap-2.5">
         <Btn full bg="#F2EAE0" color="#2B2140" onClick={onClose}>
           Cancel
@@ -399,6 +431,116 @@ function ProductForm({
         </Btn>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * Product photo manager. Uploads land in Supabase Storage immediately and the
+ * URL is kept in form state — nothing is attached to the product until the
+ * form is saved, so cancelling leaves an orphan object rather than a half-saved
+ * product. The first image is what the storefront tiles show.
+ */
+function ProductImages({
+  images,
+  slugHint,
+  onChange,
+}: {
+  images: string[];
+  slugHint: string;
+  onChange: (images: string[]) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setBusy(true);
+    setError(null);
+
+    const uploaded: string[] = [];
+    for (const file of Array.from(files)) {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("slug", slugHint);
+      const res = await uploadProductImageAction(fd);
+      if (res.ok) uploaded.push(res.url);
+      else setError(res.error); // keep going; report the last failure
+    }
+
+    if (uploaded.length) onChange([...images, ...uploaded]);
+    setBusy(false);
+  };
+
+  const remove = async (url: string) => {
+    onChange(images.filter((u) => u !== url));
+    await deleteProductImageAction(url);
+  };
+
+  const makeMain = (url: string) => onChange([url, ...images.filter((u) => u !== url)]);
+
+  return (
+    <div className="mb-4">
+      <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+        Product photos
+      </span>
+
+      {images.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2.5">
+          {images.map((url, i) => (
+            <div key={url} className="w-[92px]">
+              <div className="relative h-[92px] w-[92px] overflow-hidden rounded-tile border-2.5 border-ink">
+                {/* eslint-disable-next-line @next/next/no-img-element -- admin-only preview of a just-uploaded blob */}
+                <img src={url} alt="" className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => remove(url)}
+                  aria-label="Remove photo"
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-ink bg-white text-[12px] font-extrabold shadow-hard-2"
+                >
+                  ✕
+                </button>
+                {i === 0 && (
+                  <span className="absolute bottom-1 left-1 rounded-xl border-2 border-ink bg-brand px-1.5 text-[9px] font-extrabold text-white">
+                    MAIN
+                  </span>
+                )}
+              </div>
+              {i !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => makeMain(url)}
+                  className="mt-1 w-full text-[11px] font-extrabold text-mute underline"
+                >
+                  Make main
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <label className="mt-2.5 flex cursor-pointer items-center justify-center gap-2 rounded-tile border-2.5 border-dashed border-ink bg-paper px-4 py-3 font-display text-[13px] font-extrabold">
+        {busy ? "Uploading…" : "📷 Add photos (JPG, PNG or WebP · max 5 MB)"}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/avif"
+          multiple
+          disabled={busy}
+          onChange={(e) => {
+            void handleFiles(e.target.files);
+            e.target.value = ""; // allow re-picking the same file after a remove
+          }}
+          className="hidden"
+        />
+      </label>
+
+      {error && <p className="mt-1.5 text-[12px] font-bold text-[#E24B4A]">{error}</p>}
+      {images.length === 0 && !error && (
+        <p className="mt-1.5 text-[12px] text-mute">
+          No photo yet — the storefront shows the emoji tile until you add one.
+        </p>
+      )}
+    </div>
   );
 }
 
