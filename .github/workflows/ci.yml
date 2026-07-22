@@ -1,0 +1,52 @@
+name: CI
+
+# Lint, types, tests and a real production build on every push and PR. The
+# build step is the one that catches what the others miss — a bad import or a
+# server/client boundary violation only surfaces when Next actually compiles.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to the same branch makes the in-flight run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # No secrets in CI. The site treats "no Supabase URL" as demo mode and
+      # runs entirely on the in-memory store, which is exactly what we want to
+      # build against here — a green CI must never depend on production keys.
+      SKIP_ENV_VALIDATION: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.5.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build

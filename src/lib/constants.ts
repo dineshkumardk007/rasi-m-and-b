@@ -7,6 +7,14 @@ export const BUSINESS = {
   address:
     "176, Palayamkottai Rd, opp. Rajaji Park, Thoothukudi, Tamil Nadu 628001",
   addressShort: "176, Palayamkottai Rd, opp. Rajaji Park, Thoothukudi 628001",
+  /** The same address, split for schema.org PostalAddress. */
+  postal: {
+    street: "176, Palayamkottai Rd, opp. Rajaji Park",
+    locality: "Thoothukudi",
+    region: "Tamil Nadu",
+    postalCode: "628001",
+    country: "IN",
+  },
   city: "Thoothukudi",
   opensAt: "9:00 AM",
   closesAt: null as string | null, // TODO: confirm closing time with owner before footer is finalized
@@ -15,6 +23,18 @@ export const BUSINESS = {
   staff: ["Nisha", "Harini", "Punitha"] as const, // consent confirmation pending
   sameDayCutoffHour: 16, // 4 PM local — same-day delivery cutoff
   gstin: null as string | null, // TODO: owner's GST number (invoice footer)
+  // TODO: REQUIRED before Razorpay merchant activation — the gateway checks that
+  // a reachable phone and email are published on /contact. The legal pages and
+  // the contact page render each channel only when it is non-null, so leaving
+  // these unset ships an incomplete (but not fabricated) contact page.
+  phone: null as string | null, // e.g. "+91 98765 43210"
+  email: null as string | null, // e.g. "hello@rasimomandbaby.in"
+  /**
+   * Window in days a customer has to raise a return/replacement, counted from
+   * delivery. Quoted verbatim in the refund policy, so it is a business
+   * decision rather than a constant to guess at.
+   */
+  returnWindowDays: 7, // TODO: confirm with owner — 7 is the common local default
   socials: {
     // TODO: real URLs from owner (Section 9)
     whatsapp: null as string | null,

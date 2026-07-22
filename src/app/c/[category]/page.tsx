@@ -18,6 +18,7 @@ import {
   type Category,
   type Milestone,
 } from "@/lib/constants";
+import { storeJsonLd } from "@/lib/seo/jsonld";
 
 /**
  * Category landing page — the storefront, opened on one category.
@@ -91,7 +92,11 @@ export default async function CategoryPage({ params, searchParams }: Props) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{
+          // Category pages are the main organic landing pages, so they carry
+          // the shop node too — not just the breadcrumb trail.
+          __html: JSON.stringify([breadcrumbJsonLd, storeJsonLd()]),
+        }}
       />
       <Storefront
         products={products}

@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { LEGAL_DOCS, LEGAL_SHORT } from "@/lib/legal/content";
 import type { Bundle, Order, Product, Review, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { useCart } from "@/lib/store/CartProvider";
@@ -468,6 +470,28 @@ export default function Storefront(props: StorefrontProps) {
         </div>
         <div className="text-[13px] opacity-95">{BUSINESS.addressShort}</div>
         <div className="text-[13px] opacity-95">{t("footer.hours")}</div>
+        {/*
+          Policy links. Razorpay checks these are reachable from the storefront
+          before activating the merchant account, and customers look for them
+          here before paying a shop they have not bought from before.
+        */}
+        <nav
+          aria-label={t("footer.legal")}
+          className="mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[12px]"
+        >
+          <Link href="/contact" className="underline underline-offset-2 opacity-95">
+            {t("footer.contact")}
+          </Link>
+          {LEGAL_DOCS.map((doc) => (
+            <Link
+              key={doc}
+              href={`/legal/${doc}`}
+              className="underline underline-offset-2 opacity-95"
+            >
+              {LEGAL_SHORT[lang][doc]}
+            </Link>
+          ))}
+        </nav>
         {isDemo && (
           <div className="mt-1.5 text-[11px] opacity-80">
             Demo mode — Supabase & Razorpay keys pending

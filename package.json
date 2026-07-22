@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:migrate": "supabase db push",
     "db:reset": "supabase db reset",
     "seed": "tsx scripts/seed.ts",
@@ -36,11 +38,11 @@
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3"
   },
   "engines": {
     "node": "24.x"
   },
   "packageManager": "pnpm@10.5.2"
 }
-

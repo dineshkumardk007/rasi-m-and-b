@@ -176,14 +176,14 @@ export async function loginAdminAction(
 ): Promise<{ ok: boolean; error?: string }> {
   const key = await clientKey();
 
-  if (isLockedOut(key)) {
+  if (await isLockedOut(key)) {
     return { ok: false, error: "Too many failed attempts. Try again in 15 minutes." };
   }
 
   const result = verifyAdminCredentials(username, passcode);
 
   if (!result.ok) {
-    recordFailedAttempt(key);
+    await recordFailedAttempt(key);
     return {
       ok: false,
       error:
@@ -198,7 +198,7 @@ export async function loginAdminAction(
     return { ok: false, error: "Admin session secret is missing or too short (32+ characters)." };
   }
 
-  clearAttempts(key);
+  await clearAttempts(key);
   const cookieStore = await cookies();
   cookieStore.set(ADMIN_COOKIE, token, {
     httpOnly: true,

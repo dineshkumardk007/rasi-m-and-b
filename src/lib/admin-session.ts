@@ -1,6 +1,8 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { verifyPasswordHash } from "./admin-password";
+import { isDemo } from "./data/mode";
+import { createAdminClient } from "./supabase/admin";
 
 /**
  * Admin session tokens + credential checks.
@@ -101,33 +103,81 @@ export function verifySessionToken(token: string | undefined): string | null {
 }
 
 /**
- * Failed-login throttle. In-memory, so it is per serverless instance rather
- * than global — enough to stop credential stuffing from a single client, not a
- * substitute for a WAF. Move to a Supabase table if the shop ever needs one.
+ * Failed-login throttle.
+ *
+ * This was a module-level Map, which on Vercel is one counter per warm
+ * serverless instance: an attacker got MAX_ATTEMPTS against every instance the
+ * platform routed them to, and any cold start wiped the count. The lockout the
+ * README describes only holds if the counter is shared, so the real store is a
+ * Supabase table (admin_login_attempts) written through SECURITY DEFINER
+ * functions that increment and test in a single statement.
+ *
+ * The in-memory map survives as the demo-mode path, where there is no database
+ * at all. It is explicitly best-effort there.
  */
 const MAX_ATTEMPTS = 5;
-const LOCKOUT_MS = 15 * 60 * 1000;
+const LOCKOUT_SECONDS = 15 * 60;
+const LOCKOUT_MS = LOCKOUT_SECONDS * 1000;
 const attempts = new Map<string, { count: number; firstAt: number }>();
 
-export function isLockedOut(key: string): boolean {
-  const entry = attempts.get(key);
-  if (!entry) return false;
-  if (Date.now() - entry.firstAt > LOCKOUT_MS) {
-    attempts.delete(key);
-    return false;
-  }
-  return entry.count >= MAX_ATTEMPTS;
+/**
+ * Never store the raw IP. The lockout needs to recognise a repeat visitor, not
+ * to record who they are — a keyed hash gives the first without the second.
+ * Salted with the session secret so the digests are not reversible by
+ * rainbow table across the whole IPv4 space.
+ */
+function throttleKey(key: string): string {
+  return createHmac("sha256", sessionSecret() ?? "rasi-throttle")
+    .update(key)
+    .digest("base64url");
 }
 
-export function recordFailedAttempt(key: string): void {
-  const entry = attempts.get(key);
-  if (!entry || Date.now() - entry.firstAt > LOCKOUT_MS) {
-    attempts.set(key, { count: 1, firstAt: Date.now() });
+export async function isLockedOut(key: string): Promise<boolean> {
+  if (isDemo()) {
+    const entry = attempts.get(key);
+    if (!entry) return false;
+    if (Date.now() - entry.firstAt > LOCKOUT_MS) {
+      attempts.delete(key);
+      return false;
+    }
+    return entry.count >= MAX_ATTEMPTS;
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.rpc("admin_login_attempt_count", {
+    p_key: throttleKey(key),
+    p_window_seconds: LOCKOUT_SECONDS,
+  });
+  // Fail open on a database error: a Supabase outage must not lock the owner
+  // out of their own shop. The credential check itself is still in force.
+  if (error) return false;
+  return (data ?? 0) >= MAX_ATTEMPTS;
+}
+
+export async function recordFailedAttempt(key: string): Promise<void> {
+  if (isDemo()) {
+    const entry = attempts.get(key);
+    if (!entry || Date.now() - entry.firstAt > LOCKOUT_MS) {
+      attempts.set(key, { count: 1, firstAt: Date.now() });
+      return;
+    }
+    entry.count += 1;
     return;
   }
-  entry.count += 1;
+
+  const supabase = createAdminClient();
+  await supabase.rpc("admin_record_failed_login", {
+    p_key: throttleKey(key),
+    p_window_seconds: LOCKOUT_SECONDS,
+  });
 }
 
-export function clearAttempts(key: string): void {
-  attempts.delete(key);
+export async function clearAttempts(key: string): Promise<void> {
+  if (isDemo()) {
+    attempts.delete(key);
+    return;
+  }
+
+  const supabase = createAdminClient();
+  await supabase.rpc("admin_clear_login_attempts", { p_key: throttleKey(key) });
 }

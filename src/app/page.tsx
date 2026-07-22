@@ -6,7 +6,8 @@ import {
   getSettings,
 } from "@/lib/data/catalog";
 import { isDemo } from "@/lib/data/mode";
-import { BUSINESS, MILESTONES } from "@/lib/constants";
+import { MILESTONES } from "@/lib/constants";
+import { storeJsonLd, webSiteJsonLd } from "@/lib/seo/jsonld";
 
 export const dynamic = "force-dynamic"; // live stock + settings on every view
 
@@ -27,31 +28,13 @@ export default async function HomePage({ searchParams }: Props) {
     getSettings(),
   ]);
 
-  const localBusinessJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Store",
-    name: BUSINESS.name,
-    address: {
-      "@type": "PostalAddress",
-      streetAddress: "176, Palayamkottai Rd, opp. Rajaji Park",
-      addressLocality: "Thoothukudi",
-      addressRegion: "Tamil Nadu",
-      postalCode: "628001",
-      addressCountry: "IN",
-    },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: BUSINESS.rating,
-      reviewCount: BUSINESS.reviewCount,
-    },
-    openingHours: "Mo-Su 09:00-21:00", // TODO: confirm closing time with owner
-  };
-
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([storeJsonLd(), webSiteJsonLd()]),
+        }}
       />
       <Storefront
         products={products}

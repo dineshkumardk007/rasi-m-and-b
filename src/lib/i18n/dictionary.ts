@@ -181,6 +181,19 @@ const en = {
 
   // Footer
   "footer.hours": "Opens 9 AM daily · WhatsApp us anytime",
+  "footer.legal": "Policies and contact",
+  "footer.contact": "Contact us",
+
+  // Error & empty states
+  "error.title": "Something went wrong",
+  "error.body":
+    "Sorry — that did not load. Nothing has been charged and your cart is safe. Try again, and if it keeps happening, message us and we will take the order ourselves.",
+  "error.retry": "Try again",
+  "error.home": "Back to shop",
+  "notFound.title": "We could not find that page",
+  "notFound.body":
+    "The link may be old, or the product may have sold out and been removed. Everything we have in stock is on the shop page.",
+  "notFound.cta": "Go to the shop",
 
   // Misc
   "common.loading": "Opening Rasi…",
@@ -345,6 +358,18 @@ const ta: Record<TranslationKey, string> = {
   "orders.none": "இன்னும் ஆர்டர்கள் இல்லை.",
 
   "footer.hours": "தினமும் காலை 9 மணி · வாட்ஸ்அப்",
+  "footer.legal": "கொள்கைகள் மற்றும் தொடர்பு",
+  "footer.contact": "தொடர்புக்கு",
+
+  "error.title": "ஏதோ தவறு நடந்துவிட்டது",
+  "error.body":
+    "மன்னிக்கவும் — அது ஏற்றப்படவில்லை. எந்தப் பணமும் பிடிக்கப்படவில்லை, உங்கள் கூடை பத்திரமாக உள்ளது. மீண்டும் முயற்சியுங்கள்; மீண்டும் மீண்டும் நடந்தால் எங்களுக்குச் செய்தி அனுப்புங்கள், நாங்களே ஆர்டரை எடுத்துக்கொள்கிறோம்.",
+  "error.retry": "மீண்டும் முயற்சி",
+  "error.home": "கடைக்குத் திரும்பு",
+  "notFound.title": "அந்தப் பக்கம் கிடைக்கவில்லை",
+  "notFound.body":
+    "இணைப்பு பழையதாக இருக்கலாம், அல்லது அந்தப் பொருள் விற்றுத் தீர்ந்து நீக்கப்பட்டிருக்கலாம். இருப்பில் உள்ள அனைத்தும் கடைப் பக்கத்தில் உள்ளன.",
+  "notFound.cta": "கடைக்குச் செல்",
 
   "common.loading": "ராசி திறக்கிறது…",
   "common.cancel": "ரத்து",
