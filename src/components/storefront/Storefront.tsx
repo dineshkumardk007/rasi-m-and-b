@@ -413,7 +413,9 @@ export default function Storefront(props: StorefrontProps) {
           </div>
         </Modal>
       )}
-      {modal?.type === "track" && <TrackModal onClose={() => setModal(null)} />}
+      {modal?.type === "track" && (
+        <TrackModal onClose={() => setModal(null)} myOrders={myOrders} />
+      )}
       {modal?.type === "auth" && (
         <AuthModal
           onClose={() => setModal(null)}
@@ -462,6 +464,28 @@ export default function Storefront(props: StorefrontProps) {
       )}
 
       {toast && <Toast message={toast} />}
+
+      {/* Mobile Sticky Floating Cart Bar */}
+      {cart.count > 0 && !modal && (
+        <div className="fixed bottom-4 left-4 right-4 z-40 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setModal({ type: "cart" })}
+            className="btn-press flex w-full items-center justify-between rounded-pill border-3 border-ink bg-brand px-5 py-3 font-display text-[15px] font-extrabold text-white shadow-hard-4"
+          >
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-ink text-[12px] text-white">
+                {cart.count}
+              </span>
+              <span>{t("cart.title")}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>{inr(subtotal)}</span>
+              <span>{t("cart.checkout")} →</span>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* footer */}
       <footer className="border-t-4 border-ink bg-brand p-[22px] text-center text-white flex flex-col items-center justify-center gap-3">

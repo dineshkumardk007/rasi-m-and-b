@@ -721,32 +721,105 @@ function PaymentButton({
   );
 }
 
-/* ── Public order tracking (order_no + phone, no login) ──────────────────── */
-export function TrackModal({ onClose }: { onClose: () => void }) {
+/* ── Public order tracking (order_no + phone, prefilled RSB- prefix & auto-fill) ─ */
+export function TrackModal({
+  onClose,
+  myOrders = [],
+}: {
+  onClose: () => void;
+  myOrders?: Order[];
+}) {
   const { t } = useT();
-  const [no, setNo] = useState("");
-  const [phone, setPhone] = useState("");
+  const { session } = useSession();
+  const [numPart, setNumPart] = useState("");
+  const [phone, setPhone] = useState(session?.phone ?? "");
   const [found, setFound] = useState<Order | null | undefined>(undefined);
 
   const STAGES = ["confirmed", "packed", "out_for_delivery", "delivered"] as const;
   const statusIndex = (s: Order["status"]) =>
     s === "new" ? 0 : STAGES.indexOf(s as (typeof STAGES)[number]);
 
+  // Strip RSB- prefix gracefully if pasted in full by customer
+  const handleNumChange = (val: string) => {
+    const cleaned = val.toUpperCase().replace(/^RSB-?/, "").trim();
+    setNumPart(cleaned);
+  };
+
+  const handleTrack = async (overrideOrderNo?: string, overridePhone?: string) => {
+    const targetNo = overrideOrderNo ?? (numPart ? `RSB-${numPart}` : "");
+    const targetPhone = overridePhone ?? phone;
+    if (!targetNo.trim() || !targetPhone.trim()) return;
+    setFound(await trackOrderAction(targetNo, targetPhone));
+  };
+
   return (
     <Modal onClose={onClose}>
       <h3 className="mb-1 font-display text-[24px] font-extrabold">{t("track.title")} 📦</h3>
       <p className="mb-3.5 text-[14px] text-mute">{t("track.sub")}</p>
-      <Field label={t("track.orderNo")} value={no} onChange={setNo} placeholder="RSB-1001" />
-      <Field label={t("track.phone")} value={phone} onChange={setPhone} placeholder="98765 43210" inputMode="tel" />
-      <Btn full onClick={async () => setFound(await trackOrderAction(no, phone))}>
+
+      {/* Prefilled RSB- Badge Input */}
+      <label className="mb-3 block">
+        <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+          {t("track.orderNo")}
+        </span>
+        <div className="mt-1 flex items-center rounded-pill border-2.5 border-ink bg-paper px-3 py-1 shadow-hard-2 focus-within:border-brand">
+          <span className="shrink-0 rounded-pill border-2 border-ink bg-[#FFE1A8] px-2.5 py-0.5 font-display text-[13px] font-extrabold text-ink">
+            RSB-
+          </span>
+          <input
+            type="text"
+            value={numPart}
+            onChange={(e) => handleNumChange(e.target.value)}
+            placeholder="1001"
+            className="min-w-0 flex-1 bg-transparent px-2.5 py-1 font-body text-[15px] font-bold text-ink outline-none"
+          />
+        </div>
+      </label>
+
+      <Field
+        label={t("track.phone")}
+        value={phone}
+        onChange={setPhone}
+        placeholder="98765 43210"
+        inputMode="tel"
+      />
+
+      {/* Quick Select Recent Orders if signed in */}
+      {session && myOrders.length > 0 && (
+        <div className="mb-3.5">
+          <span className="text-[12px] font-bold text-mute mb-1.5 block">
+            {t("track.quickSelect")}
+          </span>
+          <div className="flex flex-wrap gap-1.5 max-h-[90px] overflow-y-auto">
+            {myOrders.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => {
+                  const digits = o.order_no.replace(/^RSB-?/, "");
+                  setNumPart(digits);
+                  void handleTrack(o.order_no, session.phone);
+                }}
+                className="rounded-pill border-2 border-ink bg-[#FFE1A8] px-3 py-1 text-[12px] font-extrabold hover:bg-[#D6E8B0] transition-all cursor-pointer shadow-hard-1"
+              >
+                📦 {o.order_no} ({inr(o.total)})
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Btn full onClick={() => handleTrack()}>
         {t("track.cta")}
       </Btn>
+
       {found === null && (
         <p className="mt-3 text-[14px] font-extrabold text-[#E24B4A]">{t("track.notFound")}</p>
       )}
+
       {found && (
         <div className="mt-[18px]">
-          <div className="font-display font-extrabold">
+          <div className="font-display font-extrabold text-[16px]">
             {found.order_no} · <span className="text-brand">{inr(found.total)}</span>
           </div>
           <div className="mt-3">
