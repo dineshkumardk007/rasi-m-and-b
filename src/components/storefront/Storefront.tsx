@@ -345,6 +345,11 @@ export default function Storefront(props: StorefrontProps) {
           setQty={cart.setQty}
           onClose={() => setModal(null)}
           onCheckout={() => {
+            if (!session) {
+              setModal({ type: "auth" });
+              notify(t("checkout.signInRequired"));
+              return;
+            }
             trackBeginCheckout(
               cartItems.map((c) => ({
                 id: c.itemId,

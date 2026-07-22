@@ -481,7 +481,7 @@ export function CheckoutModal({
   const goToPay = async () => {
     const res = await checkPinAction(f.pin);
     if (!res.serviceable) {
-      notify(t("product.pinUnserviceable"));
+      notify(t("checkout.unserviceablePin", { pin: f.pin }));
       return;
     }
     setSameDay(res.sameDayNow);
@@ -504,7 +504,9 @@ export function CheckoutModal({
           ? t("checkout.outOfStock")
           : result.error === "cod_limit"
             ? t("checkout.codLimit", { limit: inr(settings.cod_limit) })
-            : t("checkout.couponNotFound"),
+            : result.error === "unserviceable_pin"
+              ? t("checkout.unserviceablePin", { pin: f.pin })
+              : t("checkout.couponNotFound"),
       );
       return null;
     }

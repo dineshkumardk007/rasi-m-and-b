@@ -27,7 +27,18 @@ export interface PlaceOrderInput {
 
 export type PlaceOrderResult =
   | { ok: true; order: Order }
-  | { ok: false; error: "empty_cart" | "bad_address" | "out_of_stock" | "cod_limit" | "coupon_invalid" | "server"; detail?: string };
+  | {
+      ok: false;
+      error:
+        | "empty_cart"
+        | "bad_address"
+        | "unserviceable_pin"
+        | "out_of_stock"
+        | "cod_limit"
+        | "coupon_invalid"
+        | "server";
+      detail?: string;
+    };
 
 interface ResolvedLine {
   product_id: string | null;
@@ -179,12 +190,19 @@ async function upsertCustomer(input: PlaceOrderInput): Promise<string | null> {
 export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResult> {
   if (input.items.length === 0) return { ok: false, error: "empty_cart" };
   if (!validAddress(input.address)) return { ok: false, error: "bad_address" };
+
+  const settings = await getSettings();
+  if (
+    !isPinServiceable(input.address.pin, settings.serviceable_pins, settings.unserviceable_pins)
+      .serviceable
+  ) {
+    return { ok: false, error: "unserviceable_pin" };
+  }
+
   if (!input.customer_id) input.customer_id = (await upsertCustomer(input)) ?? undefined;
 
   const lines = await resolveLines(input.items);
   if (!lines) return { ok: false, error: "server", detail: "unknown item" };
-
-  const settings = await getSettings();
   const subtotal = lines.reduce((s, l) => s + l.price_snapshot * l.qty, 0);
   const delivery_fee = subtotal > settings.free_delivery_threshold ? 0 : DELIVERY_FEE;
 

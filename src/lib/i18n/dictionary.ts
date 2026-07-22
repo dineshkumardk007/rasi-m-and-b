@@ -131,6 +131,8 @@ const en = {
   "checkout.sameDayYes": "🚚 Arrives today — you beat the 4 PM cutoff!",
   "checkout.sameDayNo": "🚚 Arrives tomorrow morning.",
   "checkout.outOfStock": "Some items just sold out — please review your cart.",
+  "checkout.signInRequired": "Please sign in or create an account to proceed to checkout 🎈",
+  "checkout.unserviceablePin": "Delivery is currently unavailable for PIN {pin}. We deliver to Thoothukudi & select regions.",
 
   // Order done
   "orderDone.title": "Order confirmed!",
@@ -316,6 +318,8 @@ const ta: Record<TranslationKey, string> = {
   "checkout.sameDayYes": "🚚 இன்றே வந்துவிடும் — 4 மணிக்கு முன் ஆர்டர் செய்தீர்கள்!",
   "checkout.sameDayNo": "🚚 நாளை காலை வந்துவிடும்.",
   "checkout.outOfStock": "சில பொருட்கள் விற்றுத் தீர்ந்தன — கூடையை சரிபார்க்கவும்.",
+  "checkout.signInRequired": "செக் அவுட் செய்ய கணக்கில் உள்நுழையவும் 🎈",
+  "checkout.unserviceablePin": "PIN {pin}-க்கு தற்போது டெலிவரி வசதி இல்லை. தூத்துக்குடி மற்றும் குறிப்பிட்ட பகுதிகளுக்கு மட்டுமே டெலிவரி செய்யப்படுகிறது.",
 
   "orderDone.title": "ஆர்டர் உறுதி!",
   "orderDone.order": "ஆர்டர்",
