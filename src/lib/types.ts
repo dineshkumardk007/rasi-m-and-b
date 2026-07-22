@@ -124,6 +124,7 @@ export interface CustomerRecord {
 export interface StoreSettings {
   same_day_enabled: boolean;
   serviceable_pins: string[];
+  unserviceable_pins?: string[];
   free_delivery_threshold: number;
   cod_limit: number;
 }

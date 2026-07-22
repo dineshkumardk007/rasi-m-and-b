@@ -21,6 +21,7 @@ import {
   type Milestone,
 } from "@/lib/constants";
 import { Art, Badge, Btn, Card, Field, Modal, Pill, Stars } from "@/components/ui";
+import { formatPinSummary, isPinServiceable, parsePinInput } from "@/lib/pin";
 import {
   addCouponAction,
   archiveProductAction,
@@ -879,18 +880,80 @@ export function ReportsTab({ orders, products }: { orders: Order[]; products: Pr
 }
 
 /* ── Settings: same-day kill switch + serviceable PINs ───────────────────── */
+/* ── Settings: same-day kill switch + future-proof PIN Code Manager ───── */
 export function SettingsTab({ settings }: { settings: StoreSettings }) {
   const router = useRouter();
-  const [pins, setPins] = useState(settings.serviceable_pins.join(", "));
+  const [serviceableList, setServiceableList] = useState<string[]>(
+    settings.serviceable_pins || [],
+  );
+  const [unserviceableList, setUnserviceableList] = useState<string[]>(
+    settings.unserviceable_pins || [],
+  );
+  const [newRuleInput, setNewRuleInput] = useState("");
+  const [newUnserviceableInput, setNewUnserviceableInput] = useState("");
+  const [bulkText, setBulkText] = useState(settings.serviceable_pins.join(", "));
+  const [mode, setMode] = useState<"tags" | "bulk">("tags");
+  const [testPin, setTestPin] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const saveSettings = async (
+    newServiceable: string[],
+    newUnserviceable: string[] = unserviceableList,
+  ) => {
+    setSaving(true);
+    await updateSettingsAction({
+      serviceable_pins: newServiceable,
+      unserviceable_pins: newUnserviceable,
+    });
+    setSaving(false);
+    router.refresh();
+  };
+
+  const handleAddRule = (ruleStr: string) => {
+    const parsed = parsePinInput(ruleStr);
+    if (!parsed.length) return;
+    const updated = Array.from(new Set([...serviceableList, ...parsed]));
+    setServiceableList(updated);
+    setBulkText(updated.join(", "));
+    saveSettings(updated);
+    setNewRuleInput("");
+  };
+
+  const handleRemoveRule = (rule: string) => {
+    const updated = serviceableList.filter((r) => r !== rule);
+    setServiceableList(updated);
+    setBulkText(updated.join(", "));
+    saveSettings(updated);
+  };
+
+  const handleAddUnserviceable = (ruleStr: string) => {
+    const parsed = parsePinInput(ruleStr);
+    if (!parsed.length) return;
+    const updated = Array.from(new Set([...unserviceableList, ...parsed]));
+    setUnserviceableList(updated);
+    saveSettings(serviceableList, updated);
+    setNewUnserviceableInput("");
+  };
+
+  const handleRemoveUnserviceable = (rule: string) => {
+    const updated = unserviceableList.filter((r) => r !== rule);
+    setUnserviceableList(updated);
+    saveSettings(serviceableList, updated);
+  };
+
+  const testResult = useMemo(() => {
+    if (!/^\d{6}$/.test(testPin.trim())) return null;
+    return isPinServiceable(testPin, serviceableList, unserviceableList);
+  }, [testPin, serviceableList, unserviceableList]);
+
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
+      {/* Same-Day Kill Switch */}
       <Card className="flex items-center justify-between p-4">
         <div>
-          <div className="font-display font-extrabold">🚚 Same-day delivery</div>
+          <div className="font-display font-extrabold text-[16px]">🚚 Same-day delivery switch</div>
           <p className="text-[13px] text-mute">
-            The ribbon, countdown and same-day promises across the store.
+            Master toggle for ribbon, countdown, and same-day delivery promises across the store.
           </p>
         </div>
         <Pill
@@ -903,39 +966,246 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
           {settings.same_day_enabled ? "ON ✓" : "OFF ✕"}
         </Pill>
       </Card>
+
+      {/* Serviceable PIN Codes Manager */}
       <Card className="p-4">
-        <div className="font-display font-extrabold">📍 Serviceable PIN codes</div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-ink/10 pb-3">
+          <div>
+            <div className="font-display text-[17px] font-extrabold text-ink">
+              📍 Serviceable PIN Codes Manager
+            </div>
+            <p className="text-[13px] text-mute">
+              Add individual PINs (e.g. <code>628001</code>), ranges (e.g. <code>628001-628020</code>), or district wildcards (e.g. <code>628*</code>).
+            </p>
+          </div>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => setMode("tags")}
+              className={`rounded-pill px-3 py-1 text-[12px] font-bold border-2 border-ink transition-all ${
+                mode === "tags" ? "bg-brand text-white shadow-hard-1" : "bg-white text-ink"
+              }`}
+            >
+              🏷️ Tags & Presets
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("bulk")}
+              className={`rounded-pill px-3 py-1 text-[12px] font-bold border-2 border-ink transition-all ${
+                mode === "bulk" ? "bg-brand text-white shadow-hard-1" : "bg-white text-ink"
+              }`}
+            >
+              📝 Bulk Editor
+            </button>
+          </div>
+        </div>
+
+        {mode === "tags" && (
+          <div className="mt-3.5 grid gap-3">
+            {/* Quick Add Rule Input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newRuleInput}
+                onChange={(e) => setNewRuleInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddRule(newRuleInput);
+                  }
+                }}
+                placeholder="Enter PIN (628001), Range (628001-628020), or Wildcard (628*)"
+                className="min-w-0 flex-1 rounded-pill border-2.5 border-ink px-4 py-2 font-body text-[14px] outline-none"
+              />
+              <Btn small bg="#B9EBDD" color="#2B2140" disabled={saving} onClick={() => handleAddRule(newRuleInput)}>
+                + Add Rule
+              </Btn>
+            </div>
+
+            {/* Quick Region Presets */}
+            <div className="rounded-tile border-2 border-dashed border-ink/20 bg-cream p-3">
+              <div className="text-[12px] font-bold text-mute uppercase tracking-wider mb-2">
+                ⚡ Quick Region Presets
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleAddRule("628001-628008")}
+                  className="rounded-pill border-2 border-ink bg-white px-2.5 py-1 text-[12px] font-extrabold hover:bg-[#FFE1A8] transition-all"
+                >
+                  + Thoothukudi Core (628001–628008)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddRule("628*")}
+                  className="rounded-pill border-2 border-ink bg-white px-2.5 py-1 text-[12px] font-extrabold hover:bg-[#C7E9FF] transition-all"
+                >
+                  + Entire Thoothukudi District (628*)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddRule("627*")}
+                  className="rounded-pill border-2 border-ink bg-white px-2.5 py-1 text-[12px] font-extrabold hover:bg-[#FFCBD9] transition-all"
+                >
+                  + Tirunelveli District (627*)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddRule("625*")}
+                  className="rounded-pill border-2 border-ink bg-white px-2.5 py-1 text-[12px] font-extrabold hover:bg-[#D6E8B0] transition-all"
+                >
+                  + Madurai Region (625*)
+                </button>
+              </div>
+            </div>
+
+            {/* Active PIN Chips */}
+            <div>
+              <div className="text-[13px] font-bold text-ink mb-1.5 flex items-center justify-between">
+                <span>Active Serviceable Rules ({serviceableList.length})</span>
+                <span className="text-[12px] text-mute">{formatPinSummary(serviceableList)}</span>
+              </div>
+              {serviceableList.length === 0 ? (
+                <p className="text-[13px] text-mute italic">No serviceable PIN rules configured yet.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2 max-h-[160px] overflow-y-auto p-1 border-1 border-ink/10 rounded-tile">
+                  {serviceableList.map((rule) => (
+                    <span
+                      key={rule}
+                      className="inline-flex items-center gap-1.5 rounded-pill border-2 border-ink bg-[#FFE1A8] px-3 py-1 font-display text-[13px] font-extrabold shadow-hard-1"
+                    >
+                      {rule}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveRule(rule)}
+                        className="ml-1 text-ink/60 hover:text-red-600 font-bold"
+                        aria-label={`Remove ${rule}`}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {mode === "bulk" && (
+          <div className="mt-3 grid gap-2">
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              rows={4}
+              placeholder="Paste comma or newline separated PINs, ranges (628001-628020), or wildcards (628*)"
+              className="w-full rounded-tile border-2.5 border-ink px-3.5 py-2.5 font-body text-[14px] outline-none"
+            />
+            <div className="flex gap-2">
+              <Btn
+                small
+                disabled={saving}
+                onClick={() => {
+                  const parsed = parsePinInput(bulkText);
+                  setServiceableList(parsed);
+                  saveSettings(parsed);
+                }}
+              >
+                Save Bulk PIN Rules
+              </Btn>
+              <Btn small bg="#F2EAE0" color="#2B2140" onClick={() => setBulkText(serviceableList.join(", "))}>
+                Reset
+              </Btn>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Restricted / Unserviceable Overrides Manager */}
+      <Card className="p-4">
+        <div className="font-display text-[16px] font-extrabold text-ink">
+          ⛔ Explicit Unserviceable / Restricted Exclusions
+        </div>
         <p className="text-[13px] text-mute">
-          Same-day delivery is offered only to these PINs. Comma-separated.
+          Exclude specific PINs or ranges even if they match a broad wildcard region rule (e.g. exclude <code>628099</code> from <code>628*</code>).
         </p>
-        <textarea
-          value={pins}
-          onChange={(e) => setPins(e.target.value)}
-          rows={2}
-          className="mt-2 w-full rounded-tile border-2.5 border-ink px-3.5 py-2.5 font-body text-[14px] outline-none"
-        />
-        <div className="mt-2">
-          <Btn
-            small
-            disabled={saving}
-            onClick={async () => {
-              setSaving(true);
-              await updateSettingsAction({
-                serviceable_pins: pins
-                  .split(",")
-                  .map((p) => p.trim())
-                  .filter((p) => /^\d{6}$/.test(p)),
-              });
-              setSaving(false);
-              router.refresh();
+
+        <div className="mt-3 flex gap-2">
+          <input
+            type="text"
+            value={newUnserviceableInput}
+            onChange={(e) => setNewUnserviceableInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleAddUnserviceable(newUnserviceableInput);
+              }
             }}
-          >
-            Save PINs
+            placeholder="Enter restricted PIN or range (e.g. 628099)"
+            className="min-w-0 flex-1 rounded-pill border-2.5 border-ink px-4 py-2 font-body text-[14px] outline-none"
+          />
+          <Btn small bg="#FFCBD9" color="#2B2140" disabled={saving} onClick={() => handleAddUnserviceable(newUnserviceableInput)}>
+            + Restrict PIN
           </Btn>
         </div>
+
+        {unserviceableList.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {unserviceableList.map((rule) => (
+              <span
+                key={rule}
+                className="inline-flex items-center gap-1.5 rounded-pill border-2 border-ink bg-[#FFCBD9] px-3 py-1 font-display text-[13px] font-extrabold shadow-hard-1"
+              >
+                🚫 {rule}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveUnserviceable(rule)}
+                  className="ml-1 text-ink/60 hover:text-red-600 font-bold"
+                  aria-label={`Remove restriction ${rule}`}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </Card>
+
+      {/* Interactive Live PIN Tester */}
+      <Card className="p-4 bg-paper border-3 border-ink">
+        <div className="font-display text-[16px] font-extrabold text-ink flex items-center gap-2">
+          🔍 Live Interactive PIN Tester
+        </div>
+        <p className="text-[13px] text-mute">
+          Test any customer PIN code right now to verify if your configured rules grant delivery access.
+        </p>
+
+        <div className="mt-3 flex gap-2 items-center">
+          <input
+            type="text"
+            value={testPin}
+            onChange={(e) => setTestPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="Type 6-digit PIN (e.g. 628005)"
+            className="w-48 rounded-pill border-2.5 border-ink px-4 py-2 font-body text-[14px] outline-none"
+          />
+          {testResult && (
+            <div className="flex items-center gap-2">
+              {testResult.serviceable ? (
+                <Badge bg="#D6E8B0">
+                  ✅ Serviceable {testResult.matchedPattern ? `(Matched: ${testResult.matchedPattern})` : ""}
+                </Badge>
+              ) : (
+                <Badge bg="#FFCBD9">
+                  ❌ Restricted / Unserviceable {testResult.isExcluded ? "(Explicitly Excluded)" : ""}
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Thresholds */}
       <Card className="p-4 text-[14px]">
-        <div className="font-display font-extrabold">Thresholds</div>
+        <div className="font-display font-extrabold">Delivery Thresholds</div>
         <p className="mt-1 text-mute">
           Free delivery above {inr(settings.free_delivery_threshold)} · COD limit{" "}
           {inr(settings.cod_limit)}

@@ -11,6 +11,7 @@ import {
 } from "@/lib/data/orders";
 import { demoDB } from "@/lib/data/demo-store";
 import { isDemo } from "@/lib/data/mode";
+import { isPinServiceable } from "@/lib/pin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hashPassword } from "@/lib/admin-password";
 import { upgradeIfLegacy, verifyCustomerPassword } from "@/lib/customer-password";
@@ -38,7 +39,11 @@ export async function checkPinAction(
   pin: string,
 ): Promise<{ serviceable: boolean; sameDayNow: boolean }> {
   const settings = await getSettings();
-  const serviceable = settings.serviceable_pins.includes(pin);
+  const serviceable = isPinServiceable(
+    pin,
+    settings.serviceable_pins,
+    settings.unserviceable_pins,
+  ).serviceable;
   return { serviceable, sameDayNow: serviceable && (await sameDayEligible(pin)) };
 }
 

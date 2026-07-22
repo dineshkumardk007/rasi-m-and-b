@@ -36,7 +36,9 @@ export function ProductModal({
   const [author, setAuthor] = useState(session?.name ?? "");
   const [rating, setRating] = useState(5);
   const [pin, setPin] = useState("");
-  const [pinResult, setPinResult] = useState<"same-day" | "tomorrow" | "courier" | null>(null);
+  const [pinResult, setPinResult] = useState<
+    "same-day" | "tomorrow" | "courier" | "unserviceable" | null
+  >(null);
   const meta = MILESTONE_META[p.milestone];
   const name = lang === "ta" ? p.name_ta : p.name_en;
   const desc = lang === "ta" ? p.description_ta : p.description_en;
@@ -44,7 +46,7 @@ export function ProductModal({
   const checkPin = async () => {
     if (!/^\d{6}$/.test(pin)) return;
     const res = await checkPinAction(pin);
-    setPinResult(res.sameDayNow ? "same-day" : res.serviceable ? "tomorrow" : "courier");
+    setPinResult(res.sameDayNow ? "same-day" : res.serviceable ? "tomorrow" : "unserviceable");
   };
 
   return (
@@ -88,12 +90,14 @@ export function ProductModal({
           </Btn>
         </div>
         {pinResult && (
-          <p className="mt-2 text-[13px] font-bold">
+          <p className={`mt-2 text-[13px] font-bold ${pinResult === "unserviceable" ? "text-red-600" : "text-ink"}`}>
             {pinResult === "same-day"
               ? t("product.pinSameDay")
               : pinResult === "tomorrow"
                 ? t("product.pinTomorrow")
-                : t("product.pinCourier")}
+                : pinResult === "courier"
+                  ? t("product.pinCourier")
+                  : t("product.pinUnserviceable")}
           </p>
         )}
       </div>
@@ -476,6 +480,10 @@ export function CheckoutModal({
 
   const goToPay = async () => {
     const res = await checkPinAction(f.pin);
+    if (!res.serviceable) {
+      notify(t("product.pinUnserviceable"));
+      return;
+    }
     setSameDay(res.sameDayNow);
     setStep("pay");
   };

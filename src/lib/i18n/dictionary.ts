@@ -85,6 +85,7 @@ const en = {
   "product.pinSameDay": "🚚 Same-day delivery available — order before 4 PM!",
   "product.pinTomorrow": "🚚 Delivered by tomorrow in Thoothukudi.",
   "product.pinCourier": "📦 Delivered in 2–4 days by courier.",
+  "product.pinUnserviceable": "❌ Delivery is currently unavailable for this PIN code.",
   "product.notifyMe": "Notify me when back",
   "product.notifySaved": "We'll message you when it's back 💛",
 
@@ -271,6 +272,7 @@ const ta: Record<TranslationKey, string> = {
   "product.pinSameDay": "🚚 அன்றே டெலிவரி — மாலை 4 மணிக்கு முன் ஆர்டர் செய்யுங்கள்!",
   "product.pinTomorrow": "🚚 தூத்துக்குடியில் நாளை டெலிவரி.",
   "product.pinCourier": "📦 கூரியர் மூலம் 2–4 நாட்களில்.",
+  "product.pinUnserviceable": "❌ இந்த PIN குறியீட்டிற்கு தற்போது டெலிவரி வசதி இல்லை.",
   "product.notifyMe": "வந்ததும் தெரிவிக்கவும்",
   "product.notifySaved": "வந்ததும் உங்களுக்கு தகவல் அனுப்புவோம் 💛",
 

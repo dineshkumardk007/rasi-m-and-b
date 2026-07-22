@@ -11,6 +11,7 @@ import { isDemo } from "./mode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { evaluateCoupon, findCoupon, getSettings } from "./catalog";
 import { logEvent } from "./events";
+import { isPinServiceable } from "@/lib/pin";
 
 export const DELIVERY_FEE = 49;
 
@@ -95,7 +96,7 @@ function validAddress(a: AddressSnapshot): boolean {
 export async function sameDayEligible(pin: string): Promise<boolean> {
   const settings = await getSettings();
   if (!settings.same_day_enabled) return false;
-  if (!settings.serviceable_pins.includes(pin)) return false;
+  if (!isPinServiceable(pin, settings.serviceable_pins, settings.unserviceable_pins).serviceable) return false;
   const istHour = Number(
     new Intl.DateTimeFormat("en-GB", {
       hour: "numeric",
