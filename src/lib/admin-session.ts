@@ -48,21 +48,26 @@ export type CredentialResult =
   | { ok: true }
   | { ok: false; reason: "not_configured" | "bad_credentials" };
 
-/** Check a username/password pair against the configured admin credentials. */
+/**
+ * Check a username/password pair against the configured admin credentials.
+ *
+ * ADMIN_PASSWORD_HASH is the only accepted form. An earlier version fell back to
+ * a plaintext ADMIN_PASSWORD when no hash was set, which meant a deploy that
+ * merely forgot to run `pnpm admin:password` kept working — on the shop owner's
+ * real password, sitting in cleartext in the Vercel dashboard. Refusing to log
+ * anyone in is the safer failure.
+ */
 export function verifyAdminCredentials(username: string, password: string): CredentialResult {
   const validUser = process.env.ADMIN_USERNAME?.trim().toLowerCase();
   const passwordHash = process.env.ADMIN_PASSWORD_HASH?.trim();
-  const plainPassword = process.env.ADMIN_PASSWORD?.trim();
 
-  if (!validUser || (!passwordHash && !plainPassword) || !sessionSecret()) {
+  if (!validUser || !passwordHash || !sessionSecret()) {
     return { ok: false, reason: "not_configured" };
   }
 
   const userOk = safeEqual(username.trim().toLowerCase(), validUser);
   // Always run the password check so a wrong username is not measurably faster.
-  const passOk = passwordHash
-    ? verifyPasswordHash(password, passwordHash)
-    : safeEqual(password, plainPassword as string);
+  const passOk = verifyPasswordHash(password, passwordHash);
 
   return userOk && passOk ? { ok: true } : { ok: false, reason: "bad_credentials" };
 }

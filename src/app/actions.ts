@@ -12,6 +12,9 @@ import {
 import { demoDB } from "@/lib/data/demo-store";
 import { isDemo } from "@/lib/data/mode";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hashPassword } from "@/lib/admin-password";
+import { upgradeIfLegacy, verifyCustomerPassword } from "@/lib/customer-password";
+import { clearAttempts, isLockedOut, recordFailedAttempt } from "@/lib/admin-session";
 import type { Order } from "@/lib/types";
 
 /** Storefront server actions — the only write paths from the public site. */
@@ -141,6 +144,27 @@ export async function registerCustomerAction(
   return { ok: true, customerId: data?.id };
 }
 
+/**
+ * A customer row with NO password is not claimable through these actions at
+ * all. Checkout creates a row for every order, so a phone number that has
+ * merely bought something once would otherwise be claimable by anyone who knows
+ * it — sign-in used to accept any password for such a row and keep it. Those
+ * accounts come in through the phone OTP flow, which proves the caller holds
+ * the number.
+ */
+const OTP_REQUIRED =
+  "This number already has orders with us. Sign in with the OTP sent to your phone to set a password.";
+
+/**
+ * Reuses the admin login's durable throttle (the admin_login_attempts table),
+ * keyed per account rather than per IP: the thing being protected here is one
+ * customer's password, and an attacker rotating IPs must not get a fresh five
+ * guesses against it each time.
+ */
+function customerThrottleKey(identifier: string): string {
+  return `customer:${identifier}`;
+}
+
 /** Register a new customer with unique phone & password */
 export async function registerCustomerWithPasswordAction(
   name: string,
@@ -158,6 +182,7 @@ export async function registerCustomerWithPasswordAction(
     const db = demoDB();
     const existing = db.customers.find((x) => x.phone === clean);
     if (existing) {
+      if (!existing.password) return { ok: false, error: OTP_REQUIRED };
       return {
         ok: false,
         error: "ALREADY_REGISTERED: You already have an account with this phone number. Please sign in.",
@@ -172,7 +197,7 @@ export async function registerCustomerWithPasswordAction(
       whatsapp_opt_in: true,
       baby_dob: null,
       notes: "",
-      password,
+      password: hashPassword(password),
       created_at: new Date().toISOString(),
     };
     db.customers.unshift(c);
@@ -182,11 +207,14 @@ export async function registerCustomerWithPasswordAction(
   const supabase = createAdminClient();
   const { data: existing } = await supabase
     .from("customers")
-    .select("id")
+    .select("id, password")
     .eq("phone", clean)
     .maybeSingle();
 
   if (existing) {
+    // A row with no password is a checkout-created record, not a registration.
+    // Claiming it needs proof of the phone number, which only OTP gives.
+    if (!existing.password) return { ok: false, error: OTP_REQUIRED };
     return {
       ok: false,
       error: "ALREADY_REGISTERED: You already have an account with this phone number. Please sign in.",
@@ -198,7 +226,7 @@ export async function registerCustomerWithPasswordAction(
     .insert({
       name: customerName,
       phone: clean,
-      password,
+      password: hashPassword(password),
       language: "en" as const,
       whatsapp_opt_in: true,
       last_login_at: new Date().toISOString(),
@@ -219,18 +247,25 @@ export async function signInWithPasswordAction(
   if (!password) return { ok: false, error: "Please enter your password." };
   const now = new Date().toISOString();
 
+  const throttle = customerThrottleKey(clean);
+  if (await isLockedOut(throttle)) {
+    return { ok: false, error: "Too many failed attempts. Try again in 15 minutes." };
+  }
+
   if (isDemo()) {
     const db = demoDB();
     const c = db.customers.find((x) => x.phone === clean);
     if (!c) {
       return { ok: false, error: "Account not found with this phone number. Please register first." };
     }
-    if (c.password && c.password !== password) {
+    if (!c.password) return { ok: false, error: OTP_REQUIRED };
+    if (!verifyCustomerPassword(password, c.password)) {
+      await recordFailedAttempt(throttle);
       return { ok: false, error: "Incorrect password. Please try again." };
     }
-    if (!c.password) c.password = password;
     c.last_login_at = now;
     c.login_count = (c.login_count || 0) + 1;
+    await clearAttempts(throttle);
     return { ok: true, name: c.name || "Customer", phone: clean };
   }
 
@@ -245,7 +280,11 @@ export async function signInWithPasswordAction(
     return { ok: false, error: "Account not found with this phone number. Please register first." };
   }
 
-  if (customer.password && customer.password !== password) {
+  // No password on the row → a checkout-created record. Not claimable here.
+  if (!customer.password) return { ok: false, error: OTP_REQUIRED };
+
+  if (!verifyCustomerPassword(password, customer.password)) {
+    await recordFailedAttempt(throttle);
     return { ok: false, error: "Incorrect password. Please try again." };
   }
 
@@ -254,10 +293,12 @@ export async function signInWithPasswordAction(
     .update({
       last_login_at: now,
       login_count: (customer.login_count || 0) + 1,
-      ...(!customer.password ? { password } : {}),
+      // Drain the legacy cleartext column as its owner logs in.
+      ...upgradeIfLegacy(password, customer.password),
     })
     .eq("id", customer.id);
 
+  await clearAttempts(throttle);
   return { ok: true, name: customer.name || "Customer", phone: clean };
 }
 
@@ -312,14 +353,10 @@ export async function registerCustomerWithEmailAction(
     const db = demoDB();
     const existing = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
     if (existing) {
-      if (existing.password && existing.password !== password) {
-        return {
-          ok: false,
-          error: "ALREADY_REGISTERED: Account with this email already exists. Please sign in.",
-        };
-      }
-      existing.password = password;
-      return { ok: true, name: existing.name || customerName, email: cleanEmail };
+      return {
+        ok: false,
+        error: "ALREADY_REGISTERED: Account with this email already exists. Please sign in.",
+      };
     }
     const c = {
       id: `demo-c-${Date.now()}`,
@@ -330,7 +367,7 @@ export async function registerCustomerWithEmailAction(
       whatsapp_opt_in: false,
       baby_dob: null,
       notes: "",
-      password,
+      password: hashPassword(password),
       last_login_at: new Date().toISOString(),
       login_count: 1,
       created_at: new Date().toISOString(),
@@ -346,17 +383,15 @@ export async function registerCustomerWithEmailAction(
     .eq("email", cleanEmail)
     .maybeSingle();
 
+  // Registration never touches an existing row. It used to adopt the supplied
+  // password when the row had none, and to return success when the password
+  // happened to match — a register form that doubles as a login is a register
+  // form that tells you whether a password is right.
   if (existing) {
-    if (existing.password && existing.password !== password) {
-      return {
-        ok: false,
-        error: "ALREADY_REGISTERED: Account with this email already exists. Please sign in.",
-      };
-    }
-    if (!existing.password) {
-      await supabase.from("customers").update({ password }).eq("id", existing.id);
-    }
-    return { ok: true, name: existing.name || customerName, email: cleanEmail };
+    return {
+      ok: false,
+      error: "ALREADY_REGISTERED: Account with this email already exists. Please sign in.",
+    };
   }
 
   const emailPhoneIdentifier = cleanEmail;
@@ -364,7 +399,7 @@ export async function registerCustomerWithEmailAction(
     name: customerName,
     email: cleanEmail,
     phone: emailPhoneIdentifier,
-    password,
+    password: hashPassword(password),
     language: "en" as const,
     whatsapp_opt_in: false,
     last_login_at: new Date().toISOString(),
@@ -373,6 +408,77 @@ export async function registerCustomerWithEmailAction(
 
   if (error) return { ok: false, error: error.message };
   return { ok: true, name: customerName, email: cleanEmail };
+}
+
+/**
+ * Attach a customer profile to an email that Supabase Auth has *already*
+ * authenticated. No password check, because there is nothing left to prove: the
+ * caller has a valid Supabase session for this address.
+ *
+ * Needed because signInWithEmailAction now refuses an email with no customers
+ * row, and a user who signed up through Supabase Auth may not have one. Without
+ * this they would be turned away despite a correct password.
+ */
+export async function ensureCustomerProfileByEmailAction(
+  email: string,
+  name: string,
+): Promise<{ ok: boolean; name?: string }> {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail.includes("@")) return { ok: false };
+  const fallbackName = name.trim() || "Customer";
+  const now = new Date().toISOString();
+
+  if (isDemo()) {
+    const db = demoDB();
+    const existing = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
+    if (existing) {
+      existing.last_login_at = now;
+      existing.login_count = (existing.login_count || 0) + 1;
+      return { ok: true, name: existing.name || fallbackName };
+    }
+    db.customers.unshift({
+      id: `demo-c-${cleanEmail}`,
+      name: fallbackName,
+      phone: cleanEmail,
+      email: cleanEmail,
+      language: "en" as const,
+      whatsapp_opt_in: false,
+      baby_dob: null,
+      notes: "",
+      last_login_at: now,
+      login_count: 1,
+      created_at: now,
+    });
+    return { ok: true, name: fallbackName };
+  }
+
+  const supabase = createAdminClient();
+  const { data: existing } = await supabase
+    .from("customers")
+    .select("id, name, login_count")
+    .eq("email", cleanEmail)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase
+      .from("customers")
+      .update({ last_login_at: now, login_count: (existing.login_count || 0) + 1 })
+      .eq("id", existing.id);
+    return { ok: true, name: existing.name || fallbackName };
+  }
+
+  // No password written: this identity lives in Supabase Auth, not in the
+  // customers table. The password column is on its way out regardless.
+  const { error } = await supabase.from("customers").insert({
+    name: fallbackName,
+    email: cleanEmail,
+    phone: cleanEmail,
+    language: "en" as const,
+    whatsapp_opt_in: false,
+    last_login_at: now,
+    login_count: 1,
+  });
+  return error ? { ok: false } : { ok: true, name: fallbackName };
 }
 
 /** Sign in with Email & Password */
@@ -385,76 +491,56 @@ export async function signInWithEmailAction(
   if (!password) return { ok: false, error: "Please enter your password." };
   const now = new Date().toISOString();
 
+  const throttle = customerThrottleKey(cleanEmail);
+  if (await isLockedOut(throttle)) {
+    return { ok: false, error: "Too many failed attempts. Try again in 15 minutes." };
+  }
+
   if (isDemo()) {
     const db = demoDB();
-    let c = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
-    if (!c) {
-      c = {
-        id: `demo-c-${Date.now()}`,
-        name: "Customer",
-        phone: cleanEmail,
-        email: cleanEmail,
-        language: "en" as const,
-        whatsapp_opt_in: false,
-        baby_dob: null,
-        notes: "",
-        password,
-        last_login_at: now,
-        login_count: 1,
-        created_at: now,
-      };
-      db.customers.unshift(c);
-      return { ok: true, name: c.name, email: cleanEmail };
+    const c = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
+    if (!c || !c.password) {
+      await recordFailedAttempt(throttle);
+      return { ok: false, error: "Account not found with this email. Please register first." };
     }
-    if (c.password && c.password !== password) return { ok: false, error: "Incorrect password. Please try again." };
+    if (!verifyCustomerPassword(password, c.password)) {
+      await recordFailedAttempt(throttle);
+      return { ok: false, error: "Incorrect password. Please try again." };
+    }
     c.last_login_at = now;
     c.login_count = (c.login_count || 0) + 1;
+    await clearAttempts(throttle);
     return { ok: true, name: c.name || "Customer", email: cleanEmail };
   }
 
   const supabase = createAdminClient();
-  let { data: customer } = await supabase
+  const { data: customer } = await supabase
     .from("customers")
     .select("id, name, password, login_count")
     .eq("email", cleanEmail)
     .maybeSingle();
 
-  if (!customer) {
-    const { data: created, error: createError } = await supabase
-      .from("customers")
-      .insert({
-        name: "Customer",
-        email: cleanEmail,
-        phone: cleanEmail,
-        password,
-        language: "en" as const,
-        whatsapp_opt_in: false,
-        last_login_at: now,
-        login_count: 1,
-      })
-      .select("id, name, password, login_count")
-      .single();
-
-    if (createError) {
-      return { ok: false, error: createError.message };
-    }
-    customer = created;
+  // Sign-in used to create the account when the email was unknown, so it never
+  // failed and never authenticated anything. An unknown email is an error.
+  if (!customer || !customer.password) {
+    await recordFailedAttempt(throttle);
+    return { ok: false, error: "Account not found with this email. Please register first." };
   }
 
-  if (customer && customer.password && customer.password !== password) {
+  if (!verifyCustomerPassword(password, customer.password)) {
+    await recordFailedAttempt(throttle);
     return { ok: false, error: "Incorrect password. Please try again." };
   }
 
-  if (customer) {
-    await supabase
-      .from("customers")
-      .update({
-        last_login_at: now,
-        login_count: (customer.login_count || 0) + 1,
-        ...(!customer.password ? { password } : {}),
-      })
-      .eq("id", customer.id);
-  }
+  await supabase
+    .from("customers")
+    .update({
+      last_login_at: now,
+      login_count: (customer.login_count || 0) + 1,
+      ...upgradeIfLegacy(password, customer.password),
+    })
+    .eq("id", customer.id);
 
-  return { ok: true, name: customer?.name || "Customer", email: cleanEmail };
+  await clearAttempts(throttle);
+  return { ok: true, name: customer.name || "Customer", email: cleanEmail };
 }

@@ -11,6 +11,7 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
+  ensureCustomerProfileByEmailAction,
   recordCustomerActivityAction,
   registerCustomerAction,
   registerCustomerWithEmailAction,
@@ -164,11 +165,13 @@ export function SessionProvider({
       const cleanEmail = email.trim().toLowerCase();
       if (!isDemo) {
         const supabase = createClient();
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password,
         });
         if (error && !error.message.includes("Email not confirmed")) {
+          // Supabase Auth said no. Fall back to the customers table, which is
+          // where accounts created before Supabase Auth still live.
           const dbRes = await signInWithEmailAction(cleanEmail, password);
           if (dbRes.ok && dbRes.name) {
             const s = { name: dbRes.name, phone: "", email: cleanEmail };
@@ -177,6 +180,14 @@ export function SessionProvider({
           }
           return { ok: false, message: error.message };
         }
+        // Supabase Auth said yes — that settles it. Don't re-check the password
+        // against the customers table; a Supabase-Auth-only user has no row
+        // there, and demanding one would turn a correct password into a lockout.
+        const profileName = (data?.user?.user_metadata?.name as string) ?? "";
+        const profile = await ensureCustomerProfileByEmailAction(cleanEmail, profileName);
+        const s = { name: profile.name || profileName || "Customer", phone: "", email: cleanEmail };
+        setSession(s);
+        return { ok: true, name: s.name };
       }
       const res = await signInWithEmailAction(cleanEmail, password);
       if (res.ok && res.name) {
