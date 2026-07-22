@@ -237,13 +237,13 @@ export default function Storefront(props: StorefrontProps) {
       <Ribbon settings={settings} />
 
       {/* nav */}
-      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-1.5 sm:gap-2.5 px-3 sm:px-5 py-2.5 sm:py-3.5">
+      <div className="mx-auto flex w-full max-w-[1240px] flex-nowrap items-center justify-between gap-1 sm:gap-2.5 px-2.5 sm:px-5 py-2.5 sm:py-3.5 overflow-x-auto no-scrollbar">
         <button
           onClick={openHome}
-          className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer"
+          className="flex shrink-0 items-center gap-1.5 sm:gap-2.5 cursor-pointer"
           aria-label={BUSINESS.name}
         >
-          <div className="flex h-[38px] w-[38px] sm:h-[44px] sm:w-[44px] shrink-0 items-center justify-center rounded-tile border-2.5 sm:border-3 border-ink bg-white p-1 shadow-hard-2 sm:shadow-hard-3 overflow-hidden">
+          <div className="flex h-[36px] w-[36px] sm:h-[44px] sm:w-[44px] shrink-0 items-center justify-center rounded-tile border-2 sm:border-3 border-ink bg-white p-1 shadow-hard-2 sm:shadow-hard-3 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Rasi Logo" className="h-full w-full object-contain" />
           </div>
@@ -251,48 +251,51 @@ export default function Storefront(props: StorefrontProps) {
           <img
             src="/brand-text-logo.png"
             alt="Rasi Mom and Baby"
-            className="h-[26px] xs:h-[30px] sm:h-[38px] w-auto object-contain"
+            className="h-[22px] xs:h-[26px] sm:h-[38px] w-auto object-contain shrink-0"
           />
         </button>
-        <div className="flex-1" />
-        <Pill bg="#B9EBDD" onClick={() => setLang(lang === "en" ? "ta" : "en")}>
-          {t("nav.language")}
-        </Pill>
-        <Pill bg="#FFE1A8" onClick={() => setModal({ type: "track" })}>
-          {t("nav.track")}
-        </Pill>
-        {session && (
-          <Pill
-            bg="#D6E8B0"
-            onClick={() => (route === "orders" ? openHome() : openOrders())}
-          >
-            {route === "orders" ? t("nav.shop") : t("nav.orders")}
+
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <Pill bg="#B9EBDD" onClick={() => setLang(lang === "en" ? "ta" : "en")} className="!px-2 !py-1 !text-[11px] sm:!px-3.5 sm:!py-[7px] sm:!text-[13px] !min-h-[32px] sm:!min-h-[38px]">
+            {t("nav.language")}
           </Pill>
-        )}
-
-        {/* Profile Button before Cart */}
-        <button
-          type="button"
-          onClick={() => setModal(session ? { type: "profile" } : { type: "auth" })}
-          className="btn-press flex items-center gap-1 sm:gap-1.5 rounded-pill border-2 sm:border-2.5 border-ink bg-[#FFE1A8] px-2.5 sm:px-3.5 py-1.5 sm:py-[7px] font-display text-[12px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[36px] sm:min-h-[38px] cursor-pointer"
-          aria-label="Profile"
-        >
-          <span>👤</span>
-          <span className="hidden sm:inline">{session ? session.name.split(" ")[0] : t("nav.signIn")}</span>
-        </button>
-
-        <button
-          onClick={() => setModal({ type: "cart" })}
-          className="btn-press relative rounded-pill border-2 sm:border-2.5 border-ink bg-brand px-3 sm:px-3.5 py-1.5 sm:py-[7px] font-display text-[12px] sm:text-[13px] font-extrabold text-white shadow-hard-2 min-h-[36px] sm:min-h-[38px]"
-          aria-label={t("cart.title")}
-        >
-          🛒
-          {cart.count > 0 && (
-            <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-ink text-[11px] text-white">
-              {cart.count}
-            </span>
+          <Pill bg="#FFE1A8" onClick={() => setModal({ type: "track" })} className="!px-2 !py-1 !text-[11px] sm:!px-3.5 sm:!py-[7px] sm:!text-[13px] !min-h-[32px] sm:!min-h-[38px]">
+            {t("nav.track")}
+          </Pill>
+          {session && (
+            <Pill
+              bg="#D6E8B0"
+              onClick={() => (route === "orders" ? openHome() : openOrders())}
+              className="!px-2 !py-1 !text-[11px] sm:!px-3.5 sm:!py-[7px] sm:!text-[13px] !min-h-[32px] sm:!min-h-[38px]"
+            >
+              {route === "orders" ? t("nav.shop") : t("nav.orders")}
+            </Pill>
           )}
-        </button>
+
+          {/* Profile Button before Cart */}
+          <button
+            type="button"
+            onClick={() => setModal(session ? { type: "profile" } : { type: "auth" })}
+            className="btn-press shrink-0 flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-[#FFE1A8] px-2 sm:px-3.5 py-1 sm:py-[7px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[32px] sm:min-h-[38px] cursor-pointer"
+            aria-label="Profile"
+          >
+            <span>👤</span>
+            <span className="hidden sm:inline">{session ? session.name.split(" ")[0] : t("nav.signIn")}</span>
+          </button>
+
+          <button
+            onClick={() => setModal({ type: "cart" })}
+            className="btn-press shrink-0 relative rounded-pill border-2 sm:border-2.5 border-ink bg-brand px-2.5 sm:px-3.5 py-1 sm:py-[7px] font-display text-[11px] sm:text-[13px] font-extrabold text-white shadow-hard-2 min-h-[32px] sm:min-h-[38px]"
+            aria-label={t("cart.title")}
+          >
+            🛒
+            {cart.count > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-4.5 w-4.5 items-center justify-center rounded-full border-2 border-white bg-ink text-[10px] sm:text-[11px] text-white">
+                {cart.count}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Profile Modal */}
