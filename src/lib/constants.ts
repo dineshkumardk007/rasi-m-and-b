@@ -23,12 +23,14 @@ export const BUSINESS = {
   staff: ["Nisha", "Harini", "Punitha"] as const, // consent confirmation pending
   sameDayCutoffHour: 16, // 4 PM local — same-day delivery cutoff
   gstin: null as string | null, // TODO: owner's GST number (invoice footer)
-  // TODO: REQUIRED before Razorpay merchant activation — the gateway checks that
-  // a reachable phone and email are published on /contact. The legal pages and
-  // the contact page render each channel only when it is non-null, so leaving
-  // these unset ships an incomplete (but not fabricated) contact page.
-  phone: null as string | null, // e.g. "+91 98765 43210"
-  email: null as string | null, // e.g. "hello@rasimomandbaby.in"
+  /*
+   * Published contact channels. These appear on /contact, in the "Contact us"
+   * section of all four policy documents, and as `telephone` / `email` in the
+   * shop's structured data — so a change here propagates everywhere at once.
+   * Razorpay's merchant review checks both are reachable.
+   */
+  phone: "+91 98948 14046" as string | null,
+  email: "dineshkumarsdk2403@gmail.com" as string | null,
   /**
    * Window in days a customer has to raise a return/replacement, counted from
    * delivery. Quoted verbatim in the refund policy, so it is a business
