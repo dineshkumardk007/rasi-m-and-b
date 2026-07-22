@@ -175,29 +175,29 @@ export default function Storefront(props: StorefrontProps) {
             const b = bundles.find((x) => x.id === l.itemId.slice(2));
             return b
               ? {
-                  itemId: l.itemId,
-                  qty: l.qty,
-                  name: lang === "ta" ? b.name_ta : b.name_en,
-                  price: b.bundle_price,
-                  emoji: b.emoji,
-                  bg: b.tile_color,
-                  maxStock: 99,
-                  isBundle: true,
-                }
+                itemId: l.itemId,
+                qty: l.qty,
+                name: lang === "ta" ? b.name_ta : b.name_en,
+                price: b.bundle_price,
+                emoji: b.emoji,
+                bg: b.tile_color,
+                maxStock: 99,
+                isBundle: true,
+              }
               : null;
           }
           const p = products.find((x) => x.id === l.itemId);
           return p
             ? {
-                itemId: l.itemId,
-                qty: l.qty,
-                name: lang === "ta" ? p.name_ta : p.name_en,
-                price: p.price,
-                emoji: p.emoji,
-                bg: p.tile_color,
-                maxStock: p.stock,
-                isBundle: false,
-              }
+              itemId: l.itemId,
+              qty: l.qty,
+              name: lang === "ta" ? p.name_ta : p.name_en,
+              price: p.price,
+              emoji: p.emoji,
+              bg: p.tile_color,
+              maxStock: p.stock,
+              isBundle: false,
+            }
             : null;
         })
         .filter((x): x is NonNullable<typeof x> => x !== null),
@@ -237,7 +237,7 @@ export default function Storefront(props: StorefrontProps) {
       <Ribbon settings={settings} />
 
       {/* nav */}
-      <div className="mx-auto flex w-full max-w-[1240px] flex-nowrap items-center justify-between gap-1 sm:gap-2.5 px-2.5 sm:px-5 py-2.5 sm:py-3.5 overflow-x-auto no-scrollbar">
+      <div className="mx-auto flex w-full max-w-[1240px] flex-nowrap items-center justify-between gap-1 sm:gap-2.5 px-2.5 sm:px-5 py-2.5 sm:py-3.5">
         <button
           onClick={openHome}
           className="flex shrink-0 items-center gap-1.5 sm:gap-2.5 cursor-pointer"
@@ -290,7 +290,7 @@ export default function Storefront(props: StorefrontProps) {
           >
             🛒
             {cart.count > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-4.5 w-4.5 items-center justify-center rounded-full border-2 border-white bg-ink text-[10px] sm:text-[11px] text-white">
+              <span className="absolute -right-2 -top-2 flex h-5 w-5 sm:h-5.5 sm:w-5.5 items-center justify-center rounded-full border-2 border-white bg-ink text-[11px] sm:text-[12px] font-extrabold text-white leading-none shadow-sm z-20">
                 {cart.count}
               </span>
             )}

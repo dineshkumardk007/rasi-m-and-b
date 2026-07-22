@@ -50,7 +50,7 @@ export function Hero() {
               <div className="relative group inline-block">
                 {/* Unstructured 3D shadow accent layer */}
                 <div className="absolute inset-0 rounded-[22px_8px_24px_12px] border-2.5 border-ink bg-[#FFCBD9] translate-x-1.5 translate-y-1.5 transition-transform duration-200 group-hover:translate-x-2 group-hover:translate-y-2" />
-                
+
                 {/* Main unstructured highlight badge */}
                 <span className="relative z-10 inline-flex items-center gap-1.5 rounded-[22px_8px_24px_12px] border-3 border-ink bg-[#FFE66D] px-3.5 py-1.5 font-display text-[13px] sm:text-[14px] font-extrabold text-ink -rotate-1.5 shadow-hard-2 hover:rotate-0 hover:scale-105 transition-all duration-200 cursor-pointer">
                   <span className="text-[14px] animate-pulse">⭐</span>
@@ -90,35 +90,32 @@ export function Hero() {
             </div>
           </div>
 
-          {/* Large Featured Store Image Card - Optimized for Mobile & Desktop */}
+          {/* Large Featured Store Image Card - Perfectly Scaled for Mobile & Desktop */}
           <div className="relative group w-full">
             {/* 3D background accent layer */}
-            <div className="absolute inset-0 rounded-card border-2.5 sm:border-3 border-ink bg-[#FFE1A8] translate-x-1.5 translate-y-1.5 sm:translate-x-2.5 sm:translate-y-2.5 transition-transform duration-300 group-hover:translate-x-3 group-hover:translate-y-3" />
+            <div className="absolute inset-0 rounded-card border-2 sm:border-3 border-ink bg-[#FFE1A8] translate-x-2 translate-y-2 sm:translate-x-2.5 sm:translate-y-2.5 transition-transform duration-300 group-hover:translate-x-3 group-hover:translate-y-3" />
 
-            <div className="relative rounded-card border-2.5 sm:border-3 border-ink bg-[#FE91E8] p-2.5 sm:p-4 md:p-5 shadow-hard-4 sm:shadow-hard-6 transition-all duration-300 group-hover:-translate-x-1 group-hover:-translate-y-1 group-hover:shadow-[10px_10px_0px_#2B2140]">
+            <div className="relative rounded-card border-2 sm:border-3 border-ink bg-[#FE91E8] p-2.5 sm:p-4 md:p-5 shadow-hard-4 sm:shadow-hard-6 transition-all duration-300 group-hover:-translate-x-1 group-hover:-translate-y-1 group-hover:shadow-[10px_10px_0px_#2B2140]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/hero-store.jpg"
                 alt="Rasi Mom & Baby Store Front"
-                className="w-full h-auto rounded-[10px] sm:rounded-[14px] object-cover border-2 sm:border-2.5 border-ink transition-transform duration-500 group-hover:scale-[1.02]"
+                className="w-full h-auto max-h-[260px] sm:max-h-none rounded-[10px] sm:rounded-[14px] object-contain sm:object-cover border-2 sm:border-2.5 border-ink bg-white/40 transition-transform duration-500 group-hover:scale-[1.01]"
               />
-              <div className="mt-2.5 sm:mt-3.5 px-0.5 pb-0.5 flex items-center justify-between flex-nowrap gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
-                <div className="btn-press shrink-0 flex items-center gap-1.5 rounded-pill border-2 sm:border-2.5 border-ink bg-white/95 px-2 sm:px-3 py-1 font-display text-[11px] sm:text-[13px] md:text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] transition-all duration-200 cursor-pointer">
+              <div className="mt-2.5 sm:mt-3.5 px-0.5 pb-0.5 flex items-center justify-between gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
+                <div className="btn-press shrink-0 flex items-center gap-1.5 rounded-pill border-2 sm:border-2.5 border-ink bg-white/95 px-2.5 sm:px-3 py-1 font-display text-[11px] sm:text-[13px] md:text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] transition-all duration-200 cursor-pointer">
                   <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-emerald-500 border border-ink" />
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span>📍</span>
-                    <span>Visit Our Store in Thoothukudi</span>
-                  </span>
+                  <span>Visit Our Store in Thoothukudi</span>
                 </div>
                 <div className="relative group/badge inline-block shrink-0">
                   {/* Colorful Glowing Ambient Pulse Halo */}
                   <div className="absolute -inset-0.5 sm:-inset-1 rounded-pill bg-gradient-to-r from-[#FF85C0] via-[#FFE1A8] to-[#9A6BE0] opacity-85 blur-[5px] sm:blur-[7px] animate-pulse pointer-events-none group-hover/badge:opacity-100 group-hover/badge:blur-9 transition-all" />
 
                   {/* Main Flagship Store Badge */}
-                  <span className="relative z-10 btn-press flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-gradient-to-r from-[#FFE1A8] via-[#FFF0B3] to-[#FFCBD9] px-2 sm:px-3 py-1 text-[10px] sm:text-[11px] font-extrabold tracking-wider text-ink shadow-hard-2 cursor-pointer transition-transform duration-200 hover:scale-105">
+                  <span className="relative z-10 btn-press flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-gradient-to-r from-[#FFE1A8] via-[#FFF0B3] to-[#FFCBD9] px-2.5 sm:px-3 py-1 text-[10px] sm:text-[11px] font-extrabold tracking-wider text-ink shadow-hard-2 cursor-pointer transition-transform duration-200 hover:scale-105">
                     <span className="text-[11px] sm:text-[12px]">✨</span>
                     <span>FLAGSHIP STORE</span>
                   </span>
@@ -270,9 +267,8 @@ export function CategoryGrid({
                 scrollShop();
               }}
               style={{ background: meta.bg, ...glowStyle(meta.bg) }}
-              className={`pop glow-tile flex flex-col items-center gap-[5px] sm:gap-[7px] rounded-tile-lg border-2.5 sm:border-3 border-ink px-1.5 sm:px-2.5 py-2.5 sm:py-4 shadow-hard-3 sm:shadow-hard-5 cursor-pointer ${
-                on ? "tile-pressed" : ""
-              }`}
+              className={`pop glow-tile flex flex-col items-center gap-[5px] sm:gap-[7px] rounded-tile-lg border-2.5 sm:border-3 border-ink px-1.5 sm:px-2.5 py-2.5 sm:py-4 shadow-hard-3 sm:shadow-hard-5 cursor-pointer ${on ? "tile-pressed" : ""
+                }`}
             >
               <div className="flex h-[42px] w-[42px] sm:h-[54px] sm:w-[54px] items-center justify-center rounded-full border-2.5 sm:border-3 border-ink bg-white text-[20px] sm:text-[27px]">
                 {meta.emoji}
