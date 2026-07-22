@@ -257,28 +257,30 @@ export function CategoryGrid({
           </Pill>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
+      <div className="grid grid-cols-4 gap-2.5 sm:gap-3.5 md:grid-cols-4">
         {CATEGORIES.map((c) => {
           const meta = CATEGORY_META[c];
           const on = category === c;
           return (
             <button
               key={c}
+              type="button"
               onClick={() => {
                 setCategory(on ? "all" : c);
                 scrollShop();
               }}
               style={{ background: meta.bg, ...glowStyle(meta.bg) }}
-              className={`pop glow-tile flex flex-col items-center gap-[7px] rounded-tile-lg border-3 border-ink px-2.5 py-4 shadow-hard-5 ${on ? "tile-pressed" : ""
-                }`}
+              className={`pop glow-tile flex flex-col items-center gap-[5px] sm:gap-[7px] rounded-tile-lg border-2.5 sm:border-3 border-ink px-1.5 sm:px-2.5 py-2.5 sm:py-4 shadow-hard-3 sm:shadow-hard-5 cursor-pointer ${
+                on ? "tile-pressed" : ""
+              }`}
             >
-              <div className="flex h-[54px] w-[54px] items-center justify-center rounded-full border-3 border-ink bg-white text-[27px]">
+              <div className="flex h-[42px] w-[42px] sm:h-[54px] sm:w-[54px] items-center justify-center rounded-full border-2.5 sm:border-3 border-ink bg-white text-[20px] sm:text-[27px]">
                 {meta.emoji}
               </div>
-              <span className="text-center font-display text-[14px] font-extrabold leading-[1.1]">
+              <span className="text-center font-display text-[12px] sm:text-[14px] font-extrabold leading-[1.1]">
                 {lang === "ta" ? meta.ta : meta.en}
               </span>
-              <span className="text-[11px] font-bold" style={{ color: meta.pop }}>
+              <span className="hidden sm:inline text-[11px] font-bold" style={{ color: meta.pop }}>
                 {on ? t("category.selected") : t("category.browse")}
               </span>
             </button>

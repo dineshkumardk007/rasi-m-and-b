@@ -237,13 +237,13 @@ export default function Storefront(props: StorefrontProps) {
       <Ribbon settings={settings} />
 
       {/* nav */}
-      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-2.5 px-4 sm:px-5 py-3.5">
+      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-1.5 sm:gap-2.5 px-3 sm:px-5 py-2.5 sm:py-3.5">
         <button
           onClick={openHome}
-          className="flex items-center gap-2.5 cursor-pointer"
+          className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer"
           aria-label={BUSINESS.name}
         >
-          <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-tile border-3 border-ink bg-white p-1 shadow-hard-3 overflow-hidden">
+          <div className="flex h-[38px] w-[38px] sm:h-[44px] sm:w-[44px] shrink-0 items-center justify-center rounded-tile border-2.5 sm:border-3 border-ink bg-white p-1 shadow-hard-2 sm:shadow-hard-3 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Rasi Logo" className="h-full w-full object-contain" />
           </div>
@@ -251,7 +251,7 @@ export default function Storefront(props: StorefrontProps) {
           <img
             src="/brand-text-logo.png"
             alt="Rasi Mom and Baby"
-            className="h-[32px] sm:h-[38px] w-auto object-contain"
+            className="h-[26px] xs:h-[30px] sm:h-[38px] w-auto object-contain"
           />
         </button>
         <div className="flex-1" />
@@ -274,7 +274,7 @@ export default function Storefront(props: StorefrontProps) {
         <button
           type="button"
           onClick={() => setModal(session ? { type: "profile" } : { type: "auth" })}
-          className="btn-press flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FFE1A8] px-3.5 py-[7px] font-display text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] cursor-pointer"
+          className="btn-press flex items-center gap-1 sm:gap-1.5 rounded-pill border-2 sm:border-2.5 border-ink bg-[#FFE1A8] px-2.5 sm:px-3.5 py-1.5 sm:py-[7px] font-display text-[12px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[36px] sm:min-h-[38px] cursor-pointer"
           aria-label="Profile"
         >
           <span>👤</span>
@@ -283,7 +283,7 @@ export default function Storefront(props: StorefrontProps) {
 
         <button
           onClick={() => setModal({ type: "cart" })}
-          className="btn-press relative rounded-pill border-2.5 border-ink bg-brand px-3.5 py-[7px] font-display text-[13px] font-extrabold text-white shadow-hard-2 min-h-[38px]"
+          className="btn-press relative rounded-pill border-2 sm:border-2.5 border-ink bg-brand px-3 sm:px-3.5 py-1.5 sm:py-[7px] font-display text-[12px] sm:text-[13px] font-extrabold text-white shadow-hard-2 min-h-[36px] sm:min-h-[38px]"
           aria-label={t("cart.title")}
         >
           🛒
