@@ -18,78 +18,114 @@ import { Art, Badge, Btn, Card, Pill, Stars } from "@/components/ui";
 
 const nameOf = (p: Product, lang: string) => (lang === "ta" ? p.name_ta : p.name_en);
 
-/* ── Hero — sticker cluster + blobs (the only blur in the system) ────────── */
+/* ── Hero — upgraded wallpaper background + flagship store graphic ────────── */
 export function Hero() {
   const { t } = useT();
   const scrollTo = (id: string) =>
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-  const stickers = [
-    { e: "🧸", c: "#FFCBD9", x: 40, y: 6, r: -6, s: 118 },
-    { e: "🍼", c: "#FFE1A8", x: 186, y: 34, r: 8, s: 92 },
-    { e: "🫧", c: "#C7E9FF", x: 18, y: 146, r: 5, s: 98 },
-    { e: "🌸", c: "#FBD0EA", x: 168, y: 158, r: -8, s: 108 },
-  ];
+
   return (
-    <div className="relative mx-auto max-w-[1080px] px-5 pb-2 pt-[26px]">
-      <div className="blob absolute -top-5 right-2.5 h-[220px] w-[220px] rounded-full bg-[#FFCBD9]" />
-      <div className="blob absolute -left-8 bottom-0 h-[140px] w-[140px] rounded-full bg-[#C7E9FF]" />
-      <div className="relative z-[1] grid items-center gap-[26px] md:grid-cols-[1.1fr_1fr]">
-        <div>
-          <div className="mb-3 flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-tile border-3 border-ink bg-white p-1 shadow-hard-3">
+    <div className="relative mx-auto max-w-[1240px] px-4 sm:px-5 pb-2 pt-4 sm:pt-6">
+      {/* Background wallpaper ambient gradient & pattern */}
+      <div className="blob absolute -top-5 right-2.5 h-[240px] w-[240px] rounded-full bg-[#FFCBD9] opacity-70 blur-2xl pointer-events-none" />
+      <div className="blob absolute -left-8 bottom-0 h-[180px] w-[180px] rounded-full bg-[#C7E9FF] opacity-70 blur-2xl pointer-events-none" />
+
+      <div className="relative z-[1] rounded-modal border-3 border-ink bg-gradient-to-br from-[#FFFDF8] via-[#FFF8EF] to-[#FFCBD9]/25 p-4 sm:p-6 md:p-7 shadow-hard-6 backdrop-blur-sm overflow-hidden">
+        {/* Subtle wallpaper dot texture overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.07] pointer-events-none"
+          style={{
+            backgroundImage: `radial-gradient(#2B2140 1.5px, transparent 1.5px)`,
+            backgroundSize: `18px 18px`
+          }}
+        />
+
+        <div className="relative z-10 grid gap-5 md:gap-6 items-center md:grid-cols-[0.82fr_1.18fr]">
+          <div>
+            <div className="mb-2.5 flex items-center gap-3 flex-wrap">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-tile border-3 border-ink bg-white p-1 shadow-hard-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logo.png" alt="Rasi Mom & Baby" className="h-full w-full object-contain" />
+              </div>
+              <div className="relative group inline-block">
+                {/* Unstructured 3D shadow accent layer */}
+                <div className="absolute inset-0 rounded-[22px_8px_24px_12px] border-2.5 border-ink bg-[#FFCBD9] translate-x-1.5 translate-y-1.5 transition-transform duration-200 group-hover:translate-x-2 group-hover:translate-y-2" />
+                
+                {/* Main unstructured highlight badge */}
+                <span className="relative z-10 inline-flex items-center gap-1.5 rounded-[22px_8px_24px_12px] border-3 border-ink bg-[#FFE66D] px-3.5 py-1.5 font-display text-[13px] sm:text-[14px] font-extrabold text-ink -rotate-1.5 shadow-hard-2 hover:rotate-0 hover:scale-105 transition-all duration-200 cursor-pointer">
+                  <span className="text-[14px] animate-pulse">⭐</span>
+                  <span>{BUSINESS.rating} · {BUSINESS.reviewCount.toLocaleString("en-IN")}+ {t("hero.badge")}</span>
+                </span>
+              </div>
+            </div>
+
+            <h1 className="my-2.5 font-display text-[28px] font-extrabold leading-[1.08] sm:text-[34px] md:text-[38px] text-ink">
+              {t("hero.headline1")}
+              <br />
+              <span className="text-brand">{t("hero.headline2")}</span> 🎈
+            </h1>
+
+            <p className="mb-4 max-w-[440px] text-[14px] sm:text-[15px] text-mute leading-relaxed font-medium">
+              {t("hero.sub")}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Btn onClick={() => scrollTo("shop")}>{t("hero.ctaShop")} →</Btn>
+              <Btn bg="#FFE1A8" color="#2B2140" onClick={() => scrollTo("bundles")}>
+                {t("hero.ctaBundles")}
+              </Btn>
+            </div>
+
+            {/* Neo-Brutalist Soft Pastel Trust Badges - Guaranteed Single Line */}
+            <div className="mt-5 flex flex-nowrap items-center gap-2 pt-3.5 border-t-2 border-ink/10 overflow-x-auto no-scrollbar">
+              <div className="btn-press shrink-0 whitespace-nowrap flex items-center gap-1.5 bg-[#FFE1A8] text-ink px-2.5 py-1.5 rounded-pill border-2.5 border-ink shadow-hard-2 hover:-translate-y-0.5 hover:shadow-hard-3 transition-all duration-200 cursor-pointer font-display text-[12px] sm:text-[13px] font-extrabold">
+                <span>⚡</span> Express Delivery
+              </div>
+              <div className="btn-press shrink-0 whitespace-nowrap flex items-center gap-1.5 bg-[#C7E9FF] text-ink px-2.5 py-1.5 rounded-pill border-2.5 border-ink shadow-hard-2 hover:-translate-y-0.5 hover:shadow-hard-3 transition-all duration-200 cursor-pointer font-display text-[12px] sm:text-[13px] font-extrabold">
+                <span>🛡️</span> 100% Baby-Safe
+              </div>
+              <div className="btn-press shrink-0 whitespace-nowrap flex items-center gap-1.5 bg-[#FFCBD9] text-ink px-2.5 py-1.5 rounded-pill border-2.5 border-ink shadow-hard-2 hover:-translate-y-0.5 hover:shadow-hard-3 transition-all duration-200 cursor-pointer font-display text-[12px] sm:text-[13px] font-extrabold">
+                <span>💳</span> COD / UPI
+              </div>
+            </div>
+          </div>
+
+          {/* Large Featured Store Image Card - Expanded to fill middle gap */}
+          <div className="relative group w-full">
+            {/* 3D background accent layer */}
+            <div className="absolute inset-0 rounded-card border-3 border-ink bg-[#FFE1A8] translate-x-2.5 translate-y-2.5 transition-transform duration-300 group-hover:translate-x-3.5 group-hover:translate-y-3.5" />
+
+            <div className="relative rounded-card border-3 border-ink bg-[#FE91E8] p-4 sm:p-5 shadow-hard-6 transition-all duration-300 group-hover:-translate-x-1 group-hover:-translate-y-1 group-hover:shadow-[10px_10px_0px_#2B2140]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="Rasi Mom & Baby" className="h-full w-full object-contain" />
+              <img
+                src="/hero-store.jpg"
+                alt="Rasi Mom & Baby Store Front"
+                className="w-full h-auto rounded-[14px] object-cover border-2.5 border-ink transition-transform duration-500 group-hover:scale-[1.02]"
+              />
+              <div className="mt-3.5 px-1 pb-0.5 flex items-center justify-between flex-wrap gap-2">
+                <div className="btn-press flex items-center gap-2 rounded-pill border-2.5 border-ink bg-white/95 px-3 py-1 font-display text-[13px] sm:text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] transition-all duration-200 cursor-pointer">
+                  <span className="relative flex h-2.5 w-2.5 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 border border-ink" />
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span>📍</span>
+                    <span>Visit Our Store in Thoothukudi</span>
+                  </span>
+                </div>
+                <div className="relative group/badge inline-block">
+                  {/* Colorful Glowing Ambient Pulse Halo */}
+                  <div className="absolute -inset-1 rounded-pill bg-gradient-to-r from-[#FF85C0] via-[#FFE1A8] to-[#9A6BE0] opacity-85 blur-[7px] animate-pulse pointer-events-none group-hover/badge:opacity-100 group-hover/badge:blur-9 transition-all" />
+
+                  {/* Main Flagship Store Badge */}
+                  <span className="relative z-10 btn-press flex items-center gap-1 rounded-pill border-2.5 border-ink bg-gradient-to-r from-[#FFE1A8] via-[#FFF0B3] to-[#FFCBD9] px-3 py-1 text-[11px] font-extrabold tracking-wider text-ink shadow-hard-2 cursor-pointer transition-transform duration-200 hover:scale-105">
+                    <span className="text-[12px]">✨</span>
+                    <span>FLAGSHIP STORE</span>
+                  </span>
+                </div>
+              </div>
             </div>
-            <span className="inline-block rounded-[30px] border-3 border-ink bg-paper px-4 py-[7px] font-display text-[14px] font-extrabold shadow-hard-3">
-              ⭐ {BUSINESS.rating} · {BUSINESS.reviewCount.toLocaleString("en-IN")}+ {t("hero.badge")}
-            </span>
           </div>
-          <h1 className="my-2.5 font-display text-[34px] font-extrabold leading-[1.06] md:text-[44px]">
-            {t("hero.headline1")}
-            <br />
-            <span className="text-brand">{t("hero.headline2")}</span> 🎈
-          </h1>
-          <p className="mb-5 max-w-[420px] text-[16px] text-mute">{t("hero.sub")}</p>
-          <div className="flex flex-wrap gap-3">
-            <Btn onClick={() => scrollTo("shop")}>{t("hero.ctaShop")} →</Btn>
-            <Btn bg="#FFE1A8" color="#2B2140" onClick={() => scrollTo("bundles")}>
-              {t("hero.ctaBundles")}
-            </Btn>
-          </div>
-        </div>
-        <div className="relative hidden h-[290px] md:block" aria-hidden>
-          <div
-            className="pop absolute z-10 flex flex-col items-center justify-center rounded-modal border-3 border-ink bg-white p-3.5 shadow-hard-6"
-            style={{
-              left: 60,
-              top: 50,
-              width: 170,
-              height: 170,
-              transform: "rotate(-3deg)",
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Rasi Logo" className="h-[90px] w-auto object-contain mb-1" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand-text-logo.png" alt="Rasi Mom and Baby" className="h-[28px] w-auto object-contain" />
-          </div>
-          {stickers.map((b, i) => (
-            <div
-              key={i}
-              className="pop absolute flex items-center justify-center rounded-modal border-3 border-ink shadow-hard-4"
-              style={{
-                left: b.x,
-                top: b.y,
-                width: b.s,
-                height: b.s,
-                background: b.c,
-                fontSize: b.s * 0.42,
-                transform: `rotate(${b.r}deg)`,
-              }}
-            >
-              {b.e}
-            </div>
-          ))}
         </div>
       </div>
     </div>
@@ -153,34 +189,37 @@ export function Marquee({
     if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     resumeTimerRef.current = setTimeout(() => {
       isInteractingRef.current = false;
-    }, 2500);
+    }, 2000);
   };
 
   return (
     <div className="mb-1.5 mt-[18px]">
-      <div className="mx-auto flex max-w-[1080px] items-baseline gap-2 px-5 pb-2">
+      <div className="mx-auto flex max-w-[1240px] items-baseline gap-2 px-5 pb-2">
         <span className="font-display text-[22px] font-extrabold">{t("marquee.title")}</span>
         <span className="text-[14px] font-extrabold text-[#9A6BE0] font-display">
           · {t("marquee.sub")} ✨
         </span>
       </div>
-      <div className="marquee-mask overflow-hidden pb-3 pt-1.5">
+      <div className="marquee-mask overflow-hidden pb-6 pt-3 -my-2">
         <div
           ref={scrollRef}
           onMouseEnter={handleInteractionStart}
           onMouseLeave={handleInteractionEnd}
           onTouchStart={handleInteractionStart}
+          onTouchMove={handleInteractionStart}
           onTouchEnd={handleInteractionEnd}
           onTouchCancel={handleInteractionEnd}
           onScroll={handleInteractionStart}
-          className="no-scrollbar flex w-full overflow-x-auto gap-[18px] px-5 touch-pan-x cursor-grab active:cursor-grabbing"
+          style={{ touchAction: "pan-x pan-y" }}
+          className="no-scrollbar flex w-full overflow-x-auto gap-[18px] px-6 py-2.5 cursor-grab active:cursor-grabbing"
         >
           {[...products, ...products].map((p, i) => (
             <button
               key={i}
+              type="button"
               onClick={() => openProduct(p)}
               style={glowStyle(p.tile_color)}
-              className="pop glow-card w-[150px] shrink-0 rounded-card border-3 border-ink bg-paper p-2.5 text-left shadow-hard-4"
+              className="glow-card w-[150px] shrink-0 rounded-card border-3 border-ink bg-paper p-2.5 text-left shadow-hard-4 transition-all duration-200 hover:-translate-y-1 active:scale-95 cursor-pointer select-none"
               tabIndex={i < products.length ? 0 : -1}
             >
               <Art emoji={p.emoji} bg={p.tile_color} h={90} image={p.images[0]} alt={p.name_en} />
@@ -230,9 +269,8 @@ export function CategoryGrid({
                 scrollShop();
               }}
               style={{ background: meta.bg, ...glowStyle(meta.bg) }}
-              className={`pop glow-tile flex flex-col items-center gap-[7px] rounded-tile-lg border-3 border-ink px-2.5 py-4 shadow-hard-5 ${
-                on ? "tile-pressed" : ""
-              }`}
+              className={`pop glow-tile flex flex-col items-center gap-[7px] rounded-tile-lg border-3 border-ink px-2.5 py-4 shadow-hard-5 ${on ? "tile-pressed" : ""
+                }`}
             >
               <div className="flex h-[54px] w-[54px] items-center justify-center rounded-full border-3 border-ink bg-white text-[27px]">
                 {meta.emoji}

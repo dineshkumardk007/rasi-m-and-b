@@ -67,7 +67,17 @@ export default async function RootLayout({
       lang={lang}
       className={`${baloo.variable} ${karla.variable} ${notoTamil.variable}`}
     >
-      <body className="min-h-screen antialiased">
+      <body className="min-h-screen antialiased bg-cream relative">
+        {/* Editorial Neo-Brutalist fixed background wallpaper layer */}
+        <div 
+          className="fixed inset-0 pointer-events-none z-[-1] opacity-65 bg-cover bg-center bg-no-repeat sm:bg-repeat"
+          style={{
+            backgroundImage: `url('/hero-wallpaper.png')`,
+            backgroundSize: `1600px auto`,
+            backgroundPosition: `center top`
+          }}
+        />
+
         <LanguageProvider initialLang={lang}>
           <SessionProvider isDemo={isDemo()}>
             <CartProvider>{children}</CartProvider>

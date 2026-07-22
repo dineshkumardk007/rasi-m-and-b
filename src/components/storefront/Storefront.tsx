@@ -27,7 +27,14 @@ import {
   ShopGrid,
   Trust,
 } from "./sections";
-import { AuthModal, CartModal, CheckoutModal, ProductModal, TrackModal } from "./modals";
+import {
+  AuthModal,
+  CartModal,
+  CheckoutModal,
+  ProductModal,
+  ProfileModal,
+  TrackModal,
+} from "./modals";
 import { Ribbon } from "./Ribbon";
 import { BUSINESS } from "@/lib/constants";
 
@@ -51,6 +58,7 @@ export type ModalState =
   | { type: "track" }
   | { type: "auth" }
   | { type: "confirmSignOut" }
+  | { type: "profile" }
   | null;
 
 export default function Storefront(props: StorefrontProps) {
@@ -208,23 +216,31 @@ export default function Storefront(props: StorefrontProps) {
     return products.filter((p) => names.has(p.name_en)).slice(0, 6);
   }, [myOrders, products]);
 
+  const openOrders = useCallback(() => {
+    setRoute("orders");
+    setCategoryState("all");
+    setMilestoneState("all");
+    setQueryState("");
+    router.push("/", { scroll: false });
+  }, [router]);
+
+  const openHome = useCallback(() => {
+    setRoute("home");
+    setCategoryState("all");
+    setMilestoneState("all");
+    setQueryState("");
+    router.push("/");
+  }, [router]);
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-cream text-ink">
       <Ribbon settings={settings} />
 
       {/* nav */}
-      <div className="mx-auto flex max-w-[1080px] flex-wrap items-center gap-2.5 px-5 py-3.5">
+      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-2.5 px-4 sm:px-5 py-3.5">
         <button
-          onClick={() => {
-            // Full reset — go straight to "/" rather than composing a URL from
-            // the individual setters, whose closures still hold the old values.
-            setRoute("home");
-            setMilestoneState("all");
-            setCategoryState("all");
-            setQueryState("");
-            router.push("/");
-          }}
-          className="flex items-center gap-2.5"
+          onClick={openHome}
+          className="flex items-center gap-2.5 cursor-pointer"
           aria-label={BUSINESS.name}
         >
           <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-tile border-3 border-ink bg-white p-1 shadow-hard-3 overflow-hidden">
@@ -248,23 +264,23 @@ export default function Storefront(props: StorefrontProps) {
         {session && (
           <Pill
             bg="#D6E8B0"
-            onClick={() => setRoute(route === "orders" ? "home" : "orders")}
+            onClick={() => (route === "orders" ? openHome() : openOrders())}
           >
             {route === "orders" ? t("nav.shop") : t("nav.orders")}
           </Pill>
         )}
-        {session ? (
-          <Pill
-            bg="#FFCBD9"
-            onClick={() => setModal({ type: "confirmSignOut" })}
-          >
-            {t("nav.signOut")}
-          </Pill>
-        ) : (
-          <Pill bg="#FFE1A8" onClick={() => setModal({ type: "auth" })}>
-            {t("nav.signIn")}
-          </Pill>
-        )}
+
+        {/* Profile Button before Cart */}
+        <button
+          type="button"
+          onClick={() => setModal(session ? { type: "profile" } : { type: "auth" })}
+          className="btn-press flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FFE1A8] px-3.5 py-[7px] font-display text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] cursor-pointer"
+          aria-label="Profile"
+        >
+          <span>👤</span>
+          <span className="hidden sm:inline">{session ? session.name.split(" ")[0] : t("nav.signIn")}</span>
+        </button>
+
         <button
           onClick={() => setModal({ type: "cart" })}
           className="btn-press relative rounded-pill border-2.5 border-ink bg-brand px-3.5 py-[7px] font-display text-[13px] font-extrabold text-white shadow-hard-2 min-h-[38px]"
@@ -278,6 +294,15 @@ export default function Storefront(props: StorefrontProps) {
           )}
         </button>
       </div>
+
+      {/* Profile Modal */}
+      {modal?.type === "profile" && (
+        <ProfileModal
+          onClose={() => setModal(null)}
+          onSignOut={() => setModal({ type: "confirmSignOut" })}
+          onOpenOrders={openOrders}
+        />
+      )}
 
       {route === "home" && (
         <div>
@@ -303,17 +328,38 @@ export default function Storefront(props: StorefrontProps) {
 
       {route === "orders" && session && (
         <div className="mx-auto max-w-[720px] px-5 pb-16 pt-6">
-          <h2 className="mb-4 font-display text-[30px] font-extrabold">
-            {t("orders.title")} 📦
-          </h2>
+          <div className="flex items-center justify-between mb-4 pb-2 border-b-2 border-ink/10">
+            <h2 className="font-display text-[30px] font-extrabold flex items-center gap-2">
+              <span>📦</span> {t("orders.title")}
+            </h2>
+            <button
+              type="button"
+              onClick={openHome}
+              aria-label="Close orders page and return home"
+              className="btn-press flex h-9 w-9 items-center justify-center rounded-full border-2.5 border-ink bg-[#FFE1A8] font-display text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] active:scale-90 transition-all cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
           {myOrders.length === 0 && <p className="text-mute">{t("orders.none")}</p>}
           {myOrders.map((o) => (
-            <Card key={o.id} className="mb-3 p-4">
+            <Card key={o.id} className="relative mb-3 p-4">
               <div className="flex items-center justify-between">
                 <span className="font-display font-extrabold">{o.order_no}</span>
-                <Badge bg={o.status === "delivered" ? "#D6E8B0" : "#FFE1A8"}>
-                  {t(`track.status.${o.status}` as never)}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge bg={o.status === "delivered" ? "#D6E8B0" : "#FFE1A8"}>
+                    {t(`track.status.${o.status}` as never)}
+                  </Badge>
+                  <button
+                    type="button"
+                    onClick={openHome}
+                    title="Close and return to home page"
+                    aria-label="Return to home page"
+                    className="btn-press flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink bg-[#FFFDF7] font-display text-[12px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] transition-all cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
               <div className="mt-1 text-[14px] text-mute">
                 {o.items.map((i) => `${i.name_snapshot} ×${i.qty}`).join(" · ")}

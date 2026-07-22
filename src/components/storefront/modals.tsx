@@ -1154,3 +1154,111 @@ export function AuthModal({
     </Modal>
   );
 }
+
+/* ── Customer Profile Modal ────────────────────────────────────────────────── */
+export function ProfileModal({
+  onClose,
+  onSignOut,
+  onOpenOrders,
+}: {
+  onClose: () => void;
+  onSignOut: () => void;
+  onOpenOrders?: () => void;
+}) {
+  const { session } = useSession();
+  const { t } = useT();
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-ink/10">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-3 border-ink bg-[#FFE1A8] text-[26px] shadow-hard-3">
+          👤
+        </div>
+        <div>
+          <h3 className="font-display text-[22px] font-extrabold text-ink leading-tight">
+            {session?.name || "Customer Profile"}
+          </h3>
+          <span className="inline-block rounded-pill border-2 border-ink bg-[#C7E9FF] px-2.5 py-0.5 text-[11px] font-extrabold text-ink mt-0.5">
+            VERIFIED CUSTOMER
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-3 font-body">
+        {/* Mobile Number */}
+        <div className="rounded-tile border-2.5 border-ink bg-paper p-3 shadow-hard-2">
+          <div className="text-[11px] font-extrabold uppercase text-mute font-display">
+            📱 Mobile Number
+          </div>
+          <div className="mt-0.5 text-[15px] font-bold text-ink">
+            {session?.phone ? `+91 ${session.phone}` : "Not linked"}
+          </div>
+        </div>
+
+        {/* Email Address */}
+        <div className="rounded-tile border-2.5 border-ink bg-paper p-3 shadow-hard-2">
+          <div className="text-[11px] font-extrabold uppercase text-mute font-display">
+            📧 Email Address
+          </div>
+          <div className="mt-0.5 text-[15px] font-bold text-ink">
+            {session?.email || "No email linked"}
+          </div>
+        </div>
+
+        {/* Saved Delivery Address */}
+        <div className="rounded-tile border-2.5 border-ink bg-paper p-3 shadow-hard-2">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-extrabold uppercase text-mute font-display">
+              📍 Saved Delivery Address
+            </div>
+            <span className="rounded-pill bg-[#FFCBD9] px-2 py-0.5 text-[10px] font-extrabold border border-ink text-ink">
+              PRIMARY
+            </span>
+          </div>
+          <div className="mt-1 text-[14px] font-semibold text-ink leading-relaxed">
+            Thoothukudi, Tamil Nadu — 628001
+          </div>
+          <div className="mt-1 text-[12px] text-mute font-medium">
+            ⚡ Eligible for Express Same-Day Delivery
+          </div>
+        </div>
+
+        {/* Account Activity Summary & Perks */}
+        <div className="rounded-tile border-2.5 border-ink bg-[#FFFDF7] p-3 shadow-hard-2">
+          <div className="text-[11px] font-extrabold uppercase text-mute font-display mb-1.5">
+            📦 Customer Status & Perks
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-[12px]">
+            <div className="bg-white p-2 rounded-tile border-2 border-ink text-center">
+              <div className="font-extrabold text-brand">Free Delivery</div>
+              <div className="text-[10px] text-mute">Orders above ₹999</div>
+            </div>
+            <div className="bg-white p-2 rounded-tile border-2 border-ink text-center">
+              <div className="font-extrabold text-[#9A6BE0]">Thoothukudi Store</div>
+              <div className="text-[10px] text-mute">Local Customer</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-2.5">
+        {onOpenOrders && (
+          <Btn
+            full
+            bg="#D6E8B0"
+            color="#2B2140"
+            onClick={() => {
+              onClose();
+              onOpenOrders();
+            }}
+          >
+            📦 View My Orders
+          </Btn>
+        )}
+        <Btn full bg="#FFCBD9" color="#2B2140" onClick={onSignOut}>
+          Sign Out 🚪
+        </Btn>
+      </div>
+    </Modal>
+  );
+}
