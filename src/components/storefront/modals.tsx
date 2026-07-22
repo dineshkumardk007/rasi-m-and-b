@@ -1166,7 +1166,6 @@ export function ProfileModal({
   onOpenOrders?: () => void;
 }) {
   const { session } = useSession();
-  const { t } = useT();
 
   return (
     <Modal onClose={onClose}>
