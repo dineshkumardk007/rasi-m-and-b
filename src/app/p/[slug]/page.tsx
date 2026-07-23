@@ -81,27 +81,27 @@ export default async function ProductPage({ params }: Props) {
     },
     ...(reviews.length
       ? {
-          aggregateRating: {
-            "@type": "AggregateRating",
-            ratingValue: (
-              reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
-            ).toFixed(1),
-            reviewCount: reviews.length,
-          },
-          review: reviews.slice(0, 5).map((r) => ({
-            "@type": "Review",
-            author: { "@type": "Person", name: r.author_name },
-            reviewRating: { "@type": "Rating", ratingValue: r.rating },
-            reviewBody: r.text,
-          })),
-        }
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: (
+            reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
+          ).toFixed(1),
+          reviewCount: reviews.length,
+        },
+        review: reviews.slice(0, 5).map((r) => ({
+          "@type": "Review",
+          author: { "@type": "Person", name: r.author_name },
+          reviewRating: { "@type": "Rating", ratingValue: r.rating },
+          reviewBody: r.text,
+        })),
+      }
       : {}),
   };
 
   const meta = MILESTONE_META[product.milestone];
 
   return (
-    <main className="mx-auto min-h-screen max-w-[720px] bg-cream px-5 py-6 text-ink">
+    <main className="mx-auto min-h-screen max-w-[720px] px-5 py-6 text-ink">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

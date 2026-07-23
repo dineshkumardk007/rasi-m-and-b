@@ -233,7 +233,7 @@ export default function Storefront(props: StorefrontProps) {
   }, [router]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-cream text-ink">
+    <div className="min-h-screen overflow-x-hidden text-ink">
       <Ribbon settings={settings} />
 
       {/* nav */}
@@ -312,7 +312,7 @@ export default function Storefront(props: StorefrontProps) {
           <Hero />
           <Marquee products={products.slice(0, 8)} openProduct={openProduct} />
           <CategoryGrid category={category} setCategory={setCategory} />
-          <BuyAgain products={buyAgain} addToCart={addToCart} />
+          <BuyAgain products={buyAgain} addToCart={addToCart} openProduct={openProduct} />
           <BundlesSection bundles={bundles} addToCart={(b) => addToCart(`b:${b.id}`)} />
           <ShopGrid
             filtered={filtered}

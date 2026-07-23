@@ -56,7 +56,7 @@ export default async function ContactPage() {
   )}`;
 
   return (
-    <main className="mx-auto min-h-screen max-w-[720px] bg-cream px-5 py-6 text-ink">
+    <main className="mx-auto min-h-screen max-w-[720px] px-5 py-6 text-ink">
       <Link
         href="/"
         className="mb-4 inline-block rounded-pill border-2.5 border-ink bg-paper px-3.5 py-[7px] font-display text-[13px] font-extrabold shadow-hard-2"

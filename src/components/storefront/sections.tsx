@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Image from "next/image";
 import type { Bundle, Product } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import {
@@ -40,7 +41,7 @@ export function Hero() {
           }}
         />
 
-        <div className="relative z-10 grid gap-5 md:gap-6 items-center md:grid-cols-[0.82fr_1.18fr]">
+        <div className="relative z-10 grid grid-cols-1 gap-5 md:gap-6 items-center md:grid-cols-[0.82fr_1.18fr]">
           <div>
             <div className="mb-2.5 flex items-center gap-3 flex-wrap">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-tile border-3 border-ink bg-white p-1 shadow-hard-3">
@@ -69,11 +70,32 @@ export function Hero() {
               {t("hero.sub")}
             </p>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Btn onClick={() => scrollTo("shop")}>{t("hero.ctaShop")} →</Btn>
-              <Btn bg="#FFE1A8" color="#2B2140" onClick={() => scrollTo("bundles")}>
-                {t("hero.ctaBundles")}
-              </Btn>
+            <div className="flex flex-wrap items-center gap-x-7 gap-y-4.5 pt-1.5 pb-1">
+              {/* Start Shopping CTA with 3D Layered Accent */}
+              <div className="relative group inline-block mr-1">
+                <div className="absolute inset-0 rounded-[22px_10px_24px_12px] border-2.5 border-ink bg-[#FFCBD9] translate-x-1.5 translate-y-1.5 transition-transform duration-200 group-hover:translate-x-2.5 group-hover:translate-y-2.5" />
+                <button
+                  type="button"
+                  onClick={() => scrollTo("shop")}
+                  className="relative z-10 inline-flex items-center gap-2 rounded-[22px_10px_24px_12px] border-3 border-ink bg-brand px-5 py-2.5 sm:px-6 sm:py-3 font-display text-[14px] sm:text-[16px] font-extrabold text-white -rotate-1 shadow-hard-3 hover:rotate-0 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
+                >
+                  <span>{t("hero.ctaShop")}</span>
+                  <span className="text-[16px] transition-transform duration-200 group-hover:translate-x-1">→</span>
+                </button>
+              </div>
+
+              {/* See Bundles CTA with 3D Layered Accent */}
+              <div className="relative group inline-block">
+                <div className="absolute inset-0 rounded-[12px_24px_10px_22px] border-2.5 border-ink bg-[#C7E9FF] translate-x-1.5 translate-y-1.5 transition-transform duration-200 group-hover:translate-x-2.5 group-hover:translate-y-2.5" />
+                <button
+                  type="button"
+                  onClick={() => scrollTo("bundles")}
+                  className="relative z-10 inline-flex items-center gap-2 rounded-[12px_24px_10px_22px] border-3 border-ink bg-[#FFE1A8] px-5 py-2.5 sm:px-6 sm:py-3 font-display text-[14px] sm:text-[16px] font-extrabold text-ink rotate-1 shadow-hard-3 hover:rotate-0 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
+                >
+                  <span className="text-[16px]">🎁</span>
+                  <span>{t("hero.ctaBundles")}</span>
+                </button>
+              </div>
             </div>
 
             {/* Neo-Brutalist Soft Pastel Trust Badges - Guaranteed Single Line */}
@@ -90,32 +112,43 @@ export function Hero() {
             </div>
           </div>
 
-          {/* Large Featured Store Image Card - Perfectly Scaled for Mobile & Desktop */}
+          {/* Large Featured Store Image Card */}
           <div className="relative group w-full">
             {/* 3D background accent layer */}
             <div className="absolute inset-0 rounded-card border-2 sm:border-3 border-ink bg-[#FFE1A8] translate-x-2 translate-y-2 sm:translate-x-2.5 sm:translate-y-2.5 transition-transform duration-300 group-hover:translate-x-3 group-hover:translate-y-3" />
 
             <div className="relative rounded-card border-2 sm:border-3 border-ink bg-[#FE91E8] p-2.5 sm:p-4 md:p-5 shadow-hard-4 sm:shadow-hard-6 transition-all duration-300 group-hover:-translate-x-1 group-hover:-translate-y-1 group-hover:shadow-[10px_10px_0px_#2B2140]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src="/hero-store.jpg"
                 alt="Rasi Mom & Baby Store Front"
+                width={1024}
+                height={576}
+                priority
+                sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 560px"
                 className="w-full h-auto max-h-[260px] sm:max-h-none rounded-[10px] sm:rounded-[14px] object-contain sm:object-cover border-2 sm:border-2.5 border-ink bg-white/40 transition-transform duration-500 group-hover:scale-[1.01]"
               />
               <div className="mt-2.5 sm:mt-3.5 px-0.5 pb-0.5 flex items-center justify-between gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
-                <div className="btn-press shrink-0 flex items-center gap-1.5 rounded-pill border-2 sm:border-2.5 border-ink bg-white/95 px-2.5 sm:px-3 py-1 font-display text-[11px] sm:text-[13px] md:text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] transition-all duration-200 cursor-pointer">
+                {/* Specific Google Maps Link Button */}
+                <a
+                  href={BUSINESS.googleMaps}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-press shrink-0 flex items-center gap-1.5 rounded-pill border-2 sm:border-2.5 border-ink bg-white/95 px-2.5 sm:px-3 py-1 font-display text-[11px] sm:text-[13px] md:text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] transition-all duration-200 cursor-pointer"
+                  title="Open Rasi Mom & Baby in Google Maps"
+                >
                   <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-emerald-500 border border-ink" />
                   </span>
-                  <span>Visit Our Store in Thoothukudi</span>
-                </div>
+                  <span>Visit Our Store in Thoothukudi 📍</span>
+                </a>
+
                 <div className="relative group/badge inline-block shrink-0">
                   {/* Colorful Glowing Ambient Pulse Halo */}
                   <div className="absolute -inset-0.5 sm:-inset-1 rounded-pill bg-gradient-to-r from-[#FF85C0] via-[#FFE1A8] to-[#9A6BE0] opacity-85 blur-[5px] sm:blur-[7px] animate-pulse pointer-events-none group-hover/badge:opacity-100 group-hover/badge:blur-9 transition-all" />
 
-                  {/* Main Flagship Store Badge */}
-                  <span className="relative z-10 btn-press flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-gradient-to-r from-[#FFE1A8] via-[#FFF0B3] to-[#FFCBD9] px-2.5 sm:px-3 py-1 text-[10px] sm:text-[11px] font-extrabold tracking-wider text-ink shadow-hard-2 cursor-pointer transition-transform duration-200 hover:scale-105">
+                  {/* Main Flagship Store Badge — Decorative Tag */}
+                  <span className="relative z-10 flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-gradient-to-r from-[#FFE1A8] via-[#FFF0B3] to-[#FFCBD9] px-2.5 sm:px-3 py-1 text-[10px] sm:text-[11px] font-extrabold tracking-wider text-ink shadow-hard-2">
                     <span className="text-[11px] sm:text-[12px]">✨</span>
                     <span>FLAGSHIP STORE</span>
                   </span>
@@ -291,9 +324,11 @@ export function CategoryGrid({
 export function BuyAgain({
   products,
   addToCart,
+  openProduct,
 }: {
   products: Product[];
   addToCart: (id: string) => void;
+  openProduct?: (p: Product) => void;
 }) {
   const { t, lang } = useT();
   if (products.length === 0) return null;
@@ -302,11 +337,16 @@ export function BuyAgain({
       <h2 className="mb-3 font-display text-[22px] font-extrabold">🔁 {t("buyAgain.title")}</h2>
       <div className="flex gap-3 overflow-x-auto pb-2">
         {products.map((p) => (
-          <Card key={p.id} className="pop glow-card w-40 shrink-0 p-2.5" style={glowStyle(p.tile_color)}>
+          <Card
+            key={p.id}
+            className={`pop glow-card w-40 shrink-0 p-2.5 ${openProduct ? "cursor-pointer group hover:border-brand" : ""}`}
+            style={glowStyle(p.tile_color)}
+            onClick={() => openProduct?.(p)}
+          >
             <Art emoji={p.emoji} bg={p.tile_color} h={90} image={p.images[0]} alt={p.name_en} />
-            <div className="mt-2 text-[12px] font-bold leading-[1.2]">{nameOf(p, lang)}</div>
+            <div className="mt-2 text-[12px] font-bold leading-[1.2] group-hover:text-brand transition-colors">{nameOf(p, lang)}</div>
             <div className="mt-1 font-display font-extrabold text-brand">{inr(p.price)}</div>
-            <div className="mt-2">
+            <div className="mt-2" onClick={(e) => openProduct && e.stopPropagation()}>
               <Btn small full onClick={() => addToCart(p.id)}>
                 {t("buyAgain.add")}
               </Btn>
@@ -440,31 +480,32 @@ export function ShopGrid({
           <div
             key={p.id}
             style={glowStyle(p.tile_color)}
-            className="pop glow-card flex flex-col rounded-card border-3 border-ink bg-paper p-2.5 shadow-hard-4"
+            className="pop glow-card flex flex-col rounded-card border-3 border-ink bg-paper p-2.5 shadow-hard-4 hover:border-brand transition-colors cursor-pointer group"
+            onClick={() => openProduct(p)}
           >
-            <button onClick={() => openProduct(p)} aria-label={nameOf(p, lang)}>
+            <div className="flex flex-1 flex-col">
               <Art emoji={p.emoji} bg={p.tile_color} h={130} image={p.images[0]} alt={p.name_en} />
-            </button>
-            <div className="mt-2 flex-1">
-              <div className="text-[13px] font-bold leading-[1.2]">{nameOf(p, lang)}</div>
-              <div className="mt-1.5 flex items-baseline gap-1.5">
-                <span className="font-display font-extrabold text-brand">{inr(p.price)}</span>
-                {p.mrp > p.price && (
-                  <span className="text-[11px] text-[#B4AABF] line-through">{inr(p.mrp)}</span>
+              <div className="mt-2 flex-1">
+                <div className="text-[13px] font-bold leading-[1.2] group-hover:text-brand transition-colors">{nameOf(p, lang)}</div>
+                <div className="mt-1.5 flex items-baseline gap-1.5">
+                  <span className="font-display font-extrabold text-brand">{inr(p.price)}</span>
+                  {p.mrp > p.price && (
+                    <span className="text-[11px] text-[#B4AABF] line-through">{inr(p.mrp)}</span>
+                  )}
+                </div>
+                {p.stock <= p.low_stock_threshold && p.stock > 0 && (
+                  <div className="mt-[3px] text-[11px] font-extrabold text-[#F59E0B]">
+                    {t("shop.onlyLeft", { count: p.stock })}
+                  </div>
+                )}
+                {p.stock === 0 && (
+                  <div className="mt-[3px] text-[11px] font-extrabold text-[#E24B4A]">
+                    {t("shop.soldOut")}
+                  </div>
                 )}
               </div>
-              {p.stock <= p.low_stock_threshold && p.stock > 0 && (
-                <div className="mt-[3px] text-[11px] font-extrabold text-[#F59E0B]">
-                  {t("shop.onlyLeft", { count: p.stock })}
-                </div>
-              )}
-              {p.stock === 0 && (
-                <div className="mt-[3px] text-[11px] font-extrabold text-[#E24B4A]">
-                  {t("shop.soldOut")}
-                </div>
-              )}
             </div>
-            <div className="mt-2">
+            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
               <Btn small full disabled={p.stock === 0} onClick={() => addToCart(p.id)}>
                 {t("shop.addToCart")}
               </Btn>
@@ -510,7 +551,15 @@ export function Trust() {
           </div>
           <h2 className="font-display text-[24px] font-extrabold">{t("trust.title")} 💛</h2>
           <p className="mb-3 mt-2 text-[14px] leading-[1.5] text-[#7A5A1E]">{t("trust.sub")}</p>
-          <div className="text-[13px] font-bold">📍 {BUSINESS.addressShort}</div>
+          <a
+            href={BUSINESS.googleMaps}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-press inline-flex items-center gap-1 text-[13px] font-bold text-ink underline hover:text-brand transition-colors cursor-pointer"
+            title="Open location in Google Maps"
+          >
+            📍 {BUSINESS.addressShort} ↗
+          </a>
           <div className="mt-[3px] text-[13px] font-bold">
             🕘 {t("trust.hours")} · 💬 WhatsApp
           </div>

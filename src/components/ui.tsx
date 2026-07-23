@@ -86,13 +86,16 @@ export function Card({
   children,
   className = "",
   style,
+  onClick,
 }: {
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
+  onClick?: () => void;
 }) {
   return (
     <div
+      onClick={onClick}
       style={style}
       className={`rounded-card border-3 border-ink bg-paper shadow-hard-4 ${className}`}
     >
@@ -214,20 +217,42 @@ export function Modal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: wide ? 640 : 440 }}
-        className="animate-modal relative max-h-[92vh] w-full overflow-y-auto rounded-t-modal border-4 border-ink bg-cream p-[22px] shadow-hard-6 sm:rounded-modal"
+        style={{ maxWidth: wide ? 680 : 460 }}
+        className="animate-modal relative max-h-[92vh] w-full overflow-y-auto rounded-t-modal border-4 border-ink bg-[#FFF9F2] p-[22px] shadow-hard-6 sm:rounded-modal overflow-hidden"
       >
-        {!hideClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close modal"
-            className="btn-press absolute right-3.5 top-3.5 z-30 flex h-9 w-9 items-center justify-center rounded-full border-2.5 border-ink bg-[#FFE1A8] font-display text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] active:scale-90 transition-all cursor-pointer"
-          >
-            ✕
-          </button>
-        )}
-        {children}
+        {/* Soft Pastel Mesh Base Canvas */}
+        <div className="absolute inset-0 -z-20 min-h-full w-full bg-gradient-to-br from-[#FFEAF2] via-[#FFF6E5] to-[#E2F0FF] pointer-events-none" />
+
+        {/* Smooth Ambient Color Glow Blobs — scaled for desktop & mobile */}
+        <div className="absolute -top-20 -right-20 -z-10 h-[380px] sm:h-[480px] w-[380px] sm:w-[480px] rounded-full bg-[#FFB8CC]/80 blur-2xl pointer-events-none" />
+        <div className="absolute top-1/4 -left-20 -z-10 h-[350px] sm:h-[450px] w-[350px] sm:w-[450px] rounded-full bg-[#FFD68A]/80 blur-2xl pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 h-[350px] sm:h-[450px] w-[350px] sm:w-[450px] rounded-full bg-[#D4C2FF]/75 blur-2xl pointer-events-none" />
+        <div className="absolute top-3/4 -right-20 -z-10 h-[350px] sm:h-[450px] w-[350px] sm:w-[450px] rounded-full bg-[#B2E2FF]/85 blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-16 -z-10 h-[380px] sm:h-[480px] w-[380px] sm:w-[480px] rounded-full bg-[#FFC7D9]/80 blur-2xl pointer-events-none" />
+
+        {/* Smooth Floating Doodle Objects Layer */}
+        <div
+          className="absolute inset-0 -z-10 min-h-full w-full pointer-events-none opacity-[0.48]"
+          style={{
+            backgroundImage: "url('/modal-doodle-pattern.svg')",
+            backgroundRepeat: "repeat",
+            backgroundSize: "320px 320px",
+          }}
+        />
+
+        <div className="relative z-10">
+          {!hideClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close modal"
+              className="btn-press absolute -right-1.5 -top-1.5 z-30 flex h-9 w-9 items-center justify-center rounded-full border-2.5 border-ink bg-[#FFE1A8] font-display text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] active:scale-90 transition-all cursor-pointer"
+            >
+              ✕
+            </button>
+          )}
+          {children}
+        </div>
       </div>
     </div>
   );

@@ -63,7 +63,7 @@ const enforcedCsp = [`frame-ancestors 'none'`, `base-uri 'self'`, `object-src 'n
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false, // stop advertising the framework version
-  allowedDevOrigins: ["localhost:3000", "192.168.29.197:3000", "192.168.29.*:3000"],
+  allowedDevOrigins: ["localhost:3000", "192.168.29.197:3000", "192.168.29.197", "localhost"],
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [

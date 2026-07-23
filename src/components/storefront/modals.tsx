@@ -51,31 +51,40 @@ export function ProductModal({
 
   return (
     <Modal onClose={onClose} wide>
-      <Art emoji={p.emoji} bg={p.tile_color} h={190} image={p.images[0]} alt={p.name_en} />
-      <h3 className="mt-3.5 font-display text-[24px] font-extrabold">{name}</h3>
-      <div className="mt-1 flex flex-wrap items-baseline gap-2">
-        <span className="font-display text-[22px] font-extrabold text-brand">{inr(p.price)}</span>
-        {p.mrp > p.price && (
-          <span className="text-[14px] text-[#B4AABF] line-through">{inr(p.mrp)}</span>
-        )}
-        <Badge bg={meta.bg}>{lang === "ta" ? meta.shortTa : meta.shortEn}</Badge>
-        {p.brand && <Badge bg="#C7E9FF">{p.brand}</Badge>}
+      <Art emoji={p.emoji} bg={p.tile_color} h={200} image={p.images[0]} alt={p.name_en} />
+
+      {/* Title & Price Header Card — Mild Soft Cream Tint */}
+      <div className="mt-3.5 rounded-card border-2.5 border-ink bg-[#FFF6ED] p-3.5 shadow-sm backdrop-blur-sm">
+        <h3 className="font-display text-[24px] sm:text-[26px] font-extrabold text-ink leading-snug">{name}</h3>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <span className="font-display text-[24px] font-extrabold text-brand">{inr(p.price)}</span>
+          {p.mrp > p.price && (
+            <>
+              <span className="text-[14px] text-[#B4AABF] line-through">{inr(p.mrp)}</span>
+              <Badge bg="#D6E8B0">
+                SAVE {inr(p.mrp - p.price)}
+              </Badge>
+            </>
+          )}
+          <Badge bg={meta.bg}>{lang === "ta" ? meta.shortTa : meta.shortEn}</Badge>
+          {p.brand && <Badge bg="#C7E9FF">{p.brand}</Badge>}
+        </div>
+        <p className="mt-2.5 text-[14px] sm:text-[15px] leading-[1.55] text-mute">{desc}</p>
       </div>
-      <p className="mt-2.5 text-[15px] leading-[1.5] text-mute">{desc}</p>
 
       {p.ingredients && (
-        <div className="mt-3 rounded-tile border-2.5 border-ink bg-paper p-3">
-          <div className="font-display text-[13px] font-extrabold uppercase text-mute">
-            {t("product.ingredients")}
+        <div className="mt-3 rounded-card border-2.5 border-ink bg-[#F4F9EB] p-3.5 shadow-sm backdrop-blur-sm">
+          <div className="font-display text-[13px] font-extrabold uppercase text-mute tracking-wide">
+            🌱 {t("product.ingredients")}
           </div>
-          <p className="mt-1 text-[13px] text-ink">{p.ingredients}</p>
+          <p className="mt-1.5 text-[13px] text-ink leading-relaxed font-medium">{p.ingredients}</p>
         </div>
       )}
 
-      {/* PIN delivery estimate */}
-      <div className="mt-3 rounded-tile border-2.5 border-ink bg-paper p-3">
-        <div className="font-display text-[13px] font-extrabold uppercase text-mute">
-          {t("product.checkPin")}
+      {/* PIN delivery estimate — Mild Soft Blue Tint */}
+      <div className="mt-3 rounded-card border-2.5 border-ink bg-[#F0F5FF] p-3.5 shadow-sm backdrop-blur-sm">
+        <div className="font-display text-[13px] font-extrabold uppercase text-mute tracking-wide">
+          🚚 {t("product.checkPin")}
         </div>
         <div className="mt-2 flex gap-2">
           <input
@@ -83,29 +92,30 @@ export function ProductModal({
             onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
             placeholder={t("product.pinPlaceholder")}
             inputMode="numeric"
-            className="min-w-0 flex-1 rounded-pill border-2.5 border-ink px-4 py-2 font-body text-[14px] outline-none"
+            className="min-w-0 flex-1 rounded-pill border-2.5 border-ink bg-paper px-4 py-2 font-body text-[14px] outline-none shadow-inner"
           />
           <Btn small bg="#E4D6FF" color="#2B2140" onClick={checkPin}>
             {t("product.pinCheck")}
           </Btn>
         </div>
         {pinResult && (
-          <p className={`mt-2 text-[13px] font-bold ${pinResult === "unserviceable" ? "text-red-600" : "text-ink"}`}>
+          <p className={`mt-2 text-[13px] font-bold ${pinResult === "unserviceable" ? "text-red-600" : "text-emerald-700"}`}>
             {pinResult === "same-day"
-              ? t("product.pinSameDay")
+              ? `⚡ ${t("product.pinSameDay")}`
               : pinResult === "tomorrow"
-                ? t("product.pinTomorrow")
+                ? `📦 ${t("product.pinTomorrow")}`
                 : pinResult === "courier"
-                  ? t("product.pinCourier")
-                  : t("product.pinUnserviceable")}
+                  ? `🚚 ${t("product.pinCourier")}`
+                  : `❌ ${t("product.pinUnserviceable")}`}
           </p>
         )}
       </div>
 
-      <div className="mt-3.5">
+      {/* Action Buttons Toolbar */}
+      <div className="mt-4 flex flex-col gap-2.5">
         {p.stock > 0 ? (
           <Btn full onClick={onAdd}>
-            {t("shop.addToCart")} — {inr(p.price)}
+            🛒 {t("shop.addToCart")} — {inr(p.price)}
           </Btn>
         ) : (
           <Btn
@@ -120,17 +130,17 @@ export function ProductModal({
             🔔 {t("product.notifyMe")}
           </Btn>
         )}
-      </div>
 
       {/* Share + permanent link to the product's own page */}
       <div className="mt-2.5 flex items-center gap-2.5">
         <ShareButton product={p} notify={notify} small />
         <a
           href={`/p/${p.slug}`}
-          className="text-[13px] font-bold text-mute underline"
+          className="text-[13px] font-bold text-mute underline hover:text-ink transition-colors"
         >
           {t("product.viewPage")}
         </a>
+      </div>
       </div>
 
       {/* Reviews */}
@@ -922,9 +932,8 @@ export function AuthModal({
             setMode("register");
             setError(null);
           }}
-          className={`flex-1 rounded-pill py-2 font-display text-[14px] font-extrabold transition-all cursor-pointer ${
-            mode === "register" ? "bg-brand text-white shadow-hard-2" : "text-mute hover:text-ink"
-          }`}
+          className={`flex-1 rounded-pill py-2 font-display text-[14px] font-extrabold transition-all cursor-pointer ${mode === "register" ? "bg-brand text-white shadow-hard-2" : "text-mute hover:text-ink"
+            }`}
         >
           Register ✨
         </button>
@@ -934,9 +943,8 @@ export function AuthModal({
             setMode("login");
             setError(null);
           }}
-          className={`flex-1 rounded-pill py-2 font-display text-[14px] font-extrabold transition-all cursor-pointer ${
-            mode === "login" ? "bg-brand text-white shadow-hard-2" : "text-mute hover:text-ink"
-          }`}
+          className={`flex-1 rounded-pill py-2 font-display text-[14px] font-extrabold transition-all cursor-pointer ${mode === "login" ? "bg-brand text-white shadow-hard-2" : "text-mute hover:text-ink"
+            }`}
         >
           Sign In 🔑
         </button>
@@ -951,9 +959,8 @@ export function AuthModal({
               setAuthType("phone");
               setError(null);
             }}
-            className={`rounded-pill border-2 border-ink px-3 py-1 text-[12px] font-extrabold transition-all cursor-pointer ${
-              authType === "phone" ? "bg-[#FFE1A8] text-ink shadow-hard-2" : "bg-white text-mute hover:bg-paper"
-            }`}
+            className={`rounded-pill border-2 border-ink px-3 py-1 text-[12px] font-extrabold transition-all cursor-pointer ${authType === "phone" ? "bg-[#FFE1A8] text-ink shadow-hard-2" : "bg-white text-mute hover:bg-paper"
+              }`}
           >
             📱 Use Phone Number
           </button>
@@ -963,9 +970,8 @@ export function AuthModal({
               setAuthType("email");
               setError(null);
             }}
-            className={`rounded-pill border-2 border-ink px-3 py-1 text-[12px] font-extrabold transition-all cursor-pointer ${
-              authType === "email" ? "bg-[#C7E9FF] text-ink shadow-hard-2" : "bg-white text-mute hover:bg-paper"
-            }`}
+            className={`rounded-pill border-2 border-ink px-3 py-1 text-[12px] font-extrabold transition-all cursor-pointer ${authType === "email" ? "bg-[#C7E9FF] text-ink shadow-hard-2" : "bg-white text-mute hover:bg-paper"
+              }`}
           >
             ✉️ Use Email Address
           </button>

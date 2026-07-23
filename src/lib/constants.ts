@@ -7,6 +7,7 @@ export const BUSINESS = {
   address:
     "176, Palayamkottai Rd, opp. Rajaji Park, Thoothukudi, Tamil Nadu 628001",
   addressShort: "176, Palayamkottai Rd, opp. Rajaji Park, Thoothukudi 628001",
+  googleMaps: "https://maps.app.goo.gl/KU8CC7KNr4SHFPW6A",
   /** The same address, split for schema.org PostalAddress. */
   postal: {
     street: "176, Palayamkottai Rd, opp. Rajaji Park",

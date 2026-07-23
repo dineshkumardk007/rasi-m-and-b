@@ -30,7 +30,7 @@ export default function Error({
   }, [error]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-cream px-5 py-10 text-ink">
+    <main className="flex min-h-screen flex-col items-center justify-center px-5 py-10 text-ink">
       <div className="w-full max-w-[440px] rounded-card border-3 border-ink bg-paper p-[22px] text-center shadow-hard-4">
         <div className="text-[52px]" aria-hidden>
           🧸
