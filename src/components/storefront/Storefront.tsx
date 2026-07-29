@@ -38,6 +38,7 @@ import {
   WishlistModal,
 } from "./modals";
 import { Ribbon } from "./Ribbon";
+import { BabyClub } from "./BabyClub";
 import { BUSINESS } from "@/lib/constants";
 
 export interface StorefrontProps {
@@ -392,6 +393,7 @@ export default function Storefront(props: StorefrontProps) {
               onExploreBundles={() => document.getElementById("bundles")?.scrollIntoView({ behavior: "smooth" })}
             />
             <CategoryGrid category={category} setCategory={setCategory} />
+            <BabyClub products={products} addToCart={addToCart} openProduct={openProduct} />
             <BuyAgain products={buyAgain} addToCart={addToCart} openProduct={openProduct} />
             <BundlesSection bundles={bundles} addToCart={(b) => addToCart(`b:${b.id}`)} />
             <ShopGrid

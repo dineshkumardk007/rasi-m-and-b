@@ -10,6 +10,7 @@ import { demoDB } from "./demo-store";
 import { isDemo } from "./mode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { evaluateCoupon, findCoupon, getSettings } from "./catalog";
+import { isBirthdayCode } from "@/lib/baby-club";
 import { logEvent } from "./events";
 import { isPinServiceable } from "@/lib/pin";
 
@@ -338,7 +339,9 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
     }
   }
 
-  if (coupon_code) {
+  // The birthday perk is virtual (no coupons row), so there is no counter to
+  // bump — skip it rather than issue an update that matches nothing.
+  if (coupon_code && !isBirthdayCode(coupon_code)) {
     const current = await findCoupon(coupon_code);
     if (current)
       await supabase

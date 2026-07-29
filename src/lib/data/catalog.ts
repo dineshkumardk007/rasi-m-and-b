@@ -4,6 +4,7 @@ import { demoDB } from "./demo-store";
 import { isDemo } from "./mode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mapProductRow as mapProduct } from "./map";
+import { birthdayCouponFor, isBirthdayCode } from "@/lib/baby-club";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase row mapping */
 
@@ -88,6 +89,12 @@ export async function getSettings(): Promise<StoreSettings> {
 
 export async function findCoupon(code: string): Promise<Coupon | null> {
   const normalized = code.trim().toUpperCase();
+
+  // The birthday perk has no coupons row on purpose — it resolves per customer.
+  // Handled here rather than at the call sites so the checkout preview and the
+  // order placement can never disagree about whether it is valid.
+  if (isBirthdayCode(normalized)) return birthdayCouponForCurrentCustomer();
+
   if (isDemo())
     return demoDB().coupons.find((c) => c.code === normalized) ?? null;
   const supabase = createAdminClient();
@@ -107,6 +114,40 @@ export async function findCoupon(code: string): Promise<Coupon | null> {
         used_count: data.used_count,
       }
     : null;
+}
+
+/**
+ * Resolve the birthday coupon for whoever is signed in. Returns null for signed
+ * -out visitors, customers with no stored date, and anyone outside their baby's
+ * birthday month — so the code is worthless to a stranger who learns it.
+ */
+async function birthdayCouponForCurrentCustomer(): Promise<Coupon | null> {
+  try {
+    const { currentCustomer } = await import("@/lib/customer-session");
+    const me = await currentCustomer();
+    if (!me) return null;
+
+    const digits = me.sub.replace(/\D/g, "");
+    const phone = digits.length === 10 ? digits : null;
+
+    if (isDemo()) {
+      const customer = demoDB().customers.find(
+        (c) => c.phone === phone || c.email?.toLowerCase() === me.sub.toLowerCase(),
+      );
+      return birthdayCouponFor(customer?.baby_dob ?? null);
+    }
+
+    const supabase = createAdminClient();
+    const query = supabase.from("customers").select("baby_dob");
+    const { data } = await (phone
+      ? query.eq("phone", phone)
+      : query.eq("email", me.sub.toLowerCase())
+    ).maybeSingle();
+    return birthdayCouponFor(data?.baby_dob ?? null);
+  } catch {
+    // No request scope (scripts, webhooks) — no session, so no perk.
+    return null;
+  }
 }
 
 export type CouponCheck =

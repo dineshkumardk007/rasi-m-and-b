@@ -5,6 +5,7 @@ import { isDemo } from "@/lib/data/mode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/data/events";
 import { currentCustomer } from "@/lib/customer-session";
+import { isValidDob } from "@/lib/baby";
 import type { Order } from "@/lib/types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- supabase row shapes */
@@ -110,4 +111,87 @@ export async function notifyRestockAction(productId: string): Promise<boolean> {
         .upsert({ customer_id: customer.id, product_id: productId, notify_restock: true });
   }
   return true;
+}
+
+/* ── Baby birthday club ──────────────────────────────────────────────────── */
+
+/**
+ * Locate the signed-in customer's row. The identity is a phone number or an
+ * email depending on how they registered, so both lookups are needed.
+ */
+async function findMyCustomerId(sub: string): Promise<string | null> {
+  const digits = sub.replace(/\D/g, "");
+  const phone = digits.length === 10 ? digits : null;
+  const supabase = createAdminClient();
+  const query = supabase.from("customers").select("id");
+  const { data } = await (phone
+    ? query.eq("phone", phone)
+    : query.eq("email", sub.toLowerCase())
+  ).maybeSingle();
+  return data?.id ?? null;
+}
+
+/**
+ * Store the baby's date of birth. Everything the club shows (milestone,
+ * suggestions, birthday perk) is derived from this one field, so it is
+ * validated here rather than trusted from the form.
+ *
+ * Passing null clears it — a parent must be able to take this back out.
+ */
+export async function saveBabyDobAction(
+  dob: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  const me = await currentCustomer();
+  if (!me) return { ok: false, error: "Please sign in first." };
+
+  if (dob !== null && !isValidDob(dob)) {
+    return { ok: false, error: "Please enter a real date that isn't in the future." };
+  }
+
+  if (isDemo()) {
+    const db = demoDB();
+    const digits = me.sub.replace(/\D/g, "");
+    const customer = db.customers.find(
+      (c) => c.phone === digits || c.email?.toLowerCase() === me.sub.toLowerCase(),
+    );
+    if (customer) customer.baby_dob = dob;
+    return { ok: true };
+  }
+
+  const customerId = await findMyCustomerId(me.sub);
+  if (!customerId) return { ok: false, error: "Customer profile not found." };
+
+  const { error } = await createAdminClient()
+    .from("customers")
+    .update({ baby_dob: dob })
+    .eq("id", customerId);
+
+  if (error) return { ok: false, error: "Could not save. Please try again." };
+
+  // Lets the automation greet milestones without polling every customer row.
+  await logEvent(dob ? "baby.dob_set" : "baby.dob_cleared", { dob });
+  return { ok: true };
+}
+
+/** The signed-in customer's stored baby DOB, or null. */
+export async function myBabyDobAction(): Promise<string | null> {
+  const me = await currentCustomer();
+  if (!me) return null;
+
+  if (isDemo()) {
+    const digits = me.sub.replace(/\D/g, "");
+    const customer = demoDB().customers.find(
+      (c) => c.phone === digits || c.email?.toLowerCase() === me.sub.toLowerCase(),
+    );
+    return customer?.baby_dob ?? null;
+  }
+
+  const customerId = await findMyCustomerId(me.sub);
+  if (!customerId) return null;
+  const { data } = await createAdminClient()
+    .from("customers")
+    .select("baby_dob")
+    .eq("id", customerId)
+    .maybeSingle();
+  return data?.baby_dob ?? null;
 }
