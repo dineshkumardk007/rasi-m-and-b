@@ -17,6 +17,7 @@
     "import:catalog": "tsx scripts/import-catalog.ts",
     "import:images": "tsx scripts/import-images.ts",
     "reprocess:images": "tsx scripts/reprocess-images.ts",
+    "fit:image": "tsx scripts/fit-image.ts",
     "admin:password": "tsx scripts/admin-password.ts"
   },
   "dependencies": {

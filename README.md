@@ -230,6 +230,41 @@ pnpm reprocess:images --prune   # delete the superseded objects too
 changing a rendition's size or inset. Superseded objects are kept unless
 `--prune` is passed, so an unexpected run is a matter of repointing rows.
 
+### Converting any image to a box, outside the catalogue
+
+`src/lib/fit-box.ts` is the standalone version: any image in, an exact box out,
+with no product or Supabase involvement. Driven by `pnpm fit:image`:
+
+```bash
+pnpm fit:image "C:/photos/shot.jpg"                 # → 600×360 WebP
+pnpm fit:image "C:/photos"                          # every image in a folder
+pnpm fit:image "C:/photos" --size 1200x400          # any box
+pnpm fit:image "C:/photos" --strategy mirror
+pnpm fit:image "C:/photos/shot.jpg" --compare       # one file, every strategy
+```
+
+The interesting decision is what to do with the space left over when the source
+and the box disagree on aspect ratio:
+
+| Strategy | Leftover space | Crops? |
+| --- | --- | --- |
+| `blur` (default) | A scaled, blurred copy of the image itself | No |
+| `mirror` | The image's edges reflected outward | No |
+| `color` | A flat colour (`--background`) | No |
+| `attention` | Nothing — fills the box, cropping to the salient region | Yes |
+| `cover` | Nothing — fills the box, cropping from the centre | Yes |
+
+None of them stretch the subject. `blur` is the default because it works on any
+image; `mirror` beats it when the background is plain or a soft gradient, but
+mirroring a portrait photo into a landscape box needs margins wider than the
+image itself and folds the subject back into them, so `mirror` downgrades to
+`blur` past `MAX_MIRROR_MARGIN_RATIO` and reports what it actually ran.
+
+Note that none of this *invents* background. Widening a frame by generating
+plausible new scenery is outpainting and needs an image model; sharp can only
+move, repeat and blur the pixels it was given. `blur` and `mirror` are the
+closest honest approximations.
+
 ## Catalog import
 
 Real product data drops in without code changes:

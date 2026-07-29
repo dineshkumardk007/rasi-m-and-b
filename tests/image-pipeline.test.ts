@@ -100,36 +100,28 @@ describe("renderRenditions", () => {
     }
   });
 
-  it("trims the backdrop and scales the product to the inset, not the photo", async () => {
-    // A 400x400 product on a 1400x1400 white sheet. Trimming must leave 400x400,
-    // which then fits the banner's 840x280 inset box by height: 400 * 0.7 = 280.
+  it("trims the backdrop, so the box is filled by the product not the framing", async () => {
+    // A 400x400 product on a 1400x1400 white sheet. Trimming leaves the bare
+    // product, which then covers the banner edge to edge. Skipping the trim
+    // would scale the whole sheet instead and leave the product a small patch
+    // in the middle — see the saturated-backdrop case below for that shape.
     const result = await renderRenditions(await photoOnWhite(400, 400), TILE_COLOR);
-    const banner = get(result, "banner");
-    const box = await redBbox(banner.body);
+    const box = (await redBbox(get(result, "banner").body))!;
 
-    expect(box).not.toBeNull();
-    expect(box!.width).toBeGreaterThanOrEqual(275);
-    expect(box!.width).toBeLessThanOrEqual(285);
-    expect(box!.height).toBeGreaterThanOrEqual(275);
-    expect(box!.height).toBeLessThanOrEqual(285);
+    expect(box.width).toBe(RENDITIONS.banner.width);
+    expect(box.height).toBe(RENDITIONS.banner.height);
   });
 
   it("trims an off-white backdrop, not just a pure-white one", async () => {
     // The case that matters in practice: a product shot on a white sheet under
     // a warm bulb is never #FFFFFF. Trimming against pure white left the
-    // backdrop in place, so the product rendered inside a visible pale
-    // rectangle floating on its tile colour.
+    // backdrop in place, so the product rendered as a small patch surrounded by
+    // the photographer's sheet instead of filling the box.
     for (const backdrop of ["#F6F4F1", "#EFEAE2", "#F2F2F4"]) {
       const result = await renderRenditions(await photoOn(400, 400, backdrop), TILE_COLOR);
       const box = (await redBbox(get(result, "banner").body))!;
-      // Trimmed to the 400x400 product, the banner's 280px inset height binds.
-      expect(box.height, `backdrop ${backdrop}`).toBeGreaterThanOrEqual(275);
-      expect(box.height, `backdrop ${backdrop}`).toBeLessThanOrEqual(285);
-
-      // And the backdrop is genuinely gone: just outside the product is padding.
-      const [r, g, b] = await pixel(get(result, "banner").body, box.left - 6, 200);
-      expect(b, `backdrop ${backdrop} padding`).toBeGreaterThan(200);
-      expect(Math.max(r, g), `backdrop ${backdrop} padding`).toBeLessThan(60);
+      expect(box.width, `backdrop ${backdrop}`).toBe(RENDITIONS.banner.width);
+      expect(box.height, `backdrop ${backdrop}`).toBe(RENDITIONS.banner.height);
     }
   });
 
@@ -139,9 +131,11 @@ describe("renderRenditions", () => {
     // product's own flat edges, so this one is deliberately left untrimmed.
     const result = await renderRenditions(await photoOn(400, 400, "#FFCBD9"), TILE_COLOR);
     const box = (await redBbox(get(result, "banner").body))!;
-    // Untrimmed, the full 1400x1400 frame is fitted, so the product within it
-    // ends up far smaller than the 280px a trimmed render would give.
-    expect(box.height).toBeLessThan(120);
+
+    // Untrimmed, the whole 1400x1400 frame is scaled to cover: 400 * (1200/1400)
+    // leaves the product a ~343px patch rather than the full box.
+    expect(box.height).toBeGreaterThanOrEqual(335);
+    expect(box.height).toBeLessThanOrEqual(352);
   });
 
   it("centres the product in both boxes", async () => {
@@ -157,69 +151,65 @@ describe("renderRenditions", () => {
     }
   });
 
-  it("pads the leftover space with the product's tile colour", async () => {
+  it("fills each box edge to edge, leaving no padding", async () => {
     const result = await renderRenditions(await photoOnWhite(400, 400), TILE_COLOR);
-    const [r, g, b] = await pixel(get(result, "banner").body, 8, 8);
-    expect(r).toBeLessThan(40);
-    expect(g).toBeLessThan(40);
-    expect(b).toBeGreaterThan(200);
-  });
-
-  it("falls back to white when the tile colour isn't a usable swatch", async () => {
-    const result = await renderRenditions(await photoOnWhite(400, 400), "not-a-colour");
-    const [r, g, b] = await pixel(get(result, "banner").body, 8, 8);
-    expect(Math.min(r, g, b)).toBeGreaterThan(230);
-  });
-
-  it("fits a tall product by height and a wide one by width, never cropping either", async () => {
-    const tall = await renderRenditions(await photoOnWhite(300, 900), TILE_COLOR);
-    const tallBox = (await redBbox(get(tall, "banner").body))!;
-    // Height binds: 900 -> 280 (the banner inset height), width follows at 1:3.
-    expect(tallBox.height).toBeGreaterThanOrEqual(275);
-    expect(tallBox.height).toBeLessThanOrEqual(285);
-    expect(tallBox.width).toBeGreaterThanOrEqual(88);
-    expect(tallBox.width).toBeLessThanOrEqual(100);
-
-    const wide = await renderRenditions(await photoOnWhite(1200, 300), TILE_COLOR);
-    const wideBox = (await redBbox(get(wide, "banner").body))!;
-    // Width binds: 1200 -> 840 (the banner inset width), height follows at 4:1.
-    expect(wideBox.width).toBeGreaterThanOrEqual(834);
-    expect(wideBox.width).toBeLessThanOrEqual(846);
-    expect(wideBox.height).toBeGreaterThanOrEqual(204);
-    expect(wideBox.height).toBeLessThanOrEqual(216);
-  });
-
-  it("never lets the product touch the edge of the box", async () => {
-    const result = await renderRenditions(await photoOnWhite(1200, 1200), TILE_COLOR);
 
     for (const kind of ["banner", "tile"] as RenditionKind[]) {
       const spec = RENDITIONS[kind];
-      const box = (await redBbox(get(result, kind).body))!;
-      expect(box.left).toBeGreaterThan(0);
-      expect(box.top).toBeGreaterThan(0);
-      expect(box.left + box.width).toBeLessThan(spec.width);
-      expect(box.top + box.height).toBeLessThan(spec.height);
+      for (const [x, y] of [
+        [4, 4],
+        [spec.width - 5, 4],
+        [4, spec.height - 5],
+        [spec.width - 5, spec.height - 5],
+      ] as [number, number][]) {
+        const [r, g, b] = await pixel(get(result, kind).body, x, y);
+        expect(r, `${kind} @${x},${y}`).toBeGreaterThan(150);
+        expect(Math.max(g, b), `${kind} @${x},${y}`).toBeLessThan(100);
+      }
+    }
+  });
+
+  it("covers the box from a tall product and from a wide one alike", async () => {
+    for (const [w, h] of [
+      [300, 900],
+      [1200, 300],
+    ] as [number, number][]) {
+      const result = await renderRenditions(await photoOnWhite(w, h), TILE_COLOR);
+      const box = (await redBbox(get(result, "banner").body))!;
+      expect(box.width, `${w}x${h}`).toBe(RENDITIONS.banner.width);
+      expect(box.height, `${w}x${h}`).toBe(RENDITIONS.banner.height);
     }
   });
 
   it("applies EXIF orientation, so portrait phone photos aren't stored sideways", async () => {
-    // A wide red bar that EXIF says to rotate 90°: it must come out tall.
-    const bar = await sharp({
-      create: { width: 500, height: 200, channels: 3, background: "#FF0000" },
-    })
-      .png()
-      .toBuffer();
+    // Half red, half blue. Unrotated that split runs left/right; rotated 90°
+    // clockwise it runs top/bottom. Covering the box preserves the split's
+    // direction either way, so sampling two corners says which one happened.
+    const half = async (color: string) =>
+      sharp({ create: { width: 700, height: 1000, channels: 3, background: color } })
+        .png()
+        .toBuffer();
 
     const sideways = await sharp({
       create: { width: 1400, height: 1000, channels: 3, background: "#FFFFFF" },
     })
-      .composite([{ input: bar, gravity: "center" }])
+      .composite([
+        { input: await half("#FF0000"), left: 0, top: 0 },
+        { input: await half("#0000FF"), left: 700, top: 0 },
+      ])
       .withMetadata({ orientation: 6 }) // "rotate 90° clockwise"
       .jpeg()
       .toBuffer();
 
-    const box = (await redBbox(get(await renderRenditions(sideways, TILE_COLOR), "banner").body))!;
-    expect(box.height).toBeGreaterThan(box.width);
+    const banner = get(await renderRenditions(sideways, TILE_COLOR), "banner").body;
+    const [topR, , topB] = await pixel(banner, 60, 30);
+    const [bottomR, , bottomB] = await pixel(banner, 60, RENDITIONS.banner.height - 30);
+
+    // Rotated: red band on top, blue beneath. Unrotated both would be red.
+    expect(topR).toBeGreaterThan(150);
+    expect(topB).toBeLessThan(100);
+    expect(bottomB).toBeGreaterThan(150);
+    expect(bottomR).toBeLessThan(100);
   });
 
   it("keeps an untrimmable photo rather than rendering nothing", async () => {

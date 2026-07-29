@@ -519,10 +519,10 @@ function ProductImages({
           <p className="mt-3 text-[11px] font-extrabold uppercase tracking-wide text-mute">
             Card tiles · {RENDITIONS.tile.width}×{RENDITIONS.tile.height}
           </p>
-          <div className="mt-1 flex flex-wrap gap-2.5">
+          <div className="mt-1 flex flex-wrap gap-3">
             {images.map((url, i) => (
-              <div key={url} className="w-[120px]">
-                <div className="relative aspect-[5/3] w-full overflow-hidden rounded-tile border-2.5 border-ink">
+              <div key={url} className="w-[220px] sm:w-[260px]">
+                <div className="relative aspect-[5/3] w-full overflow-hidden rounded-tile border-2.5 border-ink shadow-hard-2">
                   {/* eslint-disable-next-line @next/next/no-img-element -- admin-only preview of a just-uploaded object */}
                   <img src={url} alt="" className="h-full w-full object-cover" />
                   <button

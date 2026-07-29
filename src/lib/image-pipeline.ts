@@ -145,30 +145,18 @@ async function trimBorder(
   return untouched;
 }
 
-/** Scale to fit the inset box, then centre on a full-size tile_color canvas. */
+/** Scale to cover the full box, filling it 100% edge-to-edge. */
 async function renderOne(
   product: Buffer,
-  productWidth: number,
-  productHeight: number,
+  _productWidth: number,
+  _productHeight: number,
   kind: RenditionKind,
-  tileColor: string,
+  _tileColor: string,
 ): Promise<RenderedRendition> {
-  const { width, height, inset } = RENDITIONS[kind];
-  const boxWidth = Math.round(width * inset);
-  const boxHeight = Math.round(height * inset);
+  const { width, height } = RENDITIONS[kind];
 
-  const scale = Math.min(boxWidth / productWidth, boxHeight / productHeight, 1);
-  const drawWidth = Math.max(1, Math.round(productWidth * scale));
-  const drawHeight = Math.max(1, Math.round(productHeight * scale));
-
-  const scaled = await sharp(product)
-    .resize(drawWidth, drawHeight, { fit: "fill", kernel: "lanczos3" })
-    .toBuffer();
-
-  const body = await sharp({
-    create: { width, height, channels: 4, background: tileColor },
-  })
-    .composite([{ input: scaled, gravity: "center" }])
+  const body = await sharp(product)
+    .resize(width, height, { fit: "cover", position: "center", kernel: "lanczos3" })
     .webp({ quality: RENDITION_QUALITY })
     .toBuffer();
 

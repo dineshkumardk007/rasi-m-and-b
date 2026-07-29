@@ -266,8 +266,8 @@ export default function Storefront(props: StorefrontProps) {
           </button>
         </div>
 
-        {/* Search Bar - Centered Neo-Brutalist Pill with smooth animated Search Button */}
-        <div className="w-full lg:max-w-[420px] xl:max-w-[480px] my-1 lg:my-0">
+        {/* Search Bar - Compact Neo-Brutalist Pill */}
+        <div className="w-full max-w-[240px] sm:max-w-[280px] lg:max-w-[320px] my-1 lg:my-0 shrink-0">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -279,8 +279,8 @@ export default function Storefront(props: StorefrontProps) {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search for baby products, toys, maternity & more..."
-              className="w-full bg-transparent px-4 py-1.5 sm:py-2 text-[12px] sm:text-[13px] font-medium text-ink placeholder:text-mute/80 outline-none"
+              placeholder="Search products, toys..."
+              className="w-full bg-transparent px-3 sm:px-3.5 py-1.5 sm:py-2 text-[12px] sm:text-[13px] font-medium text-ink placeholder:text-mute/80 outline-none"
             />
             {query && (
               <button
