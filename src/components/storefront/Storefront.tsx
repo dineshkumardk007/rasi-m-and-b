@@ -11,7 +11,7 @@ import { useWishlist } from "@/lib/store/WishlistProvider";
 import { useSession } from "@/lib/store/SessionProvider";
 import { inr } from "@/lib/constants";
 import { Badge, Card, Modal, Toast, Btn } from "@/components/ui";
-import { myOrdersAction } from "@/app/customer-actions";
+import { myOrdersAction, recordCartAbandonedAction } from "@/app/customer-actions";
 import {
   trackAddToCart,
   trackBeginCheckout,
@@ -490,6 +490,11 @@ export default function Storefront(props: StorefrontProps) {
                 qty: c.qty,
               })),
             );
+            // Seeds the WhatsApp cart-reminder workflow. Fire-and-forget: a
+            // logging failure must never block the customer reaching checkout.
+            void recordCartAbandonedAction(
+              cartItems.reduce((n, c) => n + c.qty, 0),
+            ).catch(() => {});
             setModal({ type: "checkout" });
           }}
         />

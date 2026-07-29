@@ -2,24 +2,43 @@
   "name": "Rasi — 03 Cart abandoned reminder",
   "nodes": [
     {
-      "parameters": { "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] } },
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
       "id": "cron",
       "name": "Every hour",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "select e.payload->>'phone' as phone, e.payload->>'language' as language, e.id\nfrom events e\nwhere e.type = 'cart.abandoned'\n  and e.created_at between now() - interval '3 hours' and now() - interval '2 hours'\n  and not exists (\n    select 1 from events s\n    where s.type = 'whatsapp.cart_reminder_sent'\n      and s.payload->>'phone' = e.payload->>'phone'\n      and s.created_at > now() - interval '7 days'\n    having count(*) >= 2\n  )"
+        "query": "select e.payload->>'phone' as phone, e.payload->>'language' as language, e.id\nfrom events e\nwhere e.type = 'cart.abandoned'\n  and e.created_at between now() - interval '3 hours' and now() - interval '2 hours'\n  -- Never nag someone who actually bought: any order placed on or after the\n  -- cart event for the same phone cancels the reminder.\n  and not exists (\n    select 1 from events o\n    where o.type = 'order.placed'\n      and o.payload->>'phone' = e.payload->>'phone'\n      and o.created_at >= e.created_at\n  )\n  -- One reminder per cart: a customer who opens checkout repeatedly emits\n  -- several cart.abandoned rows, and all of them land in the same window.\n  and not exists (\n    select 1 from events r\n    where r.type = 'whatsapp.cart_reminder_sent'\n      and r.payload->>'phone' = e.payload->>'phone'\n      and r.created_at >= e.created_at\n  )\n  -- Marketing cap: at most 2 promotional sends per phone per week.\n  and (\n    select count(*) from events s\n    where s.type = 'whatsapp.cart_reminder_sent'\n      and s.payload->>'phone' = e.payload->>'phone'\n      and s.created_at > now() - interval '7 days'\n  ) < 2"
       },
       "id": "query",
       "name": "Find 2h-old abandoned carts (max 2 promos/week)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [220, 0],
-      "credentials": { "postgres": { "name": "Supabase Postgres" } }
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "name": "Supabase Postgres"
+        }
+      }
     },
     {
       "parameters": {
@@ -29,7 +48,10 @@
       "name": "Shape message",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [440, 0]
+      "position": [
+        440,
+        0
+      ]
     },
     {
       "parameters": {
@@ -44,7 +66,10 @@
       "name": "Send WhatsApp (AiSensy)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [660, 0]
+      "position": [
+        660,
+        0
+      ]
     },
     {
       "parameters": {
@@ -55,15 +80,64 @@
       "name": "Record send (promo cap)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [880, 0],
-      "credentials": { "postgres": { "name": "Supabase Postgres" } }
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "name": "Supabase Postgres"
+        }
+      }
     }
   ],
   "connections": {
-    "Every hour": { "main": [[{ "node": "Find 2h-old abandoned carts (max 2 promos/week)", "type": "main", "index": 0 }]] },
-    "Find 2h-old abandoned carts (max 2 promos/week)": { "main": [[{ "node": "Shape message", "type": "main", "index": 0 }]] },
-    "Shape message": { "main": [[{ "node": "Send WhatsApp (AiSensy)", "type": "main", "index": 0 }]] },
-    "Send WhatsApp (AiSensy)": { "main": [[{ "node": "Record send (promo cap)", "type": "main", "index": 0 }]] }
+    "Every hour": {
+      "main": [
+        [
+          {
+            "node": "Find 2h-old abandoned carts (max 2 promos/week)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find 2h-old abandoned carts (max 2 promos/week)": {
+      "main": [
+        [
+          {
+            "node": "Shape message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape message": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp (AiSensy)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp (AiSensy)": {
+      "main": [
+        [
+          {
+            "node": "Record send (promo cap)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

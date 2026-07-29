@@ -29,3 +29,39 @@ before messaging.
 
 The site keeps working if n8n is down: events are queued in the `events` table
 and `/api/cron/drain-events` retries delivery every 5 minutes.
+
+## How each workflow is triggered
+
+Two different mechanisms, which matters when debugging a silent workflow:
+
+- **Webhook (01, 02, 05)** — the site POSTs the event to n8n as it happens.
+  These need `N8N_WEBHOOK_URL` and `N8N_WEBHOOK_SECRET` set on the site.
+- **Schedule (03, 04, 06)** — n8n polls Postgres on a timer. These need only
+  the database credential; the site does not call them at all.
+
+## Site-side status
+
+Every event these workflows depend on is now emitted:
+
+| Event / source            | Emitted from                                  |
+| ------------------------- | --------------------------------------------- |
+| `order.placed`, `order.paid` | `placeOrder()` / Razorpay confirm          |
+| `order.<status>`          | admin status changes (`setOrderStatus`)       |
+| `cart.abandoned`          | checkout opened by a signed-in customer       |
+| `wishlist.notify_restock` | the "🔔 Notify me" button on a sold-out product |
+| `baby.dob_set`            | a parent saving their baby's birthday          |
+
+`cart.abandoned` carries `phone` and `language` and was previously never
+emitted, so workflow 03 could not fire at all. Its query now also skips anyone
+who placed an order after the cart event — without that check a customer who
+checked out successfully still got a "you left something behind" nag two hours
+later — and sends at most one reminder per cart.
+
+Workflow 04 (back-in-stock) needs no site changes: it polls `wishlist` for rows
+with `notify_restock` where the product's stock has gone above zero, which the
+notify button and the admin restock buttons already produce. It clears the flag
+after sending, so a customer is told once per restock.
+
+Workflow 06 (milestone suggestions) reads `customers.baby_dob`, which the baby
+birthday club now populates — before that this column was always null and the
+workflow had nothing to select.

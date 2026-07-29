@@ -4,7 +4,8 @@ import { demoDB } from "@/lib/data/demo-store";
 import { isDemo } from "@/lib/data/mode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/data/events";
-import { currentCustomer } from "@/lib/customer-session";
+import { currentCustomer, currentCustomerPhone } from "@/lib/customer-session";
+import { getLanguage as currentLanguage } from "@/lib/i18n/server";
 import { isValidDob } from "@/lib/baby";
 import type { Order } from "@/lib/types";
 
@@ -111,6 +112,30 @@ export async function notifyRestockAction(productId: string): Promise<boolean> {
         .upsert({ customer_id: customer.id, product_id: productId, notify_restock: true });
   }
   return true;
+}
+
+/**
+ * Record that a signed-in customer reached checkout.
+ *
+ * `03-cart-abandoned.json` polls the events table for `cart.abandoned` rows
+ * aged 2–3 hours and messages the customer on WhatsApp — but nothing in the app
+ * was emitting them, so that workflow could never fire.
+ *
+ * Checkout-open is the right moment to record: it is the furthest point where
+ * we still hold an identity to message. The phone comes from the server-side
+ * session, never from the caller, so this cannot be used to make the shop
+ * message an arbitrary number.
+ */
+export async function recordCartAbandonedAction(itemCount: number): Promise<void> {
+  if (itemCount <= 0) return;
+  const phone = await currentCustomerPhone();
+  if (!phone) return; // signed out, or email-only — nothing to message
+
+  await logEvent("cart.abandoned", {
+    phone,
+    language: await currentLanguage(),
+    item_count: itemCount,
+  });
 }
 
 /* ── Baby birthday club ──────────────────────────────────────────────────── */
