@@ -7,9 +7,10 @@ import { LEGAL_DOCS, LEGAL_SHORT } from "@/lib/legal/content";
 import type { Bundle, Order, Product, Review, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { useCart } from "@/lib/store/CartProvider";
+import { useWishlist } from "@/lib/store/WishlistProvider";
 import { useSession } from "@/lib/store/SessionProvider";
 import { inr } from "@/lib/constants";
-import { Badge, Card, Modal, Pill, Toast, Btn } from "@/components/ui";
+import { Badge, Card, Modal, Toast, Btn } from "@/components/ui";
 import { myOrdersAction } from "@/app/customer-actions";
 import {
   trackAddToCart,
@@ -22,8 +23,8 @@ import {
   BundlesSection,
   BuyAgain,
   CategoryGrid,
+  FreshPicksSection,
   Hero,
-  Marquee,
   ShopGrid,
   Trust,
 } from "./sections";
@@ -34,6 +35,7 @@ import {
   ProductModal,
   ProfileModal,
   TrackModal,
+  WishlistModal,
 } from "./modals";
 import { Ribbon } from "./Ribbon";
 import { BUSINESS } from "@/lib/constants";
@@ -54,17 +56,19 @@ export type ModalState =
   | { type: "product"; product: Product }
   | { type: "cart" }
   | { type: "checkout" }
-  | { type: "orderDone"; order: Order }
+  | { type: "orderDone"; order: Order; invoiceToken: string | null }
   | { type: "track" }
   | { type: "auth" }
   | { type: "confirmSignOut" }
   | { type: "profile" }
+  | { type: "wishlist" }
   | null;
 
 export default function Storefront(props: StorefrontProps) {
   const { products, bundles, reviews, settings, isDemo } = props;
   const { t, lang, setLang } = useT();
   const cart = useCart();
+  const wishlist = useWishlist();
   const { session, signOut } = useSession();
   const router = useRouter();
 
@@ -207,7 +211,7 @@ export default function Storefront(props: StorefrontProps) {
 
   // Customer order history (Buy again + orders view)
   useEffect(() => {
-    if (session) myOrdersAction(session.phone).then(setMyOrders);
+    if (session) myOrdersAction().then(setMyOrders);
     else setMyOrders([]);
   }, [session, modal]);
 
@@ -237,61 +241,130 @@ export default function Storefront(props: StorefrontProps) {
       <Ribbon settings={settings} />
 
       {/* nav */}
-      <div className="mx-auto flex w-full max-w-[1240px] flex-nowrap items-center justify-between gap-1 sm:gap-2.5 px-2.5 sm:px-5 py-2.5 sm:py-3.5">
-        <button
-          onClick={openHome}
-          className="flex shrink-0 items-center gap-1.5 sm:gap-2.5 cursor-pointer"
-          aria-label={BUSINESS.name}
-        >
-          <div className="flex h-[36px] w-[36px] sm:h-[44px] sm:w-[44px] shrink-0 items-center justify-center rounded-tile border-2 sm:border-3 border-ink bg-white p-1 shadow-hard-2 sm:shadow-hard-3 overflow-hidden">
+      <div className="mx-auto flex w-full max-w-[1240px] flex-col lg:flex-row items-center justify-between gap-2.5 px-2.5 sm:px-5 py-2.5 sm:py-3.5">
+        <div className="flex w-full lg:w-auto items-center justify-between gap-3">
+          <button
+            onClick={openHome}
+            className="flex shrink-0 items-center gap-1.5 sm:gap-2.5 cursor-pointer"
+            aria-label={BUSINESS.name}
+          >
+            <div className="flex h-[36px] w-[36px] sm:h-[44px] sm:w-[44px] shrink-0 items-center justify-center rounded-tile border-2 sm:border-3 border-ink bg-white p-1 shadow-hard-2 sm:shadow-hard-3 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="Rasi Logo" className="h-full w-full object-contain" />
+            </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Rasi Logo" className="h-full w-full object-contain" />
-          </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand-text-logo.png"
-            alt="Rasi Mom and Baby"
-            className="h-[22px] xs:h-[26px] sm:h-[38px] w-auto object-contain shrink-0"
-          />
-        </button>
+            <img
+              src="/brand-text-logo.png"
+              alt="Rasi Mom and Baby"
+              className="h-[22px] xs:h-[26px] sm:h-[38px] w-auto object-contain shrink-0"
+            />
+          </button>
+        </div>
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          <Pill bg="#B9EBDD" onClick={() => setLang(lang === "en" ? "ta" : "en")} className="!px-2 !py-1 !text-[11px] sm:!px-3.5 sm:!py-[7px] sm:!text-[13px] !min-h-[32px] sm:!min-h-[38px]">
-            {t("nav.language")}
-          </Pill>
-          <Pill bg="#FFE1A8" onClick={() => setModal({ type: "track" })} className="!px-2 !py-1 !text-[11px] sm:!px-3.5 sm:!py-[7px] sm:!text-[13px] !min-h-[32px] sm:!min-h-[38px]">
-            {t("nav.track")}
-          </Pill>
-          {session && (
-            <Pill
-              bg="#D6E8B0"
-              onClick={() => (route === "orders" ? openHome() : openOrders())}
-              className="!px-2 !py-1 !text-[11px] sm:!px-3.5 sm:!py-[7px] sm:!text-[13px] !min-h-[32px] sm:!min-h-[38px]"
+        {/* Search Bar - Centered Neo-Brutalist Pill with smooth animated Search Button */}
+        <div className="w-full lg:max-w-[420px] xl:max-w-[480px] my-1 lg:my-0">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="group relative flex w-full items-center rounded-full border-2.5 border-ink bg-white shadow-hard-2 focus-within:ring-2 focus-within:ring-ink focus-within:shadow-hard-3 overflow-hidden transition-all duration-300"
+          >
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search for baby products, toys, maternity & more..."
+              className="w-full bg-transparent px-4 py-1.5 sm:py-2 text-[12px] sm:text-[13px] font-medium text-ink placeholder:text-mute/80 outline-none"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="px-2 text-[12px] font-bold text-mute hover:text-ink transition-colors"
+              >
+                ✕
+              </button>
+            )}
+            <button
+              type="submit"
+              className="btn-press shrink-0 flex items-center justify-center bg-[#FF5A78] text-white px-3.5 sm:px-4 py-2 hover:bg-[#E04866] cursor-pointer transition-all duration-300 group-hover:bg-[#FF4769]"
+              aria-label="Search"
             >
-              {route === "orders" ? t("nav.shop") : t("nav.orders")}
-            </Pill>
-          )}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 transition-transform duration-300 ease-spring group-hover:scale-115 group-hover:rotate-12 group-active:scale-95"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                />
+              </svg>
+            </button>
+          </form>
+        </div>
 
-          {/* Profile Button before Cart */}
+        {/* Right Action Buttons */}
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2 flex-wrap justify-center lg:justify-end">
           <button
             type="button"
-            onClick={() => setModal(session ? { type: "profile" } : { type: "auth" })}
-            className="btn-press shrink-0 flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-[#FFE1A8] px-2 sm:px-3.5 py-1 sm:py-[7px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[32px] sm:min-h-[38px] cursor-pointer"
-            aria-label="Profile"
+            onClick={() => setLang(lang === "en" ? "ta" : "en")}
+            className="btn-press shrink-0 flex items-center rounded-pill border-2 sm:border-2.5 border-ink bg-[#B9EBDD] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[32px] sm:min-h-[36px] cursor-pointer"
           >
-            <span>👤</span>
-            <span className="hidden sm:inline">{session ? session.name.split(" ")[0] : t("nav.signIn")}</span>
+            {t("nav.language")}
           </button>
 
           <button
+            type="button"
+            onClick={() => setModal({ type: "track" })}
+            className="btn-press shrink-0 flex items-center rounded-pill border-2 sm:border-2.5 border-ink bg-[#FFE1A8] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[32px] sm:min-h-[36px] cursor-pointer"
+          >
+            {t("nav.track")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setModal(session ? { type: "profile" } : { type: "auth" })}
+            className="btn-press shrink-0 flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-[#FFE1A8] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[32px] sm:min-h-[36px] cursor-pointer"
+            aria-label="Profile"
+          >
+            <span>👤</span>
+            <span>{session ? session.name.split(" ")[0] : t("nav.signIn")}</span>
+          </button>
+
+          {/* Cart Button */}
+          <button
+            type="button"
             onClick={() => setModal({ type: "cart" })}
-            className="btn-press shrink-0 relative rounded-pill border-2 sm:border-2.5 border-ink bg-brand px-2.5 sm:px-3.5 py-1 sm:py-[7px] font-display text-[11px] sm:text-[13px] font-extrabold text-white shadow-hard-2 min-h-[32px] sm:min-h-[38px]"
+            className="btn-press shrink-0 relative flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-[#FF6B8B] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[32px] sm:min-h-[36px] cursor-pointer hover:bg-[#FF5A78] transition-colors"
             aria-label={t("cart.title")}
           >
-            🛒
+            <span>🛒</span>
+            <span>Cart</span>
             {cart.count > 0 && (
-              <span className="absolute -right-2 -top-2 flex h-5 w-5 sm:h-5.5 sm:w-5.5 items-center justify-center rounded-full border-2 border-white bg-ink text-[11px] sm:text-[12px] font-extrabold text-white leading-none shadow-sm z-20">
+              <span className="ml-0.5 flex h-4.5 w-4.5 sm:h-5 sm:w-5 items-center justify-center rounded-full border border-white bg-ink text-[10px] sm:text-[11px] font-extrabold text-white leading-none shadow-sm">
                 {cart.count}
+              </span>
+            )}
+          </button>
+
+          {/* Wishlist Button */}
+          <button
+            type="button"
+            onClick={() => setModal({ type: "wishlist" })}
+            className="btn-press shrink-0 relative flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-[#A0D2EB] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[32px] sm:min-h-[36px] cursor-pointer"
+            aria-label="Wishlist"
+          >
+            <span>♡</span>
+            <span>Wishlist</span>
+            {wishlist.count > 0 && (
+              <span className="ml-0.5 flex h-4.5 w-4.5 sm:h-5 sm:w-5 items-center justify-center rounded-full border border-white bg-ink text-[10px] sm:text-[11px] font-extrabold text-white leading-none shadow-sm">
+                {wishlist.count}
               </span>
             )}
           </button>
@@ -307,71 +380,79 @@ export default function Storefront(props: StorefrontProps) {
         />
       )}
 
-      {route === "home" && (
-        <div>
-          <Hero />
-          <Marquee products={products.slice(0, 8)} openProduct={openProduct} />
-          <CategoryGrid category={category} setCategory={setCategory} />
-          <BuyAgain products={buyAgain} addToCart={addToCart} openProduct={openProduct} />
-          <BundlesSection bundles={bundles} addToCart={(b) => addToCart(`b:${b.id}`)} />
-          <ShopGrid
-            filtered={filtered}
-            milestone={milestone}
-            setMilestone={setMilestone}
-            category={category}
-            setCategory={setCategory}
-            query={query}
-            setQuery={setQuery}
-            addToCart={addToCart}
-            openProduct={openProduct}
-          />
-          <Trust />
-        </div>
-      )}
-
-      {route === "orders" && session && (
-        <div className="mx-auto max-w-[720px] px-5 pb-16 pt-6">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b-2 border-ink/10">
-            <h2 className="font-display text-[30px] font-extrabold flex items-center gap-2">
-              <span>📦</span> {t("orders.title")}
-            </h2>
-            <button
-              type="button"
-              onClick={openHome}
-              aria-label="Close orders page and return home"
-              className="btn-press flex h-9 w-9 items-center justify-center rounded-full border-2.5 border-ink bg-[#FFE1A8] font-display text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] active:scale-90 transition-all cursor-pointer"
-            >
-              ✕
-            </button>
+      <main id="main-content">
+        {route === "home" && (
+          <div>
+            <Hero />
+            <FreshPicksSection
+              products={products}
+              openProduct={openProduct}
+              addToCart={addToCart}
+              onViewAll={() => document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" })}
+              onExploreBundles={() => document.getElementById("bundles")?.scrollIntoView({ behavior: "smooth" })}
+            />
+            <CategoryGrid category={category} setCategory={setCategory} />
+            <BuyAgain products={buyAgain} addToCart={addToCart} openProduct={openProduct} />
+            <BundlesSection bundles={bundles} addToCart={(b) => addToCart(`b:${b.id}`)} />
+            <ShopGrid
+              filtered={filtered}
+              milestone={milestone}
+              setMilestone={setMilestone}
+              category={category}
+              setCategory={setCategory}
+              query={query}
+              setQuery={setQuery}
+              addToCart={addToCart}
+              openProduct={openProduct}
+            />
+            <Trust />
           </div>
-          {myOrders.length === 0 && <p className="text-mute">{t("orders.none")}</p>}
-          {myOrders.map((o) => (
-            <Card key={o.id} className="relative mb-3 p-4">
-              <div className="flex items-center justify-between">
-                <span className="font-display font-extrabold">{o.order_no}</span>
-                <div className="flex items-center gap-2">
-                  <Badge bg={o.status === "delivered" ? "#D6E8B0" : "#FFE1A8"}>
-                    {t(`track.status.${o.status}` as never)}
-                  </Badge>
-                  <button
-                    type="button"
-                    onClick={openHome}
-                    title="Close and return to home page"
-                    aria-label="Return to home page"
-                    className="btn-press flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink bg-[#FFFDF7] font-display text-[12px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] transition-all cursor-pointer"
-                  >
-                    ✕
-                  </button>
+        )}
+
+        {route === "orders" && session && (
+          <div className="mx-auto max-w-[720px] px-5 pb-16 pt-6">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b-2 border-ink/10">
+              <h2 className="font-display text-[30px] font-extrabold flex items-center gap-2">
+                <span>📦</span> {t("orders.title")}
+              </h2>
+              <button
+                type="button"
+                onClick={openHome}
+                aria-label="Close orders page and return home"
+                className="btn-press flex h-9 w-9 items-center justify-center rounded-full border-2.5 border-ink bg-[#FFE1A8] font-display text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] active:scale-90 transition-all cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            {myOrders.length === 0 && <p className="text-mute">{t("orders.none")}</p>}
+            {myOrders.map((o) => (
+              <Card key={o.id} className="relative mb-3 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-display font-extrabold">{o.order_no}</span>
+                  <div className="flex items-center gap-2">
+                    <Badge bg={o.status === "delivered" ? "#D6E8B0" : "#FFE1A8"}>
+                      {t(`track.status.${o.status}` as never)}
+                    </Badge>
+                    <button
+                      type="button"
+                      onClick={openHome}
+                      title="Close and return to home page"
+                      aria-label="Return to home page"
+                      className="btn-press flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink bg-[#FFFDF7] font-display text-[12px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] transition-all cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="mt-1 text-[14px] text-mute">
-                {o.items.map((i) => `${i.name_snapshot} ×${i.qty}`).join(" · ")}
-              </div>
-              <div className="mt-1 font-display font-extrabold text-brand">{inr(o.total)}</div>
-            </Card>
-          ))}
-        </div>
-      )}
+                <div className="mt-1 text-[14px] text-mute">
+                  {o.items.map((i) => `${i.name_snapshot} ×${i.qty}`).join(" · ")}
+                </div>
+                <div className="mt-1 font-display font-extrabold text-brand">{inr(o.total)}</div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </main>
 
       {/* modals */}
       {modal?.type === "product" && (
@@ -418,7 +499,7 @@ export default function Storefront(props: StorefrontProps) {
           settings={settings}
           isDemo={isDemo}
           onClose={() => setModal(null)}
-          onPlaced={(order) => {
+          onPlaced={(order, invoiceToken) => {
             // Report the charged total (delivery and discount included) so ad
             // platforms optimise against real revenue, not the cart subtotal.
             trackPurchase(
@@ -431,7 +512,7 @@ export default function Storefront(props: StorefrontProps) {
               })),
             );
             cart.clear();
-            setModal({ type: "orderDone", order });
+            setModal({ type: "orderDone", order, invoiceToken });
           }}
           notify={notify}
         />
@@ -451,19 +532,29 @@ export default function Storefront(props: StorefrontProps) {
               <Btn full onClick={() => setModal(null)}>
                 {t("orderDone.continue")}
               </Btn>
-              <a
-                href={`/invoice/${modal.order.order_no}?phone=${modal.order.address_snapshot.phone}`}
-                target="_blank"
-                className="text-[14px] font-bold text-mute underline"
-              >
-                {t("orderDone.invoice")}
-              </a>
+              {modal.invoiceToken && (
+                <a
+                  href={`/invoice/${modal.order.order_no}?t=${modal.invoiceToken}`}
+                  target="_blank"
+                  className="text-[14px] font-bold text-mute underline"
+                >
+                  {t("orderDone.invoice")}
+                </a>
+              )}
             </div>
           </div>
         </Modal>
       )}
       {modal?.type === "track" && (
         <TrackModal onClose={() => setModal(null)} myOrders={myOrders} />
+      )}
+      {modal?.type === "wishlist" && (
+        <WishlistModal
+          products={products}
+          onClose={() => setModal(null)}
+          onAddToCart={addToCart}
+          onOpenProduct={openProduct}
+        />
       )}
       {modal?.type === "auth" && (
         <AuthModal

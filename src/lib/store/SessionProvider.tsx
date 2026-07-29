@@ -18,6 +18,7 @@ import {
   registerCustomerWithPasswordAction,
   signInWithEmailAction,
   signInWithPasswordAction,
+  signOutCustomerAction,
 } from "@/app/actions";
 
 /**
@@ -61,7 +62,7 @@ export function SessionProvider({
         if (raw) {
           const s = JSON.parse(raw) as CustomerSession;
           setSession(s);
-          if (s?.phone) recordCustomerActivityAction(s.phone);
+          if (s?.phone) recordCustomerActivityAction();
         }
       } catch {
         /* ignore */
@@ -74,7 +75,7 @@ export function SessionProvider({
         const name = (data.user.user_metadata?.name as string) ?? "";
         const phone = data.user.phone ?? "";
         setSession({ name, phone });
-        if (phone) recordCustomerActivityAction(phone);
+        if (phone) recordCustomerActivityAction();
       }
     });
   }, [isDemo]);
@@ -239,6 +240,9 @@ export function SessionProvider({
     } else {
       await createClient().auth.signOut();
     }
+    // Clear the signed server-side cookie too, or the browser would keep
+    // proving an identity the user just signed out of.
+    await signOutCustomerAction();
     setSession(null);
   }, [isDemo]);
 

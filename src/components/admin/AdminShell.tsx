@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type {
@@ -281,10 +281,34 @@ const PIPELINE: { status: OrderStatus; label: string }[] = [
   { status: "delivered", label: "Delivered" },
 ];
 
+/** Status buckets the owner actually asks for, in the order they ask for them. */
+const ORDER_FILTERS: { id: string; label: string; match: (o: Order) => boolean }[] = [
+  { id: "all", label: "All", match: () => true },
+  { id: "new", label: "New", match: (o) => o.status === "new" || o.status === "confirmed" },
+  { id: "packed", label: "Packed", match: (o) => o.status === "packed" },
+  { id: "out", label: "Out for delivery", match: (o) => o.status === "out_for_delivery" },
+  { id: "delivered", label: "Delivered", match: (o) => o.status === "delivered" },
+  {
+    id: "cod",
+    label: "COD pending",
+    match: (o) =>
+      o.payment_method === "cod" &&
+      o.payment_status === "cod_pending" &&
+      o.status !== "cancelled",
+  },
+  {
+    id: "cancelled",
+    label: "Cancelled / returned",
+    match: (o) => o.status === "cancelled" || o.status === "returned",
+  },
+];
+
 function OrdersBoard({ orders }: { orders: Order[] }) {
   const router = useRouter();
   const [slip, setSlip] = useState<Order | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
 
   const move = async (order: Order, status: OrderStatus) => {
     setBusy(order.id);
@@ -293,14 +317,36 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
     router.refresh();
   };
 
+  // Scrolling a year of orders to find one phone number is the single thing a
+  // shop owner does most in this tab.
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const digits = q.replace(/\D/g, "");
+    const bucket = ORDER_FILTERS.find((f) => f.id === filter);
+    return orders.filter((o) => {
+      if (bucket && !bucket.match(o)) return false;
+      if (!q) return true;
+      const phone = o.address_snapshot.phone.replace(/\D/g, "");
+      return (
+        o.order_no.toLowerCase().includes(q) ||
+        o.address_snapshot.name.toLowerCase().includes(q) ||
+        (digits.length >= 3 && phone.includes(digits)) ||
+        o.address_snapshot.pin.includes(q)
+      );
+    });
+  }, [orders, query, filter]);
+
   return (
     <div className="grid gap-3">
       <div className="flex items-center justify-between mb-1">
-        <span className="font-display text-[18px] font-extrabold">🚚 Orders Management ({orders.length})</span>
+        <span className="font-display text-[18px] font-extrabold">
+          🚚 Orders Management ({visible.length}
+          {visible.length !== orders.length ? ` of ${orders.length}` : ""})
+        </span>
         {orders.length > 0 && (
           <button
             type="button"
-            onClick={() => exportOrdersToCSV(orders)}
+            onClick={() => exportOrdersToCSV(visible)}
             className="btn-press rounded-pill border-2 border-ink bg-[#D6E8B0] px-3.5 py-1.5 font-display text-[13px] font-extrabold shadow-hard-2 hover:opacity-90 cursor-pointer"
           >
             📥 Export Orders CSV
@@ -308,8 +354,51 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
         )}
       </div>
 
+      {orders.length > 0 && (
+        <div className="grid gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search order no, name, phone or PIN…"
+            aria-label="Search orders"
+            className="w-full rounded-pill border-2.5 border-ink bg-paper px-4 py-2.5 font-body text-[15px] outline-none"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {ORDER_FILTERS.map((fl) => {
+              const count = orders.filter(fl.match).length;
+              return (
+                <Pill
+                  key={fl.id}
+                  bg={filter === fl.id ? "#2B2140" : "#F2EAE0"}
+                  color={filter === fl.id ? "#fff" : "#2B2140"}
+                  onClick={() => setFilter(fl.id)}
+                >
+                  {fl.label} ({count})
+                </Pill>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {orders.length === 0 && <p className="text-mute">Orders will appear here once customers place them.</p>}
-      {orders.map((o) => (
+      {orders.length > 0 && visible.length === 0 && (
+        <Card className="p-6 text-center">
+          <div className="text-[26px]">🔍</div>
+          <p className="mt-1 font-display font-extrabold">No orders match that search</p>
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setFilter("all");
+            }}
+            className="mt-2 text-[14px] font-bold text-mute underline cursor-pointer"
+          >
+            Clear search and filters
+          </button>
+        </Card>
+      )}
+      {visible.map((o) => (
         <Card key={o.id} className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { Order, Product, Review, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { useSession } from "@/lib/store/SessionProvider";
+import { useWishlist } from "@/lib/store/WishlistProvider";
 import { MILESTONE_META, inr } from "@/lib/constants";
 import { Art, Badge, Btn, Field, Modal, Stars } from "@/components/ui";
 import {
@@ -32,6 +33,7 @@ export function ProductModal({
 }) {
   const { t, lang } = useT();
   const { session } = useSession();
+  const wishlist = useWishlist();
   const [text, setText] = useState("");
   const [author, setAuthor] = useState(session?.name ?? "");
   const [rating, setRating] = useState(5);
@@ -51,7 +53,28 @@ export function ProductModal({
 
   return (
     <Modal onClose={onClose} wide>
-      <Art emoji={p.emoji} bg={p.tile_color} h={200} image={p.images[0]} alt={p.name_en} />
+      {/* Product Image Preview with Floating Wishlist Heart Button */}
+      <div className="relative overflow-hidden rounded-card">
+        <Art emoji={p.emoji} bg={p.tile_color} h={200} image={p.images[0]} alt={p.name_en} />
+        <button
+          type="button"
+          onClick={() => {
+            wishlist.toggle(p.id);
+            notify(wishlist.has(p.id) ? "Removed from Wishlist" : "Saved to Wishlist ❤️");
+          }}
+          className={`btn-press absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border-2.5 border-ink transition-all duration-200 cursor-pointer ${
+            wishlist.has(p.id)
+              ? "bg-[#FF5A78] text-white shadow-hard-3 scale-110 rotate-6"
+              : "bg-white/95 text-ink shadow-hard-2 hover:bg-[#FFCBD9] hover:scale-110"
+          }`}
+          title={wishlist.has(p.id) ? "Remove from Wishlist" : "Save to Wishlist"}
+          aria-label={wishlist.has(p.id) ? "Remove from Wishlist" : "Save to Wishlist"}
+        >
+          <span className="text-[18px]">
+            {wishlist.has(p.id) ? "❤️" : "♡"}
+          </span>
+        </button>
+      </div>
 
       {/* Title & Price Header Card — Mild Soft Cream Tint */}
       <div className="mt-3.5 rounded-card border-2.5 border-ink bg-[#FFF6ED] p-3.5 shadow-sm backdrop-blur-sm">
@@ -112,24 +135,43 @@ export function ProductModal({
       </div>
 
       {/* Action Buttons Toolbar */}
-      <div className="mt-4 flex flex-col gap-2.5">
-        {p.stock > 0 ? (
-          <Btn full onClick={onAdd}>
-            🛒 {t("shop.addToCart")} — {inr(p.price)}
-          </Btn>
-        ) : (
-          <Btn
-            full
-            bg="#FFE1A8"
-            color="#2B2140"
-            onClick={async () => {
-              await notifyRestockAction(p.id, session?.phone ?? null);
-              notify(t("product.notifySaved"));
-            }}
-          >
-            🔔 {t("product.notifyMe")}
-          </Btn>
-        )}
+      <div className="mt-4 flex items-center gap-2.5">
+        <div className="flex-1">
+          {p.stock > 0 ? (
+            <Btn full onClick={onAdd}>
+              🛒 {t("shop.addToCart")} — {inr(p.price)}
+            </Btn>
+          ) : (
+            <Btn
+              full
+              bg="#FFE1A8"
+              color="#2B2140"
+              onClick={async () => {
+                await notifyRestockAction(p.id);
+                notify(t("product.notifySaved"));
+              }}
+            >
+              🔔 {t("product.notifyMe")}
+            </Btn>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            wishlist.toggle(p.id);
+            notify(wishlist.has(p.id) ? "Removed from Wishlist" : "Saved to Wishlist ❤️");
+          }}
+          className={`btn-press shrink-0 flex items-center justify-center gap-1.5 rounded-pill border-2.5 border-ink px-4 py-2.5 font-display text-[13px] font-extrabold shadow-hard-2 transition-all cursor-pointer ${
+            wishlist.has(p.id)
+              ? "bg-[#FF5A78] text-white"
+              : "bg-[#A0D2EB] text-ink hover:bg-[#FFCBD9]"
+          }`}
+          title={wishlist.has(p.id) ? "Saved in Wishlist" : "Add to Wishlist"}
+        >
+          <span>{wishlist.has(p.id) ? "❤️" : "♡"}</span>
+          <span>{wishlist.has(p.id) ? "Saved" : "Wishlist"}</span>
+        </button>
+      </div>
 
       {/* Share + permanent link to the product's own page */}
       <div className="mt-2.5 flex items-center gap-2.5">
@@ -140,7 +182,6 @@ export function ProductModal({
         >
           {t("product.viewPage")}
         </a>
-      </div>
       </div>
 
       {/* Reviews */}
@@ -443,7 +484,7 @@ export function CheckoutModal({
   settings: StoreSettings;
   isDemo: boolean;
   onClose: () => void;
-  onPlaced: (order: Order) => void;
+  onPlaced: (order: Order, invoiceToken: string | null) => void;
   notify: (m: string) => void;
 }) {
   const { t, lang } = useT();
@@ -520,7 +561,7 @@ export function CheckoutModal({
       );
       return null;
     }
-    return result.order;
+    return { order: result.order, invoiceToken: result.invoiceToken };
   };
 
   const payOnline = async (method: "upi" | "card" | "razorpay" = "razorpay") => {
@@ -531,18 +572,19 @@ export function CheckoutModal({
     if (isDemo) {
       // Demo simulation, mirroring the reference's 1.4s processing screen.
       window.setTimeout(async () => {
-        const order = await placeWith("razorpay");
-        if (order) onPlaced(order);
+        const placed = await placeWith("razorpay");
+        if (placed) onPlaced(placed.order, placed.invoiceToken);
         else setPaying(false);
       }, 1400);
       return;
     }
 
-    const order = await placeWith("razorpay");
-    if (!order) {
+    const placed = await placeWith("razorpay");
+    if (!placed) {
       setPaying(false);
       return;
     }
+    const { order } = placed;
 
     setPayStage("sdk");
     const loaded = await loadRazorpayScript();
@@ -586,7 +628,7 @@ export function CheckoutModal({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ order_no: order.order_no, ...response }),
         });
-        onPlaced(order);
+        onPlaced(order, placed.invoiceToken);
       },
       modal: {
         ondismiss: () => {
@@ -598,8 +640,8 @@ export function CheckoutModal({
   };
 
   const payCod = async () => {
-    const order = await placeWith("cod");
-    if (order) onPlaced(order);
+    const placed = await placeWith("cod");
+    if (placed) onPlaced(placed.order, placed.invoiceToken);
   };
 
   return (
@@ -883,6 +925,8 @@ export function AuthModal({
   const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
   const [otpStep, setOtpStep] = useState<"phone" | "otp">("phone");
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1035,6 +1079,21 @@ export function AuthModal({
               {loading ? "Creating Account..." : "Create Account ✨"}
             </Btn>
           </div>
+
+          {/* OTP sign-in was reachable only from the Sign In tab, so anyone who
+              opened the modal (which starts on Register) never saw the option. */}
+          <div className="mt-3.5 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("otp");
+                setError(null);
+              }}
+              className="text-[12px] font-extrabold text-mute underline hover:text-ink transition-colors cursor-pointer"
+            >
+              Or sign in via SMS OTP →
+            </button>
+          </div>
         </div>
       )}
 
@@ -1110,34 +1169,66 @@ export function AuthModal({
           {otpStep === "phone" ? (
             <div>
               <Field label="Phone Number" value={phone} onChange={setPhone} placeholder="98765 43210" inputMode="tel" />
+              {/* The button silently greys out below 10 digits, which reads as
+                  "the OTP option is broken". Say what it is waiting for. */}
+              <p className="mb-3 text-[12px] text-mute">
+                {phone.replace(/\D/g, "").length < 10
+                  ? `Enter your 10-digit mobile number (${phone.replace(/\D/g, "").length}/10) to receive a code.`
+                  : "We'll text a 6-digit code to this number."}
+              </p>
               <Btn
                 full
-                disabled={phone.replace(/\D/g, "").length < 10}
+                disabled={otpSending || phone.replace(/\D/g, "").length < 10}
                 onClick={async () => {
+                  setOtpSending(true);
+                  setError(null);
                   const res = await sendOtp(phone);
+                  setOtpSending(false);
                   if (res.ok) {
-                    setError(null);
                     setOtpStep("otp");
                   } else setError(res.message ?? "Failed to send OTP");
                 }}
               >
-                Send OTP →
+                {otpSending ? "Sending…" : "Send OTP →"}
               </Btn>
             </div>
           ) : (
             <div>
               <Field label="Enter OTP Code" value={otp} onChange={(v) => setOtp(v.replace(/\D/g, "").slice(0, 6))} placeholder="123456" inputMode="numeric" maxLength={6} />
-              {isDemo && <p className="mb-3 text-[12px] text-mute">{t("auth.demoOtp")}</p>}
+              {isDemo ? (
+                <p className="mb-3 text-[12px] text-mute">{t("auth.demoOtp")}</p>
+              ) : (
+                <p className="mb-3 text-[12px] text-mute">
+                  Sent to +91 {phone.replace(/\D/g, "").slice(-10)}. It can take up to a minute.
+                </p>
+              )}
               <Btn
                 full
+                disabled={otpVerifying || otp.length < 6}
                 onClick={async () => {
+                  setOtpVerifying(true);
+                  setError(null);
                   const res = await verifyOtp(phone, otp, name);
+                  setOtpVerifying(false);
                   if (res.ok) onSignedIn(name || "Customer");
                   else setError(res.message ?? "Invalid OTP code");
                 }}
               >
-                Verify & Sign In ✓
+                {otpVerifying ? "Verifying…" : "Verify & Sign In ✓"}
               </Btn>
+              {/* No way back to the number screen meant a typo'd phone was a
+                  dead end — the code would never arrive and nothing explained why. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setOtpStep("phone");
+                  setOtp("");
+                  setError(null);
+                }}
+                className="mt-3 w-full text-[12px] font-extrabold text-mute underline hover:text-ink transition-colors cursor-pointer"
+              >
+                Didn&apos;t get a code? Change number or resend
+              </button>
             </div>
           )}
 
@@ -1267,3 +1358,88 @@ export function ProfileModal({
     </Modal>
   );
 }
+
+/* ── Wishlist view modal ─────────────────────────────────────────────────── */
+export function WishlistModal({
+  products,
+  onClose,
+  onAddToCart,
+  onOpenProduct,
+}: {
+  products: Product[];
+  onClose: () => void;
+  onAddToCart: (itemId: string) => void;
+  onOpenProduct: (p: Product) => void;
+}) {
+  const { lang } = useT();
+  const wishlist = useWishlist();
+
+  const savedProducts = products.filter((p) => wishlist.has(p.id));
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="flex items-center gap-2 mb-3.5 pr-10">
+        <span className="text-[24px]">❤️</span>
+        <h3 className="font-display text-[22px] font-extrabold text-ink">My Wishlist</h3>
+        <span className="rounded-pill bg-[#A0D2EB] border-2 border-ink px-2.5 py-0.5 font-display text-[12px] font-extrabold text-ink shadow-hard-1">
+          {savedProducts.length} items
+        </span>
+      </div>
+
+      {savedProducts.length === 0 ? (
+        <div className="py-8 text-center bg-[#F0F7FF] rounded-card border-2.5 border-ink p-4 shadow-hard-2">
+          <div className="text-[36px] mb-2">🎁</div>
+          <div className="font-display font-extrabold text-[16px] text-ink">Your wishlist is empty!</div>
+          <p className="text-[13px] text-mute mt-1 mb-4 font-medium">Tap the heart icon on any product card to save it for later.</p>
+          <Btn small onClick={onClose}>Start Shopping 🛍️</Btn>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto no-scrollbar pr-1">
+          {savedProducts.map((p) => (
+            <div
+              key={p.id}
+              className="flex items-center gap-3 rounded-tile border-2.5 border-ink bg-paper p-2.5 shadow-hard-2"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenProduct(p);
+                }}
+                className="shrink-0 cursor-pointer"
+              >
+                <Art emoji={p.emoji} bg={p.tile_color} h={54} image={p.images[0]} alt={p.name_en} />
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="font-sans text-[13px] font-bold text-ink line-clamp-1">
+                  {lang === "ta" ? p.name_ta : p.name_en}
+                </div>
+                <div className="font-display text-[14px] font-extrabold text-brand mt-0.5">
+                  {inr(p.price)}
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onAddToCart(p.id)}
+                  className="btn-press rounded-pill border-2 border-ink bg-[#FF5A78] text-white px-2.5 py-1 text-[11px] font-display font-extrabold shadow-hard-1"
+                >
+                  + Cart
+                </button>
+                <button
+                  type="button"
+                  onClick={() => wishlist.toggle(p.id)}
+                  className="btn-press flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink bg-[#FFCBD9] text-[12px] font-bold text-ink shadow-hard-1 leading-none cursor-pointer"
+                  title="Remove from Wishlist"
+                >
+                  <span className="relative -top-[1.5px]">✕</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
+  );
+}
+

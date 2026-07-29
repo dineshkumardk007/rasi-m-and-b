@@ -33,11 +33,9 @@ export function Btn({
       onClick={onClick}
       disabled={disabled}
       style={{ background: disabled ? "#D8D2E0" : bg, color: disabled ? "#8A8398" : color }}
-      className={`btn-press rounded-pill border-3 border-ink font-display font-extrabold ${
-        disabled ? "shadow-none" : "shadow-hard-3"
-      } ${small ? "px-4 py-[7px] text-[13px]" : "px-5 py-[11px] text-[15px]"} ${
-        full ? "w-full" : ""
-      } min-h-[44px]`}
+      className={`btn-press rounded-pill border-3 border-ink font-display font-extrabold ${disabled ? "shadow-none" : "shadow-hard-3"
+        } ${small ? "px-4 py-[7px] text-[13px]" : "px-5 py-[11px] text-[15px]"} ${full ? "w-full" : ""
+        } min-h-[44px]`}
     >
       {children}
     </button>
@@ -149,6 +147,7 @@ export function Art({
   alt,
   priority,
   sizes = "(max-width: 640px) 45vw, 260px",
+  fit = "cover",
 }: {
   emoji: string;
   bg: string;
@@ -160,6 +159,7 @@ export function Art({
   priority?: boolean;
   /** Widths this tile occupies, so Next serves an appropriately sized file. */
   sizes?: string;
+  fit?: "cover" | "contain";
 }) {
   return (
     <div
@@ -173,7 +173,7 @@ export function Art({
           fill
           sizes={sizes}
           priority={priority}
-          className="object-cover"
+          className={`${fit === "contain" ? "object-contain p-1.5 drop-shadow-sm" : "object-cover"} transition-transform duration-200 group-hover:scale-105`}
         />
       ) : (
         <span aria-hidden>{emoji}</span>

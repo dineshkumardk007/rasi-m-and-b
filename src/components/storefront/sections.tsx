@@ -266,6 +266,214 @@ export function Marquee({
   );
 }
 
+/* ── Fresh Picks Carousel + Side Promo Banners ──────────────────────────── */
+export function FreshPicksSection({
+  products,
+  openProduct,
+  addToCart,
+  onViewAll,
+  onExploreBundles,
+}: {
+  products: Product[];
+  openProduct: (p: Product) => void;
+  addToCart: (id: string) => void;
+  onViewAll?: () => void;
+  onExploreBundles?: () => void;
+}) {
+  const { lang } = useT();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: "left" | "right") => {
+    if (scrollRef.current) {
+      // Each card (165px) + gap (16px) = ~181px. 3 boxes = 540px scroll amount
+      const amount = direction === "left" ? -540 : 540;
+      scrollRef.current.scrollBy({ left: amount, behavior: "smooth" });
+    }
+  };
+
+  const freshProducts = products.slice(0, 10);
+
+  return (
+    <div className="mx-auto max-w-[1240px] px-3 sm:px-5 my-5 sm:my-7">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_410px] gap-4 sm:gap-5 items-stretch">
+        
+        {/* Left Column: Fresh Picks Carousel */}
+        <div className="relative rounded-modal border-3 border-ink bg-gradient-to-br from-[#FFFDF8] via-[#FFF9F2] to-[#FFF5EC] p-3.5 sm:p-5 shadow-hard-4 flex flex-col justify-between overflow-hidden">
+          
+          {/* Header Row */}
+          <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4 px-1">
+            <div className="flex items-center gap-1.5">
+              <h2 className="font-display text-[20px] sm:text-[24px] font-extrabold text-ink">
+                Fresh Picks
+              </h2>
+              <span className="text-[18px] sm:text-[20px]">✨</span>
+            </div>
+            <button
+              type="button"
+              onClick={onViewAll}
+              className="btn-press font-display text-[13px] sm:text-[14px] font-extrabold text-brand hover:underline cursor-pointer flex items-center gap-0.5"
+            >
+              <span>View all</span>
+              <span>→</span>
+            </button>
+          </div>
+
+          {/* Carousel Slider with Navigation Arrows */}
+          <div className="relative group/carousel my-auto">
+            {/* Left Nav Arrow Button */}
+            <button
+              type="button"
+              onClick={() => scroll("left")}
+              className="btn-press absolute -left-2 sm:-left-3 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 sm:border-2.5 border-ink bg-white text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer font-extrabold text-[15px]"
+              aria-label="Previous products"
+            >
+              ‹
+            </button>
+
+            {/* Right Nav Arrow Button */}
+            <button
+              type="button"
+              onClick={() => scroll("right")}
+              className="btn-press absolute -right-2 sm:-right-3 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 sm:border-2.5 border-ink bg-white text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer font-extrabold text-[15px]"
+              aria-label="Next products"
+            >
+              ›
+            </button>
+
+            {/* Products Scroll Container */}
+            <div
+              ref={scrollRef}
+              className="no-scrollbar flex w-full overflow-x-auto gap-3 sm:gap-4 px-2 sm:px-3 py-2 scroll-smooth"
+            >
+              {freshProducts.map((p) => (
+                <div
+                  key={p.id}
+                  onClick={() => openProduct(p)}
+                  style={glowStyle(p.tile_color)}
+                  className="glow-card w-[145px] sm:w-[165px] shrink-0 rounded-card border-2.5 sm:border-3 border-ink bg-paper p-2.5 sm:p-3 text-left shadow-hard-4 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1.5 active:scale-95 cursor-pointer relative group"
+                >
+                  <div className="w-full text-left">
+                    <Art emoji={p.emoji} bg={p.tile_color} h={86} image={p.images[0]} alt={p.name_en} />
+                    <div className="mt-2 text-[12px] sm:text-[13px] font-bold leading-[1.2] text-ink line-clamp-2 h-[32px] sm:h-[34px]">
+                      {nameOf(p, lang)}
+                    </div>
+                    <div className="mt-1 flex items-baseline gap-1.5">
+                      <span className="font-display font-extrabold text-[15px] sm:text-[16px] text-ink">
+                        {inr(p.price)}
+                      </span>
+                      {p.mrp > p.price && (
+                        <span className="text-[11px] text-[#B4AABF] line-through">
+                          {inr(p.mrp)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Pink Add to Cart Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addToCart(p.id);
+                    }}
+                    className="btn-press mt-2.5 w-full flex items-center justify-center gap-1 rounded-pill border-2 border-ink bg-[#FF5A78] text-white py-1 sm:py-1.5 font-display text-[11px] sm:text-[12px] font-extrabold shadow-hard-2 hover:bg-[#E04866] cursor-pointer"
+                  >
+                    <span>+</span>
+                    <span>Add to cart</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Stacked Side Promo Boxes */}
+        <div className="flex flex-col gap-3.5 sm:gap-4 justify-between">
+          
+          {/* Top Promo Card: Super Saver */}
+          <div className="relative rounded-modal border-3 border-ink bg-[#FFE27A] p-4 sm:p-5 shadow-hard-4 overflow-hidden flex flex-col justify-between min-h-[160px] sm:min-h-[175px] group">
+            
+            {/* Background Decorative Pattern */}
+            <div className="absolute -right-4 -bottom-4 h-32 w-32 rounded-full bg-[#FFCBD9]/40 blur-xl pointer-events-none" />
+
+            <div className="relative z-10 max-w-[65%]">
+              <span className="inline-block rounded-pill border-2 border-ink bg-white px-2.5 py-0.5 font-display text-[10px] sm:text-[11px] font-extrabold text-ink shadow-hard-1 mb-1.5">
+                Super Saver
+              </span>
+              <h3 className="font-display text-[20px] sm:text-[24px] font-extrabold text-ink leading-[1.1]">
+                UP TO 40% OFF
+              </h3>
+              <p className="font-sans text-[12px] sm:text-[13px] font-bold text-ink/80 mb-3 mt-0.5">
+                on Baby Essentials
+              </p>
+              <button
+                type="button"
+                onClick={onViewAll}
+                className="btn-press inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FF5A78] text-white px-3.5 py-1.5 font-display text-[12px] sm:text-[13px] font-extrabold shadow-hard-2 hover:scale-105 transition-all cursor-pointer"
+              >
+                <span>Shop Now</span>
+                <span>→</span>
+              </button>
+            </div>
+
+            {/* Cute Plush Bunny / Starburst Illustration Graphic */}
+            <div className="absolute right-2 bottom-1 sm:right-3 sm:bottom-2 z-10 pointer-events-none flex items-center justify-center">
+              <div className="relative flex items-center justify-center">
+                {/* Pink Star Burst Badge */}
+                <div className="h-24 w-24 sm:h-28 sm:w-28 rounded-full bg-[#FF6B8B] border-2.5 border-ink flex items-center justify-center shadow-hard-2 rotate-12">
+                  <span className="text-[44px] sm:text-[52px] -rotate-12 transition-transform duration-300 group-hover:scale-110">
+                    🐰
+                  </span>
+                </div>
+                <span className="absolute -top-2 -right-1 text-[18px] animate-bounce">✨</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Promo Card: Bundle & Save More! */}
+          <div className="relative rounded-modal border-3 border-ink bg-[#FFD6E0] p-4 sm:p-5 shadow-hard-4 overflow-hidden flex flex-col justify-between min-h-[155px] sm:min-h-[165px] group">
+            
+            <div className="relative z-10 max-w-[65%]">
+              <h3 className="font-display text-[19px] sm:text-[22px] font-extrabold text-ink leading-[1.1]">
+                Bundle & Save More!
+              </h3>
+              <p className="font-sans text-[12px] sm:text-[13px] font-bold text-ink/80 mb-3 mt-1">
+                Best combos for your little ones
+              </p>
+              <button
+                type="button"
+                onClick={onExploreBundles}
+                className="btn-press inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FF5A78] text-white px-3.5 py-1.5 font-display text-[12px] sm:text-[13px] font-extrabold shadow-hard-2 hover:scale-105 transition-all cursor-pointer"
+              >
+                <span>Explore Bundles</span>
+                <span>→</span>
+              </button>
+            </div>
+
+            {/* Baby Care Products Basket Illustration + Arrow Circle */}
+            <div className="absolute right-2 bottom-1 sm:right-3 sm:bottom-2 z-10 pointer-events-none flex items-center gap-1">
+              <div className="relative flex items-center justify-center">
+                <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl bg-[#FFE1A8] border-2.5 border-ink flex items-center justify-center shadow-hard-2 -rotate-6">
+                  <span className="text-[40px] sm:text-[48px] rotate-6 transition-transform duration-300 group-hover:scale-110">
+                    🧺
+                  </span>
+                </div>
+              </div>
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border-2 border-ink bg-[#FF5A78] text-white shadow-hard-1 font-bold text-[12px] sm:text-[14px]">
+                →
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+
 /* ── Shop by category tiles ──────────────────────────────────────────────── */
 export function CategoryGrid({
   category,
@@ -480,7 +688,7 @@ export function ShopGrid({
           <div
             key={p.id}
             style={glowStyle(p.tile_color)}
-            className="pop glow-card flex flex-col rounded-card border-3 border-ink bg-paper p-2.5 shadow-hard-4 hover:border-brand transition-colors cursor-pointer group"
+            className="pop glow-card relative flex flex-col rounded-card border-3 border-ink bg-paper p-2.5 shadow-hard-4 hover:border-brand transition-colors cursor-pointer group"
             onClick={() => openProduct(p)}
           >
             <div className="flex flex-1 flex-col">

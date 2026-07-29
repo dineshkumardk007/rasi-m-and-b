@@ -16,20 +16,45 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { hashPassword } from "@/lib/admin-password";
 import { upgradeIfLegacy, verifyCustomerPassword } from "@/lib/customer-password";
 import { clearAttempts, isLockedOut, recordFailedAttempt } from "@/lib/admin-session";
+import {
+  currentCustomer,
+  endCustomerSession,
+  startCustomerSession,
+} from "@/lib/customer-session";
+import { allowByCaller } from "@/lib/rate-limit";
+import { createInvoiceToken } from "@/lib/invoice-token";
 import type { Order } from "@/lib/types";
 
 /** Storefront server actions — the only write paths from the public site. */
 
-export async function submitOrderAction(input: PlaceOrderInput): Promise<PlaceOrderResult> {
+export type SubmitOrderResult =
+  | { ok: true; order: Order; invoiceToken: string | null }
+  | Extract<PlaceOrderResult, { ok: false }>;
+
+export async function submitOrderAction(input: PlaceOrderInput): Promise<SubmitOrderResult> {
   const result = await placeOrder(input);
-  if (result.ok) revalidatePath("/");
-  return result;
+  if (!result.ok) return result;
+  revalidatePath("/");
+  // Minted here so the confirmation screen can link to the invoice without
+  // putting the customer's phone number in the URL.
+  return {
+    ok: true,
+    order: result.order,
+    invoiceToken: createInvoiceToken(
+      result.order.order_no,
+      result.order.address_snapshot.phone,
+    ),
+  };
 }
 
 export async function checkCouponAction(
   code: string,
   subtotal: number,
 ): Promise<{ ok: true; code: string; discount: number } | { ok: false; reason: string; min?: number }> {
+  // Unthrottled, this endpoint answers "does this code exist?" as fast as a
+  // caller can ask, which is a dictionary attack on the discount list.
+  if (!(await allowByCaller("coupon", 20, 10 * 60)))
+    return { ok: false, reason: "too_many_attempts" };
   const check = evaluateCoupon(await findCoupon(code), subtotal);
   if (!check.ok) return { ok: false, reason: check.reason, min: check.min };
   return { ok: true, code: check.coupon.code, discount: check.discount };
@@ -52,6 +77,9 @@ export async function trackOrderAction(
   phone: string,
 ): Promise<Order | null> {
   if (!orderNo.trim() || !phone.trim()) return null;
+  // Order numbers are sequential (RSB-1001, 1002…), so the only thing making
+  // this pair hard to guess is the phone. Throttle the guessing.
+  if (!(await allowByCaller("track", 15, 10 * 60))) return null;
   return trackOrder(orderNo, phone);
 }
 
@@ -62,6 +90,9 @@ export async function submitReviewAction(
   text: string,
 ): Promise<boolean> {
   if (!text.trim() || rating < 1 || rating > 5) return false;
+  // Reviews land in a moderation queue, but an unthrottled endpoint still lets
+  // one script bury the owner's queue under thousands of entries.
+  if (!(await allowByCaller("review", 5, 60 * 60))) return false;
   if (isDemo()) {
     demoDB().reviews.unshift({
       id: `demo-r-${Date.now()}`,
@@ -113,6 +144,10 @@ export async function registerCustomerAction(
       };
       db.customers.unshift(c);
     }
+    // Demo only. In production this action proves nothing about who holds the
+    // number, so it must never mint a session — the real OTP flow goes through
+    // Supabase Auth, which currentCustomer() reads directly.
+    await startCustomerSession(clean, customerName);
     return { ok: true, customerId: c.id };
   }
 
@@ -180,6 +215,8 @@ export async function registerCustomerWithPasswordAction(
   if (clean.length !== 10) return { ok: false, error: "Please enter a valid 10-digit phone number." };
   if (!name.trim()) return { ok: false, error: "Please enter your full name." };
   if (!password || password.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
+  if (!(await allowByCaller("register", 10, 60 * 60)))
+    return { ok: false, error: "Too many sign-up attempts. Please try again later." };
 
   const customerName = name.trim();
 
@@ -206,6 +243,7 @@ export async function registerCustomerWithPasswordAction(
       created_at: new Date().toISOString(),
     };
     db.customers.unshift(c);
+    await startCustomerSession(clean, customerName);
     return { ok: true, name: customerName, phone: clean };
   }
 
@@ -239,6 +277,7 @@ export async function registerCustomerWithPasswordAction(
     });
 
   if (error) return { ok: false, error: error.message };
+  await startCustomerSession(clean, customerName);
   return { ok: true, name: customerName, phone: clean };
 }
 
@@ -271,6 +310,7 @@ export async function signInWithPasswordAction(
     c.last_login_at = now;
     c.login_count = (c.login_count || 0) + 1;
     await clearAttempts(throttle);
+    await startCustomerSession(clean, c.name || "Customer");
     return { ok: true, name: c.name || "Customer", phone: clean };
   }
 
@@ -304,12 +344,21 @@ export async function signInWithPasswordAction(
     .eq("id", customer.id);
 
   await clearAttempts(throttle);
+  await startCustomerSession(clean, customer.name || "Customer");
   return { ok: true, name: customer.name || "Customer", phone: clean };
 }
 
-/** Record customer activity timestamp & increment sign-in count */
-export async function recordCustomerActivityAction(phone: string): Promise<boolean> {
-  const clean = phone.replace(/\D/g, "").slice(-10);
+/**
+ * Record customer activity timestamp & increment sign-in count.
+ *
+ * The identity comes from the session, not from an argument: this used to let
+ * anyone inflate or backdate another customer's login history by passing their
+ * phone number.
+ */
+export async function recordCustomerActivityAction(): Promise<boolean> {
+  const me = await currentCustomer();
+  if (!me) return false;
+  const clean = me.sub.replace(/\D/g, "").slice(-10);
   if (clean.length !== 10) return false;
   const now = new Date().toISOString();
 
@@ -351,6 +400,8 @@ export async function registerCustomerWithEmailAction(
   if (!cleanEmail.includes("@")) return { ok: false, error: "Please enter a valid email address." };
   if (!name.trim()) return { ok: false, error: "Please enter your full name." };
   if (!password || password.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
+  if (!(await allowByCaller("register", 10, 60 * 60)))
+    return { ok: false, error: "Too many sign-up attempts. Please try again later." };
 
   const customerName = name.trim();
 
@@ -378,6 +429,7 @@ export async function registerCustomerWithEmailAction(
       created_at: new Date().toISOString(),
     };
     db.customers.unshift(c);
+    await startCustomerSession(cleanEmail, customerName);
     return { ok: true, name: customerName, email: cleanEmail };
   }
 
@@ -412,6 +464,7 @@ export async function registerCustomerWithEmailAction(
   });
 
   if (error) return { ok: false, error: error.message };
+  await startCustomerSession(cleanEmail, customerName);
   return { ok: true, name: customerName, email: cleanEmail };
 }
 
@@ -432,6 +485,16 @@ export async function ensureCustomerProfileByEmailAction(
   if (!cleanEmail.includes("@")) return { ok: false };
   const fallbackName = name.trim() || "Customer";
   const now = new Date().toISOString();
+
+  // The docblock's premise — "the caller has a valid Supabase session for this
+  // address" — has to be checked, not assumed. Without this the action would
+  // create a profile, and mint a session, for any address a caller names.
+  if (!isDemo()) {
+    const { createClient } = await import("@/lib/supabase/server");
+    const authed = await createClient();
+    const { data: authUser } = await authed.auth.getUser();
+    if (authUser.user?.email?.toLowerCase() !== cleanEmail) return { ok: false };
+  }
 
   if (isDemo()) {
     const db = demoDB();
@@ -515,6 +578,7 @@ export async function signInWithEmailAction(
     c.last_login_at = now;
     c.login_count = (c.login_count || 0) + 1;
     await clearAttempts(throttle);
+    await startCustomerSession(cleanEmail, c.name || "Customer");
     return { ok: true, name: c.name || "Customer", email: cleanEmail };
   }
 
@@ -547,5 +611,11 @@ export async function signInWithEmailAction(
     .eq("id", customer.id);
 
   await clearAttempts(throttle);
+  await startCustomerSession(cleanEmail, customer.name || "Customer");
   return { ok: true, name: customer.name || "Customer", email: cleanEmail };
+}
+
+/** Clear the customer session cookie on sign-out. */
+export async function signOutCustomerAction(): Promise<void> {
+  await endCustomerSession();
 }

@@ -4,25 +4,12 @@ import { demoDB } from "@/lib/data/demo-store";
 import { isDemo } from "@/lib/data/mode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/data/events";
+import { currentCustomer } from "@/lib/customer-session";
 import type { Order } from "@/lib/types";
 
-/** Orders for the signed-in customer's phone (Buy again + My orders). */
-export async function myOrdersAction(phone: string): Promise<Order[]> {
-  const clean = phone.replace(/\D/g, "").slice(-10);
-  if (!/^\d{10}$/.test(clean)) return [];
-  if (isDemo())
-    return demoDB().orders.filter(
-      (o) => o.address_snapshot.phone.replace(/\D/g, "").slice(-10) === clean,
-    );
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from("orders")
-    .select("*, order_items(*)")
-    .contains("address_snapshot", { phone: clean })
-    .order("placed_at", { ascending: false })
-    .limit(20);
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  return (data ?? []).map((row: any) => ({
+/* eslint-disable @typescript-eslint/no-explicit-any -- supabase row shapes */
+function mapOrder(row: any): Order {
+  return {
     id: row.id,
     order_no: row.order_no,
     customer_id: row.customer_id,
@@ -35,7 +22,6 @@ export async function myOrdersAction(phone: string): Promise<Order[]> {
     coupon_code: row.coupon_code,
     total: row.total,
     address_snapshot: row.address_snapshot,
-    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     items: (row.order_items ?? []).map((i: any) => ({
       product_id: i.product_id,
       name_snapshot: i.name_snapshot,
@@ -44,22 +30,80 @@ export async function myOrdersAction(phone: string): Promise<Order[]> {
     })),
     placed_at: row.placed_at,
     language: "en" as const,
-  }));
+  };
 }
 
-/** Notify-me-when-back (wishlist restock alert). */
-export async function notifyRestockAction(
-  productId: string,
-  phone: string | null,
-): Promise<boolean> {
-  await logEvent("wishlist.notify_restock", { product_id: productId, phone });
-  if (!isDemo() && phone) {
-    const supabase = createAdminClient();
+/**
+ * Orders for the signed-in customer (Buy again + My orders).
+ *
+ * The phone number is read from the server-side session, never from an
+ * argument. This action previously accepted the phone from its caller and
+ * queried with the service-role client, so anyone could enumerate 10-digit
+ * numbers and read back other families' names, phones and home addresses.
+ */
+export async function myOrdersAction(): Promise<Order[]> {
+  const me = await currentCustomer();
+  if (!me) return [];
+
+  const digits = me.sub.replace(/\D/g, "");
+  const phone = digits.length === 10 ? digits : null;
+  const email = me.sub.includes("@") ? me.sub.toLowerCase() : null;
+
+  if (isDemo()) {
+    if (!phone) return [];
+    return demoDB().orders.filter(
+      (o) => o.address_snapshot.phone.replace(/\D/g, "").slice(-10) === phone,
+    );
+  }
+
+  const supabase = createAdminClient();
+
+  if (phone) {
+    const { data } = await supabase
+      .from("orders")
+      .select("*, order_items(*)")
+      .contains("address_snapshot", { phone })
+      .order("placed_at", { ascending: false })
+      .limit(20);
+    return (data ?? []).map(mapOrder);
+  }
+
+  // Email-registered account: orders are linked by customer_id, since the
+  // delivery phone on the order need not match the login identity.
+  if (email) {
     const { data: customer } = await supabase
       .from("customers")
       .select("id")
-      .eq("phone", phone.replace(/\D/g, "").slice(-10))
+      .eq("email", email)
       .maybeSingle();
+    if (!customer) return [];
+    const { data } = await supabase
+      .from("orders")
+      .select("*, order_items(*)")
+      .eq("customer_id", customer.id)
+      .order("placed_at", { ascending: false })
+      .limit(20);
+    return (data ?? []).map(mapOrder);
+  }
+
+  return [];
+}
+
+/** Notify-me-when-back (wishlist restock alert). Requires a signed-in customer. */
+export async function notifyRestockAction(productId: string): Promise<boolean> {
+  const me = await currentCustomer();
+  const digits = me?.sub.replace(/\D/g, "") ?? "";
+  const phone = digits.length === 10 ? digits : null;
+
+  await logEvent("wishlist.notify_restock", { product_id: productId, phone });
+
+  if (!isDemo() && me) {
+    const supabase = createAdminClient();
+    const query = supabase.from("customers").select("id");
+    const { data: customer } = await (phone
+      ? query.eq("phone", phone)
+      : query.eq("email", me.sub.toLowerCase())
+    ).maybeSingle();
     if (customer)
       await supabase
         .from("wishlist")

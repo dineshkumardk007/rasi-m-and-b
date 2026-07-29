@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
-import { trackOrder } from "@/lib/data/orders";
+import { getOrderByNo } from "@/lib/data/orders";
 import { getActiveProducts } from "@/lib/data/catalog";
 import { BUSINESS, inr } from "@/lib/constants";
+import { verifyInvoiceToken } from "@/lib/invoice-token";
+import { invoiceLines, totalTax as sumTax } from "@/lib/gst";
+import { currentCustomer } from "@/lib/customer-session";
 import { PrintButton } from "./print-button";
 
 /**
@@ -12,27 +15,32 @@ import { PrintButton } from "./print-button";
 
 interface Props {
   params: Promise<{ orderNo: string }>;
-  searchParams: Promise<{ phone?: string }>;
+  searchParams: Promise<{ t?: string }>;
 }
 
 export default async function InvoicePage({ params, searchParams }: Props) {
   const { orderNo } = await params;
-  const { phone } = await searchParams;
-  if (!phone) notFound();
-  const order = await trackOrder(orderNo, phone);
+  const { t } = await searchParams;
+
+  const order = await getOrderByNo(orderNo.trim());
   if (!order) notFound();
+
+  // Two ways to be allowed in: a signed link we issued for this exact order,
+  // or a session belonging to the phone on the order. Neither puts the phone
+  // number in the URL.
+  const orderPhone = order.address_snapshot.phone;
+  const viaToken = verifyInvoiceToken(orderNo, orderPhone, t);
+  const me = viaToken ? null : await currentCustomer();
+  const viaSession =
+    !!me && me.sub.replace(/\D/g, "").slice(-10) === orderPhone.replace(/\D/g, "").slice(-10);
+  if (!viaToken && !viaSession) notFound();
 
   const products = await getActiveProducts();
   const gstRateFor = (productId: string | null) =>
     products.find((p) => p.id === productId)?.gst_rate ?? 12;
 
-  const lines = order.items.map((item) => {
-    const rate = gstRateFor(item.product_id);
-    const gross = item.price_snapshot * item.qty;
-    const taxable = Math.round((gross * 100) / (100 + rate));
-    return { ...item, rate, gross, taxable, tax: gross - taxable };
-  });
-  const totalTax = lines.reduce((s, l) => s + l.tax, 0);
+  const lines = invoiceLines(order.items, gstRateFor);
+  const totalTax = sumTax(lines);
 
   return (
     <main className="mx-auto max-w-[720px] bg-white p-8 font-body text-ink print:p-0">

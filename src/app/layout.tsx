@@ -3,6 +3,7 @@ import { Baloo_2, Karla, Noto_Sans_Tamil } from "next/font/google";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import { getLanguage } from "@/lib/i18n/server";
 import { CartProvider } from "@/lib/store/CartProvider";
+import { WishlistProvider } from "@/lib/store/WishlistProvider";
 import { SessionProvider } from "@/lib/store/SessionProvider";
 import { isDemo } from "@/lib/data/mode";
 import { BUSINESS, siteUrl } from "@/lib/constants";
@@ -68,6 +69,18 @@ export default async function RootLayout({
       className={`${baloo.variable} ${karla.variable} ${notoTamil.variable}`}
     >
       <body className="min-h-screen antialiased bg-[#FAF8F5] relative">
+        {/*
+          Keyboard and screen-reader users otherwise tab through the ribbon,
+          logo, language toggle, track, profile and cart on every page before
+          reaching a product. Visible only once focused.
+        */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-pill focus:border-2.5 focus:border-ink focus:bg-[#FFE1A8] focus:px-4 focus:py-2 focus:font-display focus:text-[14px] focus:font-extrabold focus:text-ink focus:shadow-hard-2"
+        >
+          Skip to main content
+        </a>
+
         {/* Fixed hand-drawn baby-doodle wallpaper — warm off-white base with a
             subtle repeating pattern of bottles, balloons, rattles & safety pins.
             Stays put while content scrolls smoothly over it. */}
@@ -92,7 +105,9 @@ export default async function RootLayout({
 
         <LanguageProvider initialLang={lang}>
           <SessionProvider isDemo={isDemo()}>
-            <CartProvider>{children}</CartProvider>
+            <CartProvider>
+              <WishlistProvider>{children}</WishlistProvider>
+            </CartProvider>
           </SessionProvider>
         </LanguageProvider>
         <Analytics />

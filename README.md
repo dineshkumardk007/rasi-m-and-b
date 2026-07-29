@@ -85,6 +85,54 @@ them in `/admin` cannot leave the published policy contradicting the checkout.
 
 Bump `LEGAL_LAST_UPDATED` when the wording changes.
 
+## Customer sessions
+
+Password and email sign-in verify a credential and then issue an HMAC-signed
+`rasi_customer_session` cookie — the same scheme as the admin session, keyed by
+a value derived from `ADMIN_SESSION_SECRET` so admin and customer tokens can
+never be swapped. Phone OTP goes through Supabase Auth and keeps its own
+session; `currentCustomer()` accepts either.
+
+This exists because actions used to take the customer's phone number **as an
+argument**. `myOrdersAction(phone)` then queried with the service-role client,
+which bypasses RLS — so iterating 10-digit numbers returned other families'
+names, phones and delivery addresses. Server Actions are ordinary POST
+endpoints, so that was reachable from anywhere.
+
+The rule the code now follows: **an action never takes the identity it acts on
+from its caller.** `myOrdersAction()`, `recordCustomerActivityAction()` and
+`notifyRestockAction()` take no phone at all, and
+`ensureCustomerProfileByEmailAction` verifies the Supabase session server-side
+before trusting the email it was handed.
+
+Rotating `ADMIN_SESSION_SECRET` signs out every customer as well as the owner.
+
+## Rate limits
+
+Public write actions are throttled per caller IP in `src/lib/rate-limit.ts`,
+sharing the `admin_login_attempts` table (and therefore its migration) so the
+counter is not per-serverless-instance:
+
+| Action | Budget |
+| --- | --- |
+| Review submission | 5 / hour |
+| Sign-up (phone or email) | 10 / hour |
+| Coupon check | 20 / 10 min |
+| Order tracking | 15 / 10 min |
+
+Sign-in keeps its own stricter per-account lockout (5 failures → 15 minutes).
+All of these fail open on a database error, matching the login throttle: an
+outage must not take the storefront's write paths down with it.
+
+## Invoice links
+
+`/invoice/[orderNo]?t=…` — the token is an HMAC over the order number and the
+phone recorded on the order, so it cannot be moved to another order or forged.
+The link previously carried `?phone=`, which wrote a customer's number into
+browser history, access logs and outbound `Referer` headers, and order numbers
+are sequential. A signed-in customer can also open their own invoice without a
+token.
+
 ## Security headers
 
 Set in `next.config.mjs`. Enforced from the start: `frame-ancestors 'none'`
@@ -162,11 +210,19 @@ pnpm test          # vitest, ~2s
 pnpm test:watch
 ```
 
-Unit tests over the pure logic: session tokens (forgery, tampering, expiry),
-password hashing, the bilingual dictionary (placeholder parity between English
-and Tamil — a dropped `{time}` breaks the countdown for Tamil readers only), the
-policy documents, and the formatting helpers. Anything needing Supabase is out
-of scope; those paths are exercised by running the site in demo mode.
+Unit tests over the pure logic: admin and customer session tokens (forgery,
+tampering, expiry, and that one cannot be presented as the other), invoice link
+tokens, password hashing, the bilingual dictionary (placeholder parity between
+English and Tamil — a dropped `{time}` breaks the countdown for Tamil readers
+only), the policy documents, and the formatting helpers.
+
+The money path is covered too, since a rounding mistake there is a mistake on a
+legal document or on what the shop gives away: GST splitting on inclusive
+prices (`src/lib/gst.ts` — the invariant is that taxable + tax always equals the
+amount actually charged) and coupon evaluation (minimums, expiry, usage limits).
+
+Anything needing Supabase is out of scope; those paths are exercised by running
+the site in demo mode.
 
 CI (`.github/workflows/ci.yml`) runs lint, typecheck, tests and a production
 build on every push and PR, with no secrets — `SKIP_ENV_VALIDATION=1` puts the

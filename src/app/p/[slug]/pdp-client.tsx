@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Product, Review } from "@/lib/types";
 import { useCart } from "@/lib/store/CartProvider";
+import { useWishlist } from "@/lib/store/WishlistProvider";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { inr, MILESTONE_META } from "@/lib/constants";
 import { Art, Badge, Btn, Stars, Toast } from "@/components/ui";
@@ -14,6 +15,7 @@ import { trackAddToCart, trackViewContent } from "@/lib/analytics";
 export function PdpClient({ product: p, reviews }: { product: Product; reviews: Review[] }) {
   const { t, lang } = useT();
   const cart = useCart();
+  const wishlist = useWishlist();
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const meta = MILESTONE_META[p.milestone];
@@ -25,7 +27,28 @@ export function PdpClient({ product: p, reviews }: { product: Product; reviews: 
 
   return (
     <div className="rounded-card border-3 border-ink bg-paper p-4 shadow-hard-4">
-      <Art emoji={p.emoji} bg={p.tile_color} h={220} image={p.images[0]} alt={p.name_en} />
+      {/* Product Image Tile with Floating Wishlist Heart Button */}
+      <div className="relative overflow-hidden rounded-card">
+        <Art emoji={p.emoji} bg={p.tile_color} h={220} image={p.images[0]} alt={p.name_en} />
+        <button
+          type="button"
+          onClick={() => {
+            wishlist.toggle(p.id);
+            setToast(wishlist.has(p.id) ? "Removed from Wishlist" : "Saved to Wishlist ❤️");
+            window.setTimeout(() => setToast(null), 2000);
+          }}
+          className={`btn-press absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border-2.5 border-ink transition-all duration-200 cursor-pointer ${
+            wishlist.has(p.id)
+              ? "bg-[#FF5A78] text-white shadow-hard-3 scale-110 rotate-6"
+              : "bg-white/95 text-ink shadow-hard-2 hover:bg-[#FFCBD9] hover:scale-110"
+          }`}
+          title={wishlist.has(p.id) ? "Remove from Wishlist" : "Save to Wishlist"}
+        >
+          <span className="text-[18px]">
+            {wishlist.has(p.id) ? "❤️" : "♡"}
+          </span>
+        </button>
+      </div>
       <h1 className="mt-3.5 font-display text-[26px] font-extrabold">
         {lang === "ta" ? p.name_ta : p.name_en}
       </h1>

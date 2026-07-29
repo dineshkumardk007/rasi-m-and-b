@@ -679,7 +679,14 @@ function NoteField({ customerId, initial }: { customerId: string; initial: strin
 /* ── Coupons ─────────────────────────────────────────────────────────────── */
 export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
   const router = useRouter();
-  const [f, setF] = useState({ code: "", type: "percent" as "percent" | "flat", value: "", min: "" });
+  const [f, setF] = useState({
+    code: "",
+    type: "percent" as "percent" | "flat",
+    value: "",
+    min: "",
+    validUntil: "",
+    usageLimit: "",
+  });
 
   return (
     <div>
@@ -700,6 +707,22 @@ export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
           </label>
           <Field label="Value" type="number" inputMode="numeric" value={f.value} onChange={(v) => setF({ ...f, value: v })} placeholder="15" />
           <Field label="Min order (₹)" type="number" inputMode="numeric" value={f.min} onChange={(v) => setF({ ...f, min: v })} placeholder="499" />
+          {/* Both of these are enforced at redemption already; the form just
+              never offered them, so every coupon was unlimited and eternal. */}
+          <Field
+            label="Expires on (optional)"
+            type="date"
+            value={f.validUntil}
+            onChange={(v) => setF({ ...f, validUntil: v })}
+          />
+          <Field
+            label="Max uses (optional)"
+            type="number"
+            inputMode="numeric"
+            value={f.usageLimit}
+            onChange={(v) => setF({ ...f, usageLimit: v })}
+            placeholder="Unlimited"
+          />
         </div>
         <Btn
           small
@@ -710,10 +733,11 @@ export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
               type: f.type,
               value: Number(f.value),
               min_order: Number(f.min) || 0,
-              valid_until: null,
-              usage_limit: null,
+              // End of the chosen day, so a coupon dated today works all day.
+              valid_until: f.validUntil ? `${f.validUntil}T23:59:59.999Z` : null,
+              usage_limit: Number(f.usageLimit) > 0 ? Number(f.usageLimit) : null,
             });
-            setF({ code: "", type: "percent", value: "", min: "" });
+            setF({ code: "", type: "percent", value: "", min: "", validUntil: "", usageLimit: "" });
             router.refresh();
           }}
         >
@@ -721,14 +745,26 @@ export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
         </Btn>
       </Card>
       <div className="mt-4 grid gap-2">
-        {coupons.map((c) => (
+        {coupons.map((c) => {
+          const expired = !!c.valid_until && new Date(c.valid_until) < new Date();
+          const exhausted = c.usage_limit !== null && c.used_count >= c.usage_limit;
+          return (
           <Card key={c.code} className="flex items-center justify-between p-3">
             <div>
               <span className="font-display font-extrabold">{c.code}</span>{" "}
               <span className="ml-2 text-[14px] text-mute">
                 {c.type === "percent" ? `${c.value}% off` : `${inr(c.value)} off`} · min{" "}
-                {inr(c.min_order)} · used {c.used_count}×
+                {inr(c.min_order)} · used {c.used_count}
+                {c.usage_limit !== null ? `/${c.usage_limit}` : ""}×
+                {c.valid_until
+                  ? ` · till ${new Date(c.valid_until).toLocaleDateString("en-IN")}`
+                  : ""}
               </span>
+              {(expired || exhausted) && (
+                <span className="ml-2 rounded-pill border-2 border-ink bg-[#FFCBD9] px-2 py-0.5 text-[11px] font-extrabold">
+                  {expired ? "EXPIRED" : "LIMIT REACHED"}
+                </span>
+              )}
             </div>
             <Btn
               small
@@ -741,7 +777,8 @@ export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
               Delete
             </Btn>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
