@@ -7,6 +7,7 @@
  */
 import type { CSSProperties, ReactNode } from "react";
 import Image from "next/image";
+import { bannerUrlFor } from "@/lib/images";
 
 export function Btn({
   children,
@@ -137,11 +138,24 @@ export function Field({
   );
 }
 
-/** Product tile — a real photo when one exists, the emoji placeholder until then. */
+/**
+ * Product tile — a real photo when one exists, the emoji placeholder until then.
+ *
+ * `ratio` is what makes the automated uploader work. Uploads are rendered to
+ * exact 3:1 and 5:3 files, so the box that displays them has to hold that same
+ * ratio at every viewport; a fixed pixel height with a fluid width would let
+ * object-cover crop the carefully-centred product back off the edges on phones.
+ * Pass `ratio` on anything showing a product photo, and leave it off for the
+ * small fixed-height list thumbnails where a crop is harmless.
+ *
+ * Products store only the tile URL, so the banner box derives its own source
+ * here rather than making every call site remember to.
+ */
 export function Art({
   emoji,
   bg,
   h = 150,
+  ratio,
   isBundle,
   image,
   alt,
@@ -151,7 +165,10 @@ export function Art({
 }: {
   emoji: string;
   bg: string;
+  /** Fixed height, used only when `ratio` is absent. */
   h?: number;
+  /** Locks the box to a storefront rendition's aspect ratio. */
+  ratio?: "banner" | "tile";
   isBundle?: boolean;
   image?: string;
   alt?: string;
@@ -161,14 +178,28 @@ export function Art({
   sizes?: string;
   fit?: "cover" | "contain";
 }) {
+  const src = image && ratio === "banner" ? bannerUrlFor(image) : image;
+  const aspect = ratio === "banner" ? "aspect-[3/1]" : ratio === "tile" ? "aspect-[5/3]" : "";
+
   return (
     <div
-      style={{ height: h, background: bg, fontSize: h * 0.34 }}
-      className="relative flex items-center justify-center overflow-hidden rounded-tile border-2.5 border-ink"
+      style={
+        ratio
+          ? {
+              background: bg,
+              // Ratio boxes have no fixed height, so the emoji placeholder is
+              // sized off the container width instead — the cqw values are the
+              // same 0.34-of-height proportion the fixed-height boxes use.
+              containerType: "inline-size",
+              fontSize: ratio === "banner" ? "11cqw" : "20cqw",
+            }
+          : { height: h, background: bg, fontSize: h * 0.34 }
+      }
+      className={`relative flex w-full items-center justify-center overflow-hidden rounded-tile border-2.5 border-ink ${aspect}`}
     >
-      {image ? (
+      {src ? (
         <Image
-          src={image}
+          src={src}
           alt={alt ?? ""}
           fill
           sizes={sizes}

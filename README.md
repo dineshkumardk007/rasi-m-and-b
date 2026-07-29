@@ -188,6 +188,48 @@ write policy wants `is_staff()`, and the admin session is a signed cookie
 rather than a Supabase auth user, so a browser-side upload would fail RLS.
 Products with no photo fall back to their emoji tile.
 
+### Automatic fitting
+
+There is no crop or resize step, by design. Whatever shape the photo arrives
+in, `src/lib/image-pipeline.ts` renders it into the two boxes the storefront
+actually has — a 1200×400 (3:1) modal banner and a 600×360 (5:3) card tile,
+declared in `RENDITIONS` in `src/lib/images.ts`. Each render applies EXIF
+orientation, trims a near-white or transparent backdrop, scales the product to
+70% of the box and centres it on the product's own `tile_color`.
+
+Both renditions plus the untouched original are stored under one random stem:
+
+```
+nappy-rash-cream/9f3c…-tile.webp      ← the only URL held in products.images
+nappy-rash-cream/9f3c…-banner.webp    ← derived by bannerUrlFor()
+nappy-rash-cream/9f3c…-original.jpg   ← kept so a layout change can re-render
+```
+
+The banner is recovered from the tile URL by string swap, which is why two
+renditions need no extra column. Legacy and externally hosted URLs pass through
+`bannerUrlFor()` unchanged, so old rows keep rendering.
+
+The display boxes are locked to the same ratios — `Art`'s `ratio` prop in
+`src/components/ui.tsx`. That pairing is the whole feature: a fixed pixel height
+with a fluid width would let `object-cover` crop the carefully-centred product
+back off the edges at some viewports.
+
+Photos below 800px on the longest side are rejected at upload rather than
+enlarged, since the banner would read as visibly soft.
+
+To bring photos uploaded before this existed in line:
+
+```bash
+pnpm reprocess:images --dry     # report what would change
+pnpm reprocess:images           # re-render and repoint products.images
+pnpm reprocess:images --force   # also re-render already-fitted photos
+pnpm reprocess:images --prune   # delete the superseded objects too
+```
+
+`--force` re-renders from the stored original, which is what you want after
+changing a rendition's size or inset. Superseded objects are kept unless
+`--prune` is passed, so an unexpected run is a matter of repointing rows.
+
 ## Catalog import
 
 Real product data drops in without code changes:

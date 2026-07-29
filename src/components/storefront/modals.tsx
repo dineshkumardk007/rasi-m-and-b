@@ -60,7 +60,7 @@ export function ProductModal({
     <Modal onClose={onClose} wide>
       {/* Product Image Preview with Floating Wishlist Heart Button */}
       <div className="relative overflow-hidden rounded-card">
-        <Art emoji={p.emoji} bg={p.tile_color} h={200} image={p.images[0]} alt={p.name_en} />
+        <Art emoji={p.emoji} bg={p.tile_color} ratio="banner" image={p.images[0]} alt={p.name_en} />
         <button
           type="button"
           onClick={() => {

@@ -252,7 +252,7 @@ export function Marquee({
               className="glow-card w-[150px] shrink-0 rounded-card border-3 border-ink bg-paper p-2.5 text-left shadow-hard-4 transition-all duration-200 hover:-translate-y-1 active:scale-95 cursor-pointer select-none"
               tabIndex={i < products.length ? 0 : -1}
             >
-              <Art emoji={p.emoji} bg={p.tile_color} h={90} image={p.images[0]} alt={p.name_en} />
+              <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} />
               <div className="mt-2 text-[13px] font-bold leading-[1.15]">{nameOf(p, lang)}</div>
               <div className="mt-1 flex items-baseline gap-1.5">
                 <span className="font-display font-extrabold text-brand">{inr(p.price)}</span>
@@ -353,7 +353,7 @@ export function FreshPicksSection({
                   className="glow-card w-[145px] sm:w-[165px] shrink-0 rounded-card border-2.5 sm:border-3 border-ink bg-paper p-2.5 sm:p-3 text-left shadow-hard-4 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1.5 active:scale-95 cursor-pointer relative group"
                 >
                   <div className="w-full text-left">
-                    <Art emoji={p.emoji} bg={p.tile_color} h={86} image={p.images[0]} alt={p.name_en} />
+                    <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} />
                     <div className="mt-2 text-[12px] sm:text-[13px] font-bold leading-[1.2] text-ink line-clamp-2 h-[32px] sm:h-[34px]">
                       {nameOf(p, lang)}
                     </div>
@@ -551,7 +551,7 @@ export function BuyAgain({
             style={glowStyle(p.tile_color)}
             onClick={() => openProduct?.(p)}
           >
-            <Art emoji={p.emoji} bg={p.tile_color} h={90} image={p.images[0]} alt={p.name_en} />
+            <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} />
             <div className="mt-2 text-[12px] font-bold leading-[1.2] group-hover:text-brand transition-colors">{nameOf(p, lang)}</div>
             <div className="mt-1 font-display font-extrabold text-brand">{inr(p.price)}</div>
             <div className="mt-2" onClick={(e) => openProduct && e.stopPropagation()}>
@@ -692,7 +692,7 @@ export function ShopGrid({
             onClick={() => openProduct(p)}
           >
             <div className="flex flex-1 flex-col">
-              <Art emoji={p.emoji} bg={p.tile_color} h={130} image={p.images[0]} alt={p.name_en} />
+              <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} />
               <div className="mt-2 flex-1">
                 <div className="text-[13px] font-bold leading-[1.2] group-hover:text-brand transition-colors">{nameOf(p, lang)}</div>
                 <div className="mt-1.5 flex items-baseline gap-1.5">

@@ -14,19 +14,17 @@
  *
  * Re-running replaces a product's photos with what the folder holds, so the
  * folder stays the source of truth and repeat runs don't pile up duplicates.
+ *
+ * Photos go through the same pipeline as an admin upload — trimmed, centred and
+ * padded with the product's tile colour to fill the storefront's banner and
+ * card boxes — so a bulk import and a hand upload are indistinguishable.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { extname, basename, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { adminClient } from "./lib";
-import {
-  PRODUCT_IMAGE_BUCKET,
-  contentTypeForExtension,
-  imageObjectPath,
-  publicUrlFor,
-  slugify,
-  validateImage,
-} from "../src/lib/images";
+import { contentTypeForExtension, slugify, validateImage } from "../src/lib/images";
+import { uploadProductImageSet } from "../src/lib/product-image-upload";
 
 const folder = process.argv[2] ?? "";
 const dryRun = process.argv.includes("--dry");
@@ -55,7 +53,9 @@ function parseName(file: string): Candidate {
 async function main() {
   const supabase = adminClient();
 
-  const { data: products, error } = await supabase.from("products").select("id, slug, name_en");
+  const { data: products, error } = await supabase
+    .from("products")
+    .select("id, slug, name_en, tile_color");
   if (error || !products) {
     console.error(`❌ Could not read products: ${error?.message}`);
     process.exit(1);
@@ -112,16 +112,20 @@ async function main() {
         continue;
       }
 
-      const objectPath = imageObjectPath(product.slug, contentType, randomUUID());
-      const { error: uploadError } = await supabase.storage
-        .from(PRODUCT_IMAGE_BUCKET)
-        .upload(objectPath, bytes, { contentType, cacheControl: "31536000", upsert: false });
+      const result = await uploadProductImageSet(supabase, {
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        slugHint: product.slug,
+        source: bytes,
+        contentType,
+        tileColor: product.tile_color,
+        random: randomUUID(),
+      });
 
-      if (uploadError) {
-        console.log(`    ⚠️  failed ${c.file} — ${uploadError.message}`);
+      if (!result.ok) {
+        console.log(`    ⚠️  failed ${c.file} — ${result.error}`);
         continue;
       }
-      urls.push(publicUrlFor(process.env.NEXT_PUBLIC_SUPABASE_URL!, objectPath));
+      urls.push(result.url);
     }
 
     if (urls.length) {

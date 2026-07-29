@@ -85,7 +85,7 @@ export function BoughtTogether({
             style={glowStyle(p.tile_color)}
             onClick={() => openProduct?.(p)}
           >
-            <Art emoji={p.emoji} bg={p.tile_color} h={70} image={p.images[0]} alt={p.name_en} />
+            <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} />
             <div className="mt-1.5 line-clamp-2 text-[11px] font-bold leading-[1.2]">
               {lang === "ta" ? p.name_ta : p.name_en}
             </div>

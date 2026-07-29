@@ -64,6 +64,15 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false, // stop advertising the framework version
   allowedDevOrigins: ["localhost:3000", "192.168.29.197:3000", "192.168.29.197", "localhost"],
+  experimental: {
+    serverActions: {
+      // Product photo uploads are Server Actions, and the default cap is 1 MB —
+      // which silently rejected most phone photos despite MAX_IMAGE_BYTES
+      // allowing 5 MB. Keep this comfortably above that limit so the size check
+      // in lib/images.ts is the thing that reports the error.
+      bodySizeLimit: "6mb",
+    },
+  },
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [

@@ -21,6 +21,7 @@ import {
   type Milestone,
 } from "@/lib/constants";
 import { Art, Badge, Btn, Card, Field, Modal, Pill, Stars } from "@/components/ui";
+import { bannerUrlFor, MIN_SOURCE_LONG_EDGE, RENDITIONS } from "@/lib/images";
 import { formatPinSummary, isPinServiceable, parsePinInput } from "@/lib/pin";
 import {
   addCouponAction,
@@ -403,6 +404,7 @@ function ProductForm({
       <ProductImages
         images={f.images}
         slugHint={f.name_en || product?.slug || "product"}
+        tileColor={f.tile_color}
         onChange={(images) => setF({ ...f, images })}
       />
       {product && (
@@ -436,18 +438,28 @@ function ProductForm({
 }
 
 /**
- * Product photo manager. Uploads land in Supabase Storage immediately and the
- * URL is kept in form state — nothing is attached to the product until the
- * form is saved, so cancelling leaves an orphan object rather than a half-saved
- * product. The first image is what the storefront tiles show.
+ * Product photo manager. Pick a file and the server fits it to both storefront
+ * boxes automatically — there is deliberately no crop or resize control here,
+ * because a photo that needed manual adjustment would be one the pipeline got
+ * wrong, and the fix belongs in lib/image-pipeline.ts rather than in an admin's
+ * hands at 11pm.
+ *
+ * Uploads land in Supabase Storage immediately and the URL is kept in form
+ * state — nothing is attached to the product until the form is saved, so
+ * cancelling leaves orphan objects rather than a half-saved product. The first
+ * image is what the storefront tiles and the modal banner show, which is why
+ * both of its renditions are previewed at their true aspect ratios below.
  */
 function ProductImages({
   images,
   slugHint,
+  tileColor,
   onChange,
 }: {
   images: string[];
   slugHint: string;
+  /** Padded around the product wherever its shape doesn't fill the box. */
+  tileColor: string;
   onChange: (images: string[]) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -463,6 +475,7 @@ function ProductImages({
       const fd = new FormData();
       fd.append("file", file);
       fd.append("slug", slugHint);
+      fd.append("tileColor", tileColor);
       const res = await uploadProductImageAction(fd);
       if (res.ok) uploaded.push(res.url);
       else setError(res.error); // keep going; report the last failure
@@ -479,49 +492,70 @@ function ProductImages({
 
   const makeMain = (url: string) => onChange([url, ...images.filter((u) => u !== url)]);
 
+  const main = images[0];
+
   return (
     <div className="mb-4">
       <span className="font-display text-[12px] font-extrabold uppercase text-mute">
         Product photos
       </span>
 
-      {images.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2.5">
-          {images.map((url, i) => (
-            <div key={url} className="w-[92px]">
-              <div className="relative h-[92px] w-[92px] overflow-hidden rounded-tile border-2.5 border-ink">
-                {/* eslint-disable-next-line @next/next/no-img-element -- admin-only preview of a just-uploaded blob */}
-                <img src={url} alt="" className="h-full w-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => remove(url)}
-                  aria-label="Remove photo"
-                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-ink bg-white text-[12px] font-extrabold shadow-hard-2"
-                >
-                  ✕
-                </button>
-                {i === 0 && (
-                  <span className="absolute bottom-1 left-1 rounded-xl border-2 border-ink bg-brand px-1.5 text-[9px] font-extrabold text-white">
-                    MAIN
-                  </span>
+      {main && (
+        <>
+          {/* The main photo drives both storefront boxes, so show both exactly
+              as the shopper will see them rather than a neutral square crop. */}
+          <p className="mt-2 text-[11px] font-extrabold uppercase tracking-wide text-mute">
+            Product modal banner · {RENDITIONS.banner.width}×{RENDITIONS.banner.height}
+          </p>
+          <div className="mt-1 aspect-[3/1] w-full overflow-hidden rounded-tile border-2.5 border-ink">
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin-only preview of a just-uploaded object */}
+            <img
+              src={bannerUrlFor(main)}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          </div>
+
+          <p className="mt-3 text-[11px] font-extrabold uppercase tracking-wide text-mute">
+            Card tiles · {RENDITIONS.tile.width}×{RENDITIONS.tile.height}
+          </p>
+          <div className="mt-1 flex flex-wrap gap-2.5">
+            {images.map((url, i) => (
+              <div key={url} className="w-[120px]">
+                <div className="relative aspect-[5/3] w-full overflow-hidden rounded-tile border-2.5 border-ink">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- admin-only preview of a just-uploaded object */}
+                  <img src={url} alt="" className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => remove(url)}
+                    aria-label="Remove photo"
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-ink bg-white text-[12px] font-extrabold shadow-hard-2"
+                  >
+                    ✕
+                  </button>
+                  {i === 0 && (
+                    <span className="absolute bottom-1 left-1 rounded-xl border-2 border-ink bg-brand px-1.5 text-[9px] font-extrabold text-white">
+                      MAIN
+                    </span>
+                  )}
+                </div>
+                {i !== 0 && (
+                  <button
+                    type="button"
+                    onClick={() => makeMain(url)}
+                    className="mt-1 w-full text-[11px] font-extrabold text-mute underline"
+                  >
+                    Make main
+                  </button>
                 )}
               </div>
-              {i !== 0 && (
-                <button
-                  type="button"
-                  onClick={() => makeMain(url)}
-                  className="mt-1 w-full text-[11px] font-extrabold text-mute underline"
-                >
-                  Make main
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
 
       <label className="mt-2.5 flex cursor-pointer items-center justify-center gap-2 rounded-tile border-2.5 border-dashed border-ink bg-paper px-4 py-3 font-display text-[13px] font-extrabold">
-        {busy ? "Uploading…" : "📷 Add photos (JPG, PNG or WebP · max 5 MB)"}
+        {busy ? "Fitting to the storefront boxes…" : "📷 Add photos — fitted automatically"}
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp,image/avif"
@@ -536,9 +570,14 @@ function ProductImages({
       </label>
 
       {error && <p className="mt-1.5 text-[12px] font-bold text-[#E24B4A]">{error}</p>}
-      {images.length === 0 && !error && (
+      {!error && (
         <p className="mt-1.5 text-[12px] text-mute">
-          No photo yet — the storefront shows the emoji tile until you add one.
+          {images.length === 0
+            ? "No photo yet — the storefront shows the emoji tile until you add one. "
+            : ""}
+          Any shape works: each photo is trimmed, centred and padded with the tile colour to
+          fit both boxes. JPG, PNG, WebP or AVIF · at least {MIN_SOURCE_LONG_EDGE}px on the
+          longest side · max 5 MB.
         </p>
       )}
     </div>

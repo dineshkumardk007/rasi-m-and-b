@@ -224,7 +224,7 @@ export function BabyClub({
                 style={glowStyle(p.tile_color)}
                 onClick={() => openProduct?.(p)}
               >
-                <Art emoji={p.emoji} bg={p.tile_color} h={90} image={p.images[0]} alt={p.name_en} />
+                <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} />
                 <div className="mt-2 text-[12px] font-bold leading-[1.2] group-hover:text-brand transition-colors">
                   {lang === "ta" ? p.name_ta : p.name_en}
                 </div>

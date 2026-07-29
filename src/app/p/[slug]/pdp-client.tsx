@@ -32,7 +32,7 @@ export function PdpClient({ product: p, reviews }: { product: Product; reviews: 
     <div className="rounded-card border-3 border-ink bg-paper p-4 shadow-hard-4">
       {/* Product Image Tile with Floating Wishlist Heart Button */}
       <div className="relative overflow-hidden rounded-card">
-        <Art emoji={p.emoji} bg={p.tile_color} h={220} image={p.images[0]} alt={p.name_en} />
+        <Art emoji={p.emoji} bg={p.tile_color} ratio="banner" image={p.images[0]} alt={p.name_en} />
         <button
           type="button"
           onClick={() => {

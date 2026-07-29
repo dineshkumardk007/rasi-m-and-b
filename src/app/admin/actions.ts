@@ -19,13 +19,8 @@ import { randomUUID } from "node:crypto";
 import { isDemo } from "@/lib/data/mode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/env.mjs";
-import {
-  PRODUCT_IMAGE_BUCKET,
-  imageObjectPath,
-  objectPathFromUrl,
-  publicUrlFor,
-  validateImage,
-} from "@/lib/images";
+import { PRODUCT_IMAGE_BUCKET, relatedObjectPaths, validateImage } from "@/lib/images";
+import { uploadProductImageSet } from "@/lib/product-image-upload";
 
 /** Every admin action re-checks the staff gate server-side, then audits. */
 
@@ -36,7 +31,14 @@ async function gate() {
 }
 
 /**
- * Upload one product photo to Supabase Storage and return its public URL.
+ * Take one product photo and fit it to the storefront's boxes automatically.
+ *
+ * The admin picks a file and nothing else: the pipeline renders the 3:1 banner
+ * and the 5:3 card tile, padding each with the product's own tile_color, and
+ * all three objects (both renditions plus the untouched original) are stored
+ * under a shared random stem. Only the tile URL is returned — the banner is
+ * derived from it by bannerUrlFor(), which is why `products.images` needs no
+ * new column to hold two renditions.
  *
  * Goes through the service-role client because the bucket's write policy wants
  * is_staff(), and the admin session is a signed cookie rather than a Supabase
@@ -45,7 +47,7 @@ async function gate() {
  * bucket: keep it first.
  *
  * The returned URL is held in form state and persisted by upsertProductAction,
- * so an abandoned form leaves an orphan object but never a broken product row.
+ * so an abandoned form leaves orphan objects but never a broken product row.
  */
 export async function uploadProductImageAction(
   formData: FormData,
@@ -62,30 +64,30 @@ export async function uploadProductImageAction(
   const check = validateImage(file.type, file.size);
   if (!check.ok) return { ok: false, error: check.error };
 
-  const slugHint = (formData.get("slug") as string | null) ?? "product";
-  const objectPath = imageObjectPath(slugHint, file.type, randomUUID());
+  const result = await uploadProductImageSet(createAdminClient(), {
+    supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
+    slugHint: (formData.get("slug") as string | null) ?? "product",
+    source: Buffer.from(await file.arrayBuffer()),
+    contentType: file.type,
+    tileColor: formData.get("tileColor") as string | null,
+    random: randomUUID(),
+  });
 
-  const supabase = createAdminClient();
-  const { error } = await supabase.storage
-    .from(PRODUCT_IMAGE_BUCKET)
-    .upload(objectPath, await file.arrayBuffer(), {
-      contentType: file.type,
-      cacheControl: "31536000", // immutable: the random key changes on re-upload
-      upsert: false,
-    });
-
-  if (error) return { ok: false, error: `Upload failed: ${error.message}` };
-
-  return { ok: true, url: publicUrlFor(env.NEXT_PUBLIC_SUPABASE_URL, objectPath) };
+  return result.ok ? { ok: true, url: result.url } : result;
 }
 
-/** Remove a product photo from storage. Ignores images hosted elsewhere. */
+/**
+ * Remove a product photo and everything rendered from it. Ignores images
+ * hosted elsewhere, and handles legacy single-file uploads too.
+ */
 export async function deleteProductImageAction(url: string): Promise<void> {
   await gate();
   if (isDemo()) return;
-  const objectPath = objectPathFromUrl(url);
-  if (!objectPath) return;
-  await createAdminClient().storage.from(PRODUCT_IMAGE_BUCKET).remove([objectPath]);
+  const paths = relatedObjectPaths(url);
+  if (!paths.length) return;
+  // remove() ignores keys that aren't there, so listing every possible original
+  // extension is cheaper than a list() round-trip to find the real one.
+  await createAdminClient().storage.from(PRODUCT_IMAGE_BUCKET).remove(paths);
 }
 
 export async function setOrderStatusAction(orderId: string, status: OrderStatus) {
