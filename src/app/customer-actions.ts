@@ -7,7 +7,7 @@ import { logEvent } from "@/lib/data/events";
 import { currentCustomer, currentCustomerPhone } from "@/lib/customer-session";
 import { getLanguage as currentLanguage } from "@/lib/i18n/server";
 import { isValidDob } from "@/lib/baby";
-import type { Order } from "@/lib/types";
+import type { Order, Product } from "@/lib/types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- supabase row shapes */
 function mapOrder(row: any): Order {
@@ -32,6 +32,8 @@ function mapOrder(row: any): Order {
     })),
     placed_at: row.placed_at,
     language: "en" as const,
+    is_gift: row.is_gift ?? false,
+    gift_message: row.gift_message ?? null,
   };
 }
 
@@ -136,6 +138,14 @@ export async function recordCartAbandonedAction(itemCount: number): Promise<void
     language: await currentLanguage(),
     item_count: itemCount,
   });
+}
+
+/** "Often bought with" for a product page / quick view. Public, no session. */
+export async function suggestionsForAction(
+  productId: string,
+): Promise<{ products: Product[]; fromPurchaseData: boolean }> {
+  const { frequentlyBoughtWith } = await import("@/lib/data/recommend");
+  return frequentlyBoughtWith(productId);
 }
 
 /* ── Baby birthday club ──────────────────────────────────────────────────── */

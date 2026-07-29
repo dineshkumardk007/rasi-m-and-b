@@ -16,6 +16,8 @@ import {
 } from "@/app/actions";
 import { notifyRestockAction } from "@/app/customer-actions";
 import { ShareButton } from "./ShareButton";
+import { BoughtTogether } from "./BoughtTogether";
+import { GIFT_MESSAGE_MAX } from "@/lib/gift";
 
 /* ── Product quick view ──────────────────────────────────────────────────── */
 export function ProductModal({
@@ -24,12 +26,15 @@ export function ProductModal({
   onClose,
   onAdd,
   notify,
+  onAddItem,
 }: {
   product: Product;
   reviews: Review[];
   onClose: () => void;
   onAdd: () => void;
   notify: (m: string) => void;
+  /** Adds any product by id — powers the "often bought with" row. */
+  onAddItem?: (id: string) => void;
 }) {
   const { t, lang } = useT();
   const { session } = useSession();
@@ -183,6 +188,10 @@ export function ProductModal({
           {t("product.viewPage")}
         </a>
       </div>
+
+      {onAddItem && (
+        <BoughtTogether productId={p.id} addToCart={onAddItem} />
+      )}
 
       {/* Reviews */}
       <div className="mt-[22px]">
@@ -503,6 +512,8 @@ export function CheckoutModal({
   const [payStage, setPayStage] = useState<"order" | "sdk" | "gateway" | "confirming">("order");
   const [selectedMethod, setSelectedMethod] = useState<"upi" | "card" | "razorpay">("razorpay");
   const [sameDay, setSameDay] = useState<boolean | null>(null);
+  const [isGift, setIsGift] = useState(false);
+  const [giftMessage, setGiftMessage] = useState("");
 
   const valid =
     f.name.trim() &&
@@ -547,6 +558,8 @@ export function CheckoutModal({
       payment_method: method,
       coupon_code: coupon?.code,
       language: lang,
+      is_gift: isGift,
+      gift_message: isGift ? giftMessage : undefined,
     });
     if (!result.ok) {
       setPaying(false);
@@ -674,6 +687,40 @@ export function CheckoutModal({
             <Field label={t("checkout.city")} value={f.city} onChange={(v) => setF({ ...f, city: v })} />
             <Field label={t("checkout.pin")} value={f.pin} onChange={(v) => setF({ ...f, pin: v.replace(/\D/g, "").slice(0, 6) })} placeholder="628001" inputMode="numeric" maxLength={6} />
           </div>
+          {/* Gift mode — baby products are heavily gifted (showers, first birthdays) */}
+          <div className="mb-3 rounded-tile border-2.5 border-ink bg-[#FFF6ED] p-3">
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={isGift}
+                onChange={(e) => setIsGift(e.target.checked)}
+                className="h-5 w-5 shrink-0 accent-[#EC5D8A]"
+              />
+              <span className="font-display text-[14px] font-extrabold">{t("gift.isGift")}</span>
+            </label>
+            {isGift && (
+              <div className="mt-2.5">
+                <p className="mb-1.5 text-[12px] text-mute">{t("gift.hint")}</p>
+                <label className="block">
+                  <span className="font-display text-[11px] font-extrabold uppercase text-mute">
+                    {t("gift.noteLabel")}
+                  </span>
+                  <textarea
+                    value={giftMessage}
+                    onChange={(e) => setGiftMessage(e.target.value.slice(0, GIFT_MESSAGE_MAX))}
+                    rows={2}
+                    maxLength={GIFT_MESSAGE_MAX}
+                    placeholder={t("gift.notePlaceholder")}
+                    className="mt-1 w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 font-body text-[14px] outline-none"
+                  />
+                </label>
+                <div className="mt-0.5 text-right text-[11px] text-mute">
+                  {giftMessage.length}/{GIFT_MESSAGE_MAX}
+                </div>
+              </div>
+            )}
+          </div>
+
           <Btn full disabled={!valid} onClick={goToPay}>
             {t("checkout.continue")} →
           </Btn>

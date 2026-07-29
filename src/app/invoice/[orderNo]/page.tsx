@@ -4,6 +4,7 @@ import { getActiveProducts } from "@/lib/data/catalog";
 import { BUSINESS, inr } from "@/lib/constants";
 import { verifyInvoiceToken } from "@/lib/invoice-token";
 import { invoiceLines, totalTax as sumTax } from "@/lib/gst";
+import { showPrices } from "@/lib/gift";
 import { currentCustomer } from "@/lib/customer-session";
 import { PrintButton } from "./print-button";
 
@@ -41,6 +42,8 @@ export default async function InvoicePage({ params, searchParams }: Props) {
 
   const lines = invoiceLines(order.items, gstRateFor);
   const totalTax = sumTax(lines);
+  // Gift orders print a slip without money — see lib/gift.ts.
+  const prices = showPrices(order);
 
   return (
     <main className="mx-auto max-w-[720px] bg-white p-8 font-body text-ink print:p-0">
@@ -82,9 +85,13 @@ export default async function InvoicePage({ params, searchParams }: Props) {
           <tr className="border-b-2 border-ink text-left font-display">
             <th className="py-2">Item</th>
             <th className="py-2 text-right">Qty</th>
-            <th className="py-2 text-right">Taxable</th>
-            <th className="py-2 text-right">GST</th>
-            <th className="py-2 text-right">Amount</th>
+            {prices && (
+              <>
+                <th className="py-2 text-right">Taxable</th>
+                <th className="py-2 text-right">GST</th>
+                <th className="py-2 text-right">Amount</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -92,17 +99,36 @@ export default async function InvoicePage({ params, searchParams }: Props) {
             <tr key={i} className="border-b border-dashed border-[#E5DBCC]">
               <td className="py-2">{l.name_snapshot}</td>
               <td className="py-2 text-right">{l.qty}</td>
-              <td className="py-2 text-right">{inr(l.taxable)}</td>
-              <td className="py-2 text-right">
-                {inr(l.tax)} <span className="text-mute">({l.rate}%)</span>
-              </td>
-              <td className="py-2 text-right">{inr(l.gross)}</td>
+              {prices && (
+                <>
+                  <td className="py-2 text-right">{inr(l.taxable)}</td>
+                  <td className="py-2 text-right">
+                    {inr(l.tax)} <span className="text-mute">({l.rate}%)</span>
+                  </td>
+                  <td className="py-2 text-right">{inr(l.gross)}</td>
+                </>
+              )}
             </tr>
           ))}
         </tbody>
       </table>
 
-      <section className="ml-auto mt-4 w-64 text-[14px]">
+      {!prices && (
+        <section className="mt-4 rounded-tile border-2.5 border-ink bg-[#FFF6ED] p-4 text-[14px]">
+          <div className="font-display text-[15px] font-extrabold">🎁 A gift for you</div>
+          {order.gift_message && (
+            <p className="mt-1.5 whitespace-pre-wrap italic leading-relaxed">
+              “{order.gift_message}”
+            </p>
+          )}
+          <p className="mt-2 text-[12px] text-mute">
+            Prices are hidden on gift orders. Need to return or exchange something?
+            Contact the shop with order {order.order_no}.
+          </p>
+        </section>
+      )}
+
+      <section className={`ml-auto mt-4 w-64 text-[14px] ${prices ? "" : "hidden"}`}>
         <div className="flex justify-between py-1">
           <span>Subtotal</span>
           <span>{inr(order.subtotal)}</span>

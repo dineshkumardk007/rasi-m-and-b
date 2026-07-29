@@ -24,6 +24,8 @@ export interface PlaceOrderInput {
   language: "en" | "ta";
   customer_id?: string;
   whatsapp_opt_in?: boolean;
+  is_gift?: boolean;
+  gift_message?: string;
 }
 
 export type PlaceOrderResult =
@@ -227,6 +229,13 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
 
   const sameDay = await sameDayEligible(input.address.pin);
 
+  // Trim and cap here rather than trusting the form: the DB constraint is 300
+  // chars, and an over-long note would fail the insert after stock was taken.
+  const is_gift = input.is_gift === true;
+  const gift_message = is_gift
+    ? (input.gift_message ?? "").trim().slice(0, 300) || null
+    : null;
+
   if (isDemo()) {
     const db = demoDB();
     // stock check across all lines first, then decrement (mirror of confirm_order)
@@ -264,6 +273,8 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       })),
       placed_at: new Date().toISOString(),
       language: input.language,
+      is_gift,
+      gift_message,
     };
     db.orders.unshift(order);
     if (coupon_code) {
@@ -296,6 +307,8 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       coupon_code,
       total,
       address_snapshot: input.address,
+      is_gift,
+      gift_message,
     })
     .select("*")
     .single();
@@ -391,6 +404,8 @@ function mapOrder(row: any): Order {
       ),
     placed_at: row.placed_at,
     language: "en",
+    is_gift: row.is_gift ?? false,
+    gift_message: row.gift_message ?? null,
   };
 }
 

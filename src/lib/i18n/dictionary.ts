@@ -168,6 +168,23 @@ const en = {
   "auth.welcomeBack": "Welcome back",
 
   // Share
+  // Recently viewed
+  "recent.title": "Recently viewed",
+  "recent.clear": "Clear",
+
+  // Frequently bought together
+  "fbt.title": "Often bought with",
+  "fbt.addAll": "Add all",
+  "fbt.alsoLiked": "You may also like",
+
+  // Gift mode
+  "gift.isGift": "🎁 This is a gift",
+  "gift.hint": "We'll hide prices on the invoice and add your note.",
+  "gift.noteLabel": "Gift message (optional)",
+  "gift.notePlaceholder": "Congratulations on your little one! 💛",
+  "gift.badge": "GIFT",
+  "gift.pricesHidden": "Prices hidden — this order was sent as a gift 🎁",
+
   // Baby birthday club
   "baby.title": "Your baby's corner",
   "baby.addDob": "Add your baby's birthday",
@@ -367,6 +384,20 @@ const ta: Record<TranslationKey, string> = {
   "auth.name": "உங்கள் பெயர்",
   "auth.signedOut": "வெளியேறினீர்கள்",
   "auth.welcomeBack": "வரவேற்கிறோம்",
+
+  "recent.title": "சமீபத்தில் பார்த்தவை",
+  "recent.clear": "அழி",
+
+  "fbt.title": "இத்துடன் அடிக்கடி வாங்கப்படுவது",
+  "fbt.addAll": "எல்லாம் சேர்",
+  "fbt.alsoLiked": "இதுவும் பிடிக்கலாம்",
+
+  "gift.isGift": "🎁 இது ஒரு பரிசு",
+  "gift.hint": "விலைகள் ரசீதில் மறைக்கப்படும், உங்கள் குறிப்பு சேர்க்கப்படும்.",
+  "gift.noteLabel": "பரிசு செய்தி (விருப்பம்)",
+  "gift.notePlaceholder": "உங்கள் குழந்தைக்கு வாழ்த்துக்கள்! 💛",
+  "gift.badge": "பரிசு",
+  "gift.pricesHidden": "விலைகள் மறைக்கப்பட்டுள்ளன — இது பரிசாக அனுப்பப்பட்டது 🎁",
 
   "baby.title": "உங்கள் குழந்தையின் மூலை",
   "baby.addDob": "குழந்தையின் பிறந்த நாளைச் சேர்க்கவும்",

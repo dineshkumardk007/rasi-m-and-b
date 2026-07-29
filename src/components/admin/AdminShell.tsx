@@ -415,10 +415,17 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
             {o.items.map((i) => `${i.name_snapshot} ×${i.qty}`).join(" · ")}{" "}
             <Badge bg="#FFE1A8">{o.payment_method === "cod" ? "COD" : "Paid online"}</Badge>
             {o.coupon_code && <Badge bg="#D6E8B0">{o.coupon_code}</Badge>}
+            {/* Packing needs to know: no price slip, and a message to include. */}
+            {o.is_gift && <Badge bg="#FBD0EA">🎁 GIFT</Badge>}
             {(o.status === "cancelled" || o.status === "returned") && (
               <Badge bg="#FFCBD9">{o.status}</Badge>
             )}
           </div>
+          {o.is_gift && o.gift_message && (
+            <div className="mt-1.5 rounded-tile border-2 border-ink bg-[#FFF6ED] px-3 py-2 text-[13px] italic">
+              🎁 “{o.gift_message}”
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             {PIPELINE.map((step) => (
               <Pill

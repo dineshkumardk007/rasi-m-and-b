@@ -39,6 +39,8 @@ import {
 } from "./modals";
 import { Ribbon } from "./Ribbon";
 import { BabyClub } from "./BabyClub";
+import { RecentlyViewed } from "./RecentlyViewed";
+import { recordView } from "@/lib/store/recently-viewed";
 import { BUSINESS } from "@/lib/constants";
 
 export interface StorefrontProps {
@@ -160,6 +162,7 @@ export default function Storefront(props: StorefrontProps) {
   /** Quick view — the moment a customer shows interest in one product. */
   const openProduct = useCallback((p: Product) => {
     trackViewContent({ id: p.id, name: p.name_en, price: p.price });
+    recordView(p.id);
     setModal({ type: "product", product: p });
   }, []);
 
@@ -395,6 +398,11 @@ export default function Storefront(props: StorefrontProps) {
             <CategoryGrid category={category} setCategory={setCategory} />
             <BabyClub products={products} addToCart={addToCart} openProduct={openProduct} />
             <BuyAgain products={buyAgain} addToCart={addToCart} openProduct={openProduct} />
+            <RecentlyViewed
+              products={products}
+              addToCart={addToCart}
+              openProduct={openProduct}
+            />
             <BundlesSection bundles={bundles} addToCart={(b) => addToCart(`b:${b.id}`)} />
             <ShopGrid
               filtered={filtered}
@@ -467,6 +475,7 @@ export default function Storefront(props: StorefrontProps) {
             setModal(null);
           }}
           notify={notify}
+          onAddItem={addToCart}
         />
       )}
       {modal?.type === "cart" && (

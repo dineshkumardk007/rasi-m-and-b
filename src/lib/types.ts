@@ -84,6 +84,9 @@ export interface Order {
   items: OrderItem[];
   placed_at: string;
   language: "en" | "ta";
+  /** Gift orders hide prices on the invoice and carry a message. */
+  is_gift?: boolean;
+  gift_message?: string | null;
 }
 
 export interface Coupon {

@@ -95,6 +95,8 @@ export async function listAllOrders(): Promise<Order[]> {
     })),
     placed_at: row.placed_at,
     language: "en" as const,
+    is_gift: row.is_gift ?? false,
+    gift_message: row.gift_message ?? null,
   }));
 }
 

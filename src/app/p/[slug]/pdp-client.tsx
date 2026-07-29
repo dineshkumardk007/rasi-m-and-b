@@ -10,6 +10,8 @@ import { inr, MILESTONE_META } from "@/lib/constants";
 import { Art, Badge, Btn, Stars, Toast } from "@/components/ui";
 import { ShareButton } from "@/components/storefront/ShareButton";
 import { trackAddToCart, trackViewContent } from "@/lib/analytics";
+import { BoughtTogether } from "@/components/storefront/BoughtTogether";
+import { recordView } from "@/lib/store/recently-viewed";
 
 /** Client half of the SEO PDP — framed tile, buy box, approved reviews. */
 export function PdpClient({ product: p, reviews }: { product: Product; reviews: Review[] }) {
@@ -23,6 +25,7 @@ export function PdpClient({ product: p, reviews }: { product: Product; reviews: 
   // Shared links land here, so this page is a first touch for many customers.
   useEffect(() => {
     trackViewContent({ id: p.id, name: p.name_en, price: p.price });
+    recordView(p.id);
   }, [p.id, p.name_en, p.price]);
 
   return (
@@ -103,6 +106,15 @@ export function PdpClient({ product: p, reviews }: { product: Product; reviews: 
           }}
         />
       </div>
+
+      <BoughtTogether
+        productId={p.id}
+        addToCart={(id) => {
+          cart.add(id);
+          setToast(t("toast.addedToCart"));
+          window.setTimeout(() => setToast(null), 1400);
+        }}
+      />
 
       {reviews.length > 0 && (
         <div className="mt-5">
