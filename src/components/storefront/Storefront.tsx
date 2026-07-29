@@ -39,6 +39,7 @@ import {
 } from "./modals";
 import { Ribbon } from "./Ribbon";
 import { BabyClub } from "./BabyClub";
+import { WhatsAppFab } from "./WhatsAppFab";
 import { RecentlyViewed } from "./RecentlyViewed";
 import { recordView } from "@/lib/store/recently-viewed";
 import { BUSINESS } from "@/lib/constants";
@@ -618,6 +619,8 @@ export default function Storefront(props: StorefrontProps) {
           </div>
         </Modal>
       )}
+
+      <WhatsAppFab />
 
       {toast && <Toast message={toast} />}
 

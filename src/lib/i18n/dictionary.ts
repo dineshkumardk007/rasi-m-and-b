@@ -167,7 +167,10 @@ const en = {
   "auth.signedOut": "Signed out",
   "auth.welcomeBack": "Welcome back",
 
-  // Share
+  // WhatsApp
+  "whatsapp.chat": "Chat with us",
+  "whatsapp.prefill": "Hi Rasi Mom & Baby! I have a question about",
+
   // Recently viewed
   "recent.title": "Recently viewed",
   "recent.clear": "Clear",
@@ -201,6 +204,7 @@ const en = {
   "baby.birthdaySoon": "🎂 Birthday in {days} days — a treat is waiting",
   "baby.graduated": "Your little one has grown past our age guide — browse everything 💛",
 
+  // Share
   "product.viewPage": "Open full page →",
   "share.button": "Share",
   "share.whatsapp": "Share on WhatsApp",
@@ -384,6 +388,9 @@ const ta: Record<TranslationKey, string> = {
   "auth.name": "உங்கள் பெயர்",
   "auth.signedOut": "வெளியேறினீர்கள்",
   "auth.welcomeBack": "வரவேற்கிறோம்",
+
+  "whatsapp.chat": "எங்களிடம் பேசுங்கள்",
+  "whatsapp.prefill": "வணக்கம் Rasi Mom & Baby! எனக்கு ஒரு கேள்வி",
 
   "recent.title": "சமீபத்தில் பார்த்தவை",
   "recent.clear": "அழி",
