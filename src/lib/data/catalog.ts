@@ -107,11 +107,9 @@ export async function getLiveBanners(): Promise<Banner[]> {
     .from("banners")
     .select("*")
     .eq("active", true)
-    .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
-    .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
     .order("sort", { ascending: true });
 
-  if (error) {
+  if (error || !data || data.length === 0) {
     return demoDB().banners.filter(
       (b) =>
         b.active &&
@@ -119,7 +117,14 @@ export async function getLiveBanners(): Promise<Banner[]> {
         (!b.ends_at || b.ends_at >= nowIso),
     );
   }
-  return (data ?? []).map(mapBanner);
+  return data
+    .map(mapBanner)
+    .filter(
+      (b) =>
+        b.active &&
+        (!b.starts_at || b.starts_at <= nowIso) &&
+        (!b.ends_at || b.ends_at >= nowIso),
+    );
 }
 
 /** Every banner including scheduled and switched-off ones, for the admin. */
@@ -131,8 +136,8 @@ export async function getAllBanners(): Promise<Banner[]> {
     .select("*")
     .order("slot", { ascending: true })
     .order("sort", { ascending: true });
-  if (error) return demoDB().banners;
-  return (data ?? []).map(mapBanner);
+  if (error || !data || data.length === 0) return demoDB().banners;
+  return data.map(mapBanner);
 }
 
 function mapBanner(row: any): Banner {
