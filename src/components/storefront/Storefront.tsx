@@ -4,7 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LEGAL_DOCS, LEGAL_SHORT } from "@/lib/legal/content";
-import type { Bundle, Order, Product, Review, StoreSettings } from "@/lib/types";
+import type {
+  Banner,
+  Brand,
+  Bundle,
+  Coupon,
+  Order,
+  Product,
+  Review,
+  StoreSettings,
+} from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { useCart } from "@/lib/store/CartProvider";
 import { useWishlist } from "@/lib/store/WishlistProvider";
@@ -37,6 +46,15 @@ import {
   TrackModal,
   WishlistModal,
 } from "./modals";
+import {
+  BannerCarousel,
+  BrandRail,
+  DealOfTheDay,
+  OfferStrip,
+  PromoBanner,
+  ReviewsStrip,
+} from "./merch";
+import { liveBanners } from "@/lib/merchandising";
 import { Ribbon } from "./Ribbon";
 import { BabyClub } from "./BabyClub";
 import { WhatsAppFab } from "./WhatsAppFab";
@@ -49,11 +67,17 @@ export interface StorefrontProps {
   bundles: Bundle[];
   reviews: Review[];
   settings: StoreSettings;
+  /** Live banners for every slot; each section picks the ones it owns. */
+  banners: Banner[];
+  brands: Brand[];
+  /** Coupons staff flagged for the offer strip, re-validated before display. */
+  featuredCoupons: Coupon[];
   isDemo: boolean;
   /** Filters restored from the URL — category from the path, the rest from the query. */
   initialCategory?: string;
   initialMilestone?: string;
   initialQuery?: string;
+  initialBrand?: string;
 }
 
 export type ModalState =
@@ -69,7 +93,8 @@ export type ModalState =
   | null;
 
 export default function Storefront(props: StorefrontProps) {
-  const { products, bundles, reviews, settings, isDemo } = props;
+  const { products, bundles, reviews, settings, banners, brands, featuredCoupons, isDemo } =
+    props;
   const { t, lang, setLang } = useT();
   const cart = useCart();
   const wishlist = useWishlist();
@@ -80,6 +105,12 @@ export default function Storefront(props: StorefrontProps) {
   const [milestone, setMilestoneState] = useState<string>(props.initialMilestone ?? "all");
   const [category, setCategoryState] = useState<string>(props.initialCategory ?? "all");
   const [query, setQueryState] = useState(props.initialQuery ?? "");
+  const [brand, setBrandState] = useState<string>(props.initialBrand ?? "all");
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
+  const [inStockOnly, setInStockOnly] = useState(false);
+
+  /** Whether to show the managed carousel or fall back to the built-in hero. */
+  const hasHeroBanner = useMemo(() => liveBanners(banners, "hero").length > 0, [banners]);
 
   /**
    * Filters are mirrored into the URL so a filtered view can be shared, linked
@@ -87,10 +118,11 @@ export default function Storefront(props: StorefrontProps) {
    * age and search only rewrite the address bar via the history API, which
    * keeps typing instant instead of firing a server render per keystroke.
    */
-  const urlFor = useCallback((cat: string, ms: string, q: string) => {
+  const urlFor = useCallback((cat: string, ms: string, q: string, br: string) => {
     const params = new URLSearchParams();
     if (ms !== "all") params.set("age", ms);
     if (q.trim()) params.set("q", q.trim());
+    if (br !== "all") params.set("brand", br);
     const qs = params.toString();
     return `${cat === "all" ? "/" : `/c/${cat}`}${qs ? `?${qs}` : ""}`;
   }, []);
@@ -98,25 +130,33 @@ export default function Storefront(props: StorefrontProps) {
   const setCategory = useCallback(
     (c: string) => {
       setCategoryState(c);
-      router.push(urlFor(c, milestone, query), { scroll: false });
+      router.push(urlFor(c, milestone, query, brand), { scroll: false });
     },
-    [router, urlFor, milestone, query],
+    [router, urlFor, milestone, query, brand],
   );
 
   const setMilestone = useCallback(
     (m: string) => {
       setMilestoneState(m);
-      window.history.replaceState(null, "", urlFor(category, m, query));
+      window.history.replaceState(null, "", urlFor(category, m, query, brand));
     },
-    [urlFor, category, query],
+    [urlFor, category, query, brand],
   );
 
   const setQuery = useCallback(
     (q: string) => {
       setQueryState(q);
-      window.history.replaceState(null, "", urlFor(category, milestone, q));
+      window.history.replaceState(null, "", urlFor(category, milestone, q, brand));
     },
-    [urlFor, category, milestone],
+    [urlFor, category, milestone, brand],
+  );
+
+  const setBrand = useCallback(
+    (b: string) => {
+      setBrandState(b);
+      window.history.replaceState(null, "", urlFor(category, milestone, query, b));
+    },
+    [urlFor, category, milestone, query],
   );
   const [modal, setModal] = useState<ModalState>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -127,18 +167,34 @@ export default function Storefront(props: StorefrontProps) {
     window.setTimeout(() => setToast(null), 2200);
   }, []);
 
+  const suggestions = useMemo(() => {
+    if (!query || query.trim().length < 2) return [];
+    const q = query.toLowerCase().trim();
+    return products
+      .filter(
+        (p) =>
+          p.name_en.toLowerCase().includes(q) ||
+          p.name_ta.includes(q) ||
+          p.brand.toLowerCase().includes(q),
+      )
+      .slice(0, 5);
+  }, [query, products]);
+
   const filtered = useMemo(
     () =>
       products.filter(
         (p) =>
-          p.stock >= 0 &&
+          (inStockOnly ? p.stock > 0 : p.stock >= 0) &&
+          (maxPrice === null || p.price <= maxPrice) &&
           (milestone === "all" || p.milestone === milestone) &&
           (category === "all" || p.categories.includes(category as never)) &&
+          (brand === "all" || p.brand === brand) &&
           (!query ||
             p.name_en.toLowerCase().includes(query.toLowerCase()) ||
-            p.name_ta.includes(query)),
+            p.name_ta.includes(query) ||
+            p.brand.toLowerCase().includes(query.toLowerCase())),
       ),
-    [products, milestone, category, query],
+    [products, milestone, category, query, brand, maxPrice, inStockOnly],
   );
 
   const addToCart = useCallback(
@@ -312,6 +368,40 @@ export default function Storefront(props: StorefrontProps) {
               </svg>
             </button>
           </form>
+
+          {/* Predictive Search Suggestions Dropdown */}
+          {query.trim().length >= 2 && suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-card border-2.5 border-ink bg-white p-2 shadow-hard-3">
+              <div className="text-[11px] font-extrabold text-mute uppercase px-2 py-1">
+                ⚡ Suggested Products ({suggestions.length})
+              </div>
+              {suggestions.map((p) => {
+                const pName = lang === "ta" ? p.name_ta : p.name_en;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      openProduct(p);
+                      setQuery("");
+                    }}
+                    className="flex w-full items-center justify-between rounded-tile p-2 text-left hover:bg-[#FFE1A8] transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[20px] shrink-0">{p.emoji}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13px] font-extrabold text-ink">{pName}</div>
+                        <div className="text-[11px] text-mute">{p.brand}</div>
+                      </div>
+                    </div>
+                    <div className="font-display text-[13px] font-extrabold text-brand shrink-0 ml-2">
+                      {inr(p.price)}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Right Action Buttons */}
@@ -389,6 +479,8 @@ export default function Storefront(props: StorefrontProps) {
         {route === "home" && (
           <div>
             <Hero />
+            <OfferStrip coupons={featuredCoupons} settings={settings} />
+
             <FreshPicksSection
               products={products}
               openProduct={openProduct}
@@ -396,7 +488,12 @@ export default function Storefront(props: StorefrontProps) {
               onViewAll={() => document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" })}
               onExploreBundles={() => document.getElementById("bundles")?.scrollIntoView({ behavior: "smooth" })}
             />
+            <DealOfTheDay products={products} openProduct={openProduct} />
+            <BundlesSection bundles={bundles} addToCart={(b) => addToCart(`b:${b.id}`)} />
+
             <CategoryGrid category={category} setCategory={setCategory} />
+            <BrandRail brands={brands} />
+            <PromoBanner banners={banners} />
             <BabyClub products={products} addToCart={addToCart} openProduct={openProduct} />
             <BuyAgain products={buyAgain} addToCart={addToCart} openProduct={openProduct} />
             <RecentlyViewed
@@ -404,7 +501,6 @@ export default function Storefront(props: StorefrontProps) {
               addToCart={addToCart}
               openProduct={openProduct}
             />
-            <BundlesSection bundles={bundles} addToCart={(b) => addToCart(`b:${b.id}`)} />
             <ShopGrid
               filtered={filtered}
               milestone={milestone}
@@ -413,9 +509,17 @@ export default function Storefront(props: StorefrontProps) {
               setCategory={setCategory}
               query={query}
               setQuery={setQuery}
+              brand={brand}
+              setBrand={setBrand}
+              brands={brands}
+              maxPrice={maxPrice}
+              setMaxPrice={setMaxPrice}
+              inStockOnly={inStockOnly}
+              setInStockOnly={setInStockOnly}
               addToCart={addToCart}
               openProduct={openProduct}
             />
+            <ReviewsStrip reviews={reviews} products={products} />
             <Trust />
           </div>
         )}

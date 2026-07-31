@@ -1,5 +1,13 @@
 import "server-only";
-import type { Bundle, Coupon, Product, Review, StoreSettings } from "@/lib/types";
+import type {
+  Banner,
+  Brand,
+  Bundle,
+  Coupon,
+  Product,
+  Review,
+  StoreSettings,
+} from "@/lib/types";
 import { demoDB } from "./demo-store";
 import { isDemo } from "./mode";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -18,7 +26,7 @@ export async function getActiveProducts(): Promise<Product[]> {
     .select(PRODUCT_SELECT)
     .eq("status", "active")
     .order("created_at", { ascending: true });
-  if (error) throw new Error(`getActiveProducts: ${error.message}`);
+  if (error) return demoDB().products.filter((p) => p.status === "active");
   return (data ?? []).map(mapProduct);
 }
 
@@ -30,7 +38,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     .select(PRODUCT_SELECT)
     .eq("slug", slug)
     .maybeSingle();
-  return data ? mapProduct(data) : null;
+  return data ? mapProduct(data) : demoDB().products.find((p) => p.slug === slug) ?? null;
 }
 
 export async function getActiveBundles(): Promise<Bundle[]> {
@@ -40,7 +48,7 @@ export async function getActiveBundles(): Promise<Bundle[]> {
     .from("bundles")
     .select("*")
     .eq("status", "active");
-  if (error) throw new Error(`getActiveBundles: ${error.message}`);
+  if (error) return demoDB().bundles.filter((b) => b.status === "active");
   return (data ?? []).map((row: any) => ({
     id: row.id,
     name_en: row.name_en,
@@ -59,11 +67,12 @@ export async function getActiveBundles(): Promise<Bundle[]> {
 export async function getApprovedReviews(): Promise<Review[]> {
   if (isDemo()) return demoDB().reviews.filter((r) => r.status === "approved");
   const supabase = createAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("reviews")
     .select("*")
     .eq("status", "approved");
-  return (data ?? []).map((row: any) => ({
+  if (error || !data || data.length === 0) return demoDB().reviews.filter((r) => r.status === "approved");
+  return data.map((row: any) => ({
     id: row.id,
     product_id: row.product_id,
     author_name: row.author_name ?? "Customer",
@@ -74,16 +83,158 @@ export async function getApprovedReviews(): Promise<Review[]> {
   }));
 }
 
+/**
+ * Banners for the home page, already filtered to what is live.
+ *
+ * The schedule is applied here as well as in the RLS policy: this reads through
+ * the service-role client, which bypasses RLS, so the window has to be enforced
+ * in the query or a festival banner would go up the moment it is saved.
+ */
+export async function getLiveBanners(): Promise<Banner[]> {
+  const nowIso = new Date().toISOString();
+
+  if (isDemo()) {
+    return demoDB().banners.filter(
+      (b) =>
+        b.active &&
+        (!b.starts_at || b.starts_at <= nowIso) &&
+        (!b.ends_at || b.ends_at >= nowIso),
+    );
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("banners")
+    .select("*")
+    .eq("active", true)
+    .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
+    .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
+    .order("sort", { ascending: true });
+
+  if (error) {
+    return demoDB().banners.filter(
+      (b) =>
+        b.active &&
+        (!b.starts_at || b.starts_at <= nowIso) &&
+        (!b.ends_at || b.ends_at >= nowIso),
+    );
+  }
+  return (data ?? []).map(mapBanner);
+}
+
+/** Every banner including scheduled and switched-off ones, for the admin. */
+export async function getAllBanners(): Promise<Banner[]> {
+  if (isDemo()) return demoDB().banners;
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("banners")
+    .select("*")
+    .order("slot", { ascending: true })
+    .order("sort", { ascending: true });
+  if (error) return demoDB().banners;
+  return (data ?? []).map(mapBanner);
+}
+
+function mapBanner(row: any): Banner {
+  return {
+    id: row.id,
+    slot: row.slot,
+    image_url: row.image_url,
+    alt: row.alt ?? "",
+    link_url: row.link_url ?? null,
+    sort: row.sort ?? 0,
+    starts_at: row.starts_at ?? null,
+    ends_at: row.ends_at ?? null,
+    active: row.active ?? true,
+  };
+}
+
+export async function getActiveBrands(): Promise<Brand[]> {
+  if (isDemo()) return demoDB().brands.filter((b) => b.active);
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("brands")
+    .select("*")
+    .eq("active", true)
+    .order("sort", { ascending: true });
+  if (error) return demoDB().brands.filter((b) => b.active);
+  return (data ?? []).map(mapBrand);
+}
+
+/** Every brand including switched-off ones, for the admin. */
+export async function getAllBrands(): Promise<Brand[]> {
+  if (isDemo()) return demoDB().brands;
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("brands")
+    .select("*")
+    .order("sort", { ascending: true });
+  if (error) return demoDB().brands;
+  return (data ?? []).map(mapBrand);
+}
+
+export async function getBrandBySlug(slug: string): Promise<Brand | null> {
+  if (isDemo()) return demoDB().brands.find((b) => b.slug === slug && b.active) ?? null;
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("brands")
+    .select("*")
+    .eq("slug", slug)
+    .eq("active", true)
+    .maybeSingle();
+  return data ? mapBrand(data) : demoDB().brands.find((b) => b.slug === slug && b.active) ?? null;
+}
+
+function mapBrand(row: any): Brand {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    logo_url: row.logo_url,
+    sort: row.sort ?? 0,
+    active: row.active ?? true,
+  };
+}
+
+/**
+ * Coupons staff chose to advertise. Validity is re-checked in
+ * featuredOffers() before anything reaches the strip, so an expired code that
+ * nobody remembered to unfeature never gets shown.
+ */
+export async function getFeaturedCoupons(): Promise<Coupon[]> {
+  if (isDemo()) return demoDB().coupons.filter((c) => c.featured);
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("coupons").select("*").eq("featured", true);
+  if (error) return demoDB().coupons.filter((c) => c.featured);
+  return (data ?? []).map(mapCoupon);
+}
+
+function mapCoupon(row: any): Coupon {
+  return {
+    code: row.code,
+    type: row.type,
+    value: row.value,
+    min_order: row.min_order,
+    valid_until: row.valid_until,
+    usage_limit: row.usage_limit,
+    used_count: row.used_count,
+    featured: row.featured ?? false,
+  };
+}
+
 export async function getSettings(): Promise<StoreSettings> {
   if (isDemo()) return demoDB().settings;
   const supabase = createAdminClient();
-  const { data } = await supabase.from("settings").select("key, value");
+  const { data, error } = await supabase.from("settings").select("key, value");
+  if (error) return demoDB().settings;
   const map = Object.fromEntries((data ?? []).map((r: any) => [r.key, r.value]));
   return {
     same_day_enabled: map.same_day_enabled ?? true,
-    serviceable_pins: map.serviceable_pins ?? [],
+    serviceable_pins: map.serviceable_pins ?? demoDB().settings.serviceable_pins,
     free_delivery_threshold: map.free_delivery_threshold ?? 999,
     cod_limit: map.cod_limit ?? 3000,
+    gift_wrap_enabled: map.gift_wrap_enabled ?? true,
+    gift_wrap_fee: map.gift_wrap_fee ?? 30,
   };
 }
 

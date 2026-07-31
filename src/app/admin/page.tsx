@@ -6,7 +6,7 @@ import {
   listReviews,
   requireStaff,
 } from "@/lib/data/admin";
-import { getSettings } from "@/lib/data/catalog";
+import { getAllBanners, getAllBrands, getSettings } from "@/lib/data/catalog";
 import { isDemo } from "@/lib/data/mode";
 import { AdminShell } from "@/components/admin/AdminShell";
 
@@ -28,14 +28,17 @@ export default async function AdminPage() {
     return <AdminLoginForm />;
   }
 
-  const [orders, products, customers, coupons, reviews, settings] = await Promise.all([
-    listAllOrders(),
-    listAllProducts(),
-    listCustomers(),
-    listCoupons(),
-    listReviews(),
-    getSettings(),
-  ]);
+  const [orders, products, customers, coupons, reviews, settings, banners, brands] =
+    await Promise.all([
+      listAllOrders(),
+      listAllProducts(),
+      listCustomers(),
+      listCoupons(),
+      listReviews(),
+      getSettings(),
+      getAllBanners(),
+      getAllBrands(),
+    ]);
 
   return (
     <AdminShell
@@ -45,6 +48,8 @@ export default async function AdminPage() {
       coupons={coupons}
       reviews={reviews}
       settings={settings}
+      banners={banners}
+      brands={brands}
       isDemo={isDemo()}
     />
   );

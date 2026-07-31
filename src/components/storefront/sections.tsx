@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Image from "next/image";
-import type { Bundle, Product } from "@/lib/types";
+import type { Brand, Bundle, Product } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import {
   BUSINESS,
@@ -16,6 +16,7 @@ import {
   type Milestone,
 } from "@/lib/constants";
 import { Art, Badge, Btn, Card, Pill, Stars } from "@/components/ui";
+import { discountPercent } from "@/lib/merchandising";
 
 const nameOf = (p: Product, lang: string) => (lang === "ta" ? p.name_ta : p.name_en);
 
@@ -162,13 +163,21 @@ export function Hero() {
   );
 }
 
-/* ── Auto-scrolling & touch-swipeable "Fresh picks" marquee ──────────────── */
+/* ── Auto-scrolling & touch-swipeable product marquee ────────────────────── */
 export function Marquee({
   products,
   openProduct,
+  title,
+  sub,
+  showDiscount,
 }: {
   products: Product[];
   openProduct: (p: Product) => void;
+  /** Defaults to the fresh-picks heading; the deal rail passes its own. */
+  title?: string;
+  sub?: string;
+  /** Stamps each tile with its percent off, for the deal rail. */
+  showDiscount?: boolean;
 }) {
   const { t, lang } = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -222,13 +231,46 @@ export function Marquee({
     }, 2000);
   };
 
+  const scroll = (direction: "left" | "right") => {
+    handleInteractionStart();
+    if (scrollRef.current) {
+      const amount = direction === "left" ? -360 : 360;
+      scrollRef.current.scrollBy({ left: amount, behavior: "smooth" });
+    }
+    handleInteractionEnd();
+  };
+
   return (
     <div className="mb-1.5 mt-[18px]">
-      <div className="mx-auto flex max-w-[1240px] items-baseline gap-2 px-5 pb-2">
-        <span className="font-display text-[22px] font-extrabold">{t("marquee.title")}</span>
-        <span className="text-[14px] font-extrabold text-[#9A6BE0] font-display">
-          · {t("marquee.sub")} ✨
-        </span>
+      <div className="mx-auto flex max-w-[1240px] items-center justify-between px-5 pb-2">
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="font-display text-[20px] sm:text-[22px] font-extrabold truncate">
+            {title ?? t("marquee.title")}
+          </span>
+          <span className="text-[13px] sm:text-[14px] font-extrabold text-[#9A6BE0] font-display shrink-0">
+            · {sub ?? `${t("marquee.sub")} ✨`}
+          </span>
+        </div>
+
+        {/* Navigation Arrows */}
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          <button
+            type="button"
+            onClick={() => scroll("left")}
+            className="btn-press flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border-2 border-ink bg-white text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] cursor-pointer"
+            aria-label="Scroll Left"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={() => scroll("right")}
+            className="btn-press flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border-2 border-ink bg-white text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] cursor-pointer"
+            aria-label="Scroll Right"
+          >
+            ›
+          </button>
+        </div>
       </div>
       <div className="marquee-mask overflow-hidden pb-6 pt-3 -my-2">
         <div
@@ -249,10 +291,17 @@ export function Marquee({
               type="button"
               onClick={() => openProduct(p)}
               style={glowStyle(p.tile_color)}
-              className="glow-card w-[150px] shrink-0 rounded-card border-3 border-ink bg-paper p-2.5 text-left shadow-hard-4 transition-all duration-200 hover:-translate-y-1 active:scale-95 cursor-pointer select-none"
+              className="glow-card w-[150px] shrink-0 rounded-card border-3 border-ink p-2.5 text-left shadow-hard-4 transition-all duration-200 hover:-translate-y-1 active:scale-95 cursor-pointer select-none"
               tabIndex={i < products.length ? 0 : -1}
             >
-              <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} />
+              <div className="relative">
+                <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} />
+                {showDiscount && discountPercent(p) > 0 && (
+                  <span className="absolute left-1.5 top-1.5 rounded-xl border-2 border-ink bg-brand px-1.5 py-[1px] text-[10px] font-extrabold text-white">
+                    -{discountPercent(p)}%
+                  </span>
+                )}
+              </div>
               <div className="mt-2 text-[13px] font-bold leading-[1.15]">{nameOf(p, lang)}</div>
               <div className="mt-1 flex items-baseline gap-1.5">
                 <span className="font-display font-extrabold text-brand">{inr(p.price)}</span>
@@ -296,25 +345,30 @@ export function FreshPicksSection({
   return (
     <div className="mx-auto max-w-[1240px] px-3 sm:px-5 my-5 sm:my-7">
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_410px] gap-4 sm:gap-5 items-stretch">
-        
+
         {/* Left Column: Fresh Picks Carousel */}
-        <div className="relative rounded-modal border-3 border-ink bg-gradient-to-br from-[#FFFDF8] via-[#FFF9F2] to-[#FFF5EC] p-3.5 sm:p-5 shadow-hard-4 flex flex-col justify-between overflow-hidden">
-          
+        <div className="relative rounded-modal border-[3.5px] border-ink bg-gradient-to-br from-[#FFFDF8] via-[#FFF9F2] to-[#FFE1A8]/30 p-3.5 sm:p-5 shadow-[8px_8px_0px_#2B2140] flex flex-col justify-between overflow-hidden">
+
           {/* Header Row */}
           <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4 px-1">
-            <div className="flex items-center gap-1.5">
-              <h2 className="font-display text-[20px] sm:text-[24px] font-extrabold text-ink">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-ink bg-[#FFE1A8] text-[16px] shadow-xs">
+                ✨
+              </span>
+              <h2 className="font-display text-[20px] sm:text-[24px] font-extrabold text-ink leading-none">
                 Fresh Picks
               </h2>
-              <span className="text-[18px] sm:text-[20px]">✨</span>
+              <span className="hidden sm:inline-block rounded-pill border-2 border-ink bg-[#B9EBDD] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide shadow-xs">
+                Just Arrived
+              </span>
             </div>
             <button
               type="button"
               onClick={onViewAll}
-              className="btn-press font-display text-[13px] sm:text-[14px] font-extrabold text-brand hover:underline cursor-pointer flex items-center gap-0.5"
+              className="btn-press rounded-pill border-2 border-ink bg-[#FFE1A8] px-3 py-1 font-display text-[12px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] transition-all cursor-pointer flex items-center gap-1"
             >
               <span>View all</span>
-              <span>→</span>
+              <span className="font-black">→</span>
             </button>
           </div>
 
@@ -343,14 +397,14 @@ export function FreshPicksSection({
             {/* Products Scroll Container */}
             <div
               ref={scrollRef}
-              className="no-scrollbar flex w-full overflow-x-auto gap-3 sm:gap-4 px-2 sm:px-3 py-2 scroll-smooth"
+              className="no-scrollbar flex w-full overflow-x-auto gap-3 sm:gap-4 px-2 sm:px-3 py-2.5 scroll-smooth"
             >
               {freshProducts.map((p) => (
                 <div
                   key={p.id}
                   onClick={() => openProduct(p)}
                   style={glowStyle(p.tile_color)}
-                  className="glow-card w-[145px] sm:w-[165px] shrink-0 rounded-card border-2.5 sm:border-3 border-ink bg-paper p-2.5 sm:p-3 text-left shadow-hard-4 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1.5 active:scale-95 cursor-pointer relative group"
+                  className="glow-card w-[145px] sm:w-[165px] shrink-0 rounded-card border-2.5 sm:border-3 border-ink p-2.5 sm:p-3 text-left shadow-[5px_5px_0px_#2B2140] flex flex-col justify-between transition-all duration-200 hover:-translate-y-1.5 active:scale-95 cursor-pointer relative group"
                 >
                   <div className="w-full text-left">
                     <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} />
@@ -369,7 +423,7 @@ export function FreshPicksSection({
                     </div>
                   </div>
 
-                  {/* Pink Add to Cart Button */}
+                  {/* Bouncy 3D Add to Cart Button */}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -389,16 +443,16 @@ export function FreshPicksSection({
 
         {/* Right Column: Stacked Side Promo Boxes */}
         <div className="flex flex-col gap-3.5 sm:gap-4 justify-between">
-          
+
           {/* Top Promo Card: Super Saver */}
-          <div className="relative rounded-modal border-3 border-ink bg-[#FFE27A] p-4 sm:p-5 shadow-hard-4 overflow-hidden flex flex-col justify-between min-h-[160px] sm:min-h-[175px] group">
-            
-            {/* Background Decorative Pattern */}
-            <div className="absolute -right-4 -bottom-4 h-32 w-32 rounded-full bg-[#FFCBD9]/40 blur-xl pointer-events-none" />
+          <div className="relative rounded-modal border-[3.5px] border-ink bg-gradient-to-br from-[#FFE27A] via-[#FFF0B3] to-[#FFCBD9] p-4 sm:p-5 shadow-[6px_6px_0px_#2B2140] overflow-hidden flex flex-col justify-between min-h-[160px] sm:min-h-[175px] group">
+
+            {/* Background Decorative Glow */}
+            <div className="absolute -right-4 -bottom-4 h-32 w-32 rounded-full bg-[#FFCBD9]/60 blur-xl pointer-events-none" />
 
             <div className="relative z-10 max-w-[65%]">
-              <span className="inline-block rounded-pill border-2 border-ink bg-white px-2.5 py-0.5 font-display text-[10px] sm:text-[11px] font-extrabold text-ink shadow-hard-1 mb-1.5">
-                Super Saver
+              <span className="inline-block rounded-pill border-2 border-ink bg-white px-2.5 py-0.5 font-display text-[10px] sm:text-[11px] font-extrabold text-ink shadow-hard-1 mb-1.5 uppercase tracking-wide">
+                ⚡ Super Saver
               </span>
               <h3 className="font-display text-[20px] sm:text-[24px] font-extrabold text-ink leading-[1.1]">
                 UP TO 40% OFF
@@ -416,10 +470,9 @@ export function FreshPicksSection({
               </button>
             </div>
 
-            {/* Cute Plush Bunny / Starburst Illustration Graphic */}
+            {/* Cute Plush Bunny Illustration Graphic */}
             <div className="absolute right-2 bottom-1 sm:right-3 sm:bottom-2 z-10 pointer-events-none flex items-center justify-center">
               <div className="relative flex items-center justify-center">
-                {/* Pink Star Burst Badge */}
                 <div className="h-24 w-24 sm:h-28 sm:w-28 rounded-full bg-[#FF6B8B] border-2.5 border-ink flex items-center justify-center shadow-hard-2 rotate-12">
                   <span className="text-[44px] sm:text-[52px] -rotate-12 transition-transform duration-300 group-hover:scale-110">
                     🐰
@@ -431,9 +484,12 @@ export function FreshPicksSection({
           </div>
 
           {/* Bottom Promo Card: Bundle & Save More! */}
-          <div className="relative rounded-modal border-3 border-ink bg-[#FFD6E0] p-4 sm:p-5 shadow-hard-4 overflow-hidden flex flex-col justify-between min-h-[155px] sm:min-h-[165px] group">
-            
+          <div className="relative rounded-modal border-[3.5px] border-ink bg-gradient-to-br from-[#C7E9FF] via-[#E4D6FF] to-[#FFCBD9] p-4 sm:p-5 shadow-[6px_6px_0px_#2B2140] overflow-hidden flex flex-col justify-between min-h-[155px] sm:min-h-[165px] group">
+
             <div className="relative z-10 max-w-[65%]">
+              <span className="inline-block rounded-pill border-2 border-ink bg-white px-2.5 py-0.5 font-display text-[10px] sm:text-[11px] font-extrabold text-ink shadow-hard-1 mb-1.5 uppercase tracking-wide">
+                🎁 Save More
+              </span>
               <h3 className="font-display text-[19px] sm:text-[22px] font-extrabold text-ink leading-[1.1]">
                 Bundle & Save More!
               </h3>
@@ -450,7 +506,7 @@ export function FreshPicksSection({
               </button>
             </div>
 
-            {/* Baby Care Products Basket Illustration + Arrow Circle */}
+            {/* Basket Illustration Graphic */}
             <div className="absolute right-2 bottom-1 sm:right-3 sm:bottom-2 z-10 pointer-events-none flex items-center gap-1">
               <div className="relative flex items-center justify-center">
                 <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl bg-[#FFE1A8] border-2.5 border-ink flex items-center justify-center shadow-hard-2 -rotate-6">
@@ -459,11 +515,7 @@ export function FreshPicksSection({
                   </span>
                 </div>
               </div>
-              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border-2 border-ink bg-[#FF5A78] text-white shadow-hard-1 font-bold text-[12px] sm:text-[14px]">
-                →
-              </div>
             </div>
-
           </div>
 
         </div>
@@ -616,6 +668,13 @@ export function ShopGrid({
   setCategory,
   query,
   setQuery,
+  brand,
+  setBrand,
+  brands,
+  maxPrice,
+  setMaxPrice,
+  inStockOnly,
+  setInStockOnly,
   addToCart,
   openProduct,
 }: {
@@ -626,6 +685,13 @@ export function ShopGrid({
   setCategory: (c: string) => void;
   query: string;
   setQuery: (q: string) => void;
+  brand: string;
+  setBrand: (b: string) => void;
+  brands: Brand[];
+  maxPrice?: number | null;
+  setMaxPrice?: (p: number | null) => void;
+  inStockOnly?: boolean;
+  setInStockOnly?: (v: boolean) => void;
   addToCart: (id: string) => void;
   openProduct: (p: Product) => void;
 }) {
@@ -637,9 +703,14 @@ export function ShopGrid({
         {catMeta ? (lang === "ta" ? catMeta.ta : catMeta.en) : t("shop.byAge")}
       </h2>
 
-      {(category !== "all" || milestone !== "all") && (
+      {(category !== "all" || milestone !== "all" || brand !== "all" || maxPrice !== null || inStockOnly) && (
         <div className="mb-2.5 flex flex-wrap items-center gap-2">
           <span className="text-[14px] text-mute">{t("shop.filtering")}</span>
+          {brand !== "all" && (
+            <Pill bg="#C7E9FF" onClick={() => setBrand("all")}>
+              {brand} ✕
+            </Pill>
+          )}
           {milestone !== "all" && (
             <Pill bg="#FFE1A8" onClick={() => setMilestone("all")}>
               {MILESTONE_META[milestone as Milestone].emoji}{" "}
@@ -654,10 +725,33 @@ export function ShopGrid({
               {catMeta.emoji} {lang === "ta" ? catMeta.ta : catMeta.en} ✕
             </Pill>
           )}
+          {maxPrice !== null && maxPrice !== undefined && setMaxPrice && (
+            <Pill bg="#FFCBD9" onClick={() => setMaxPrice(null)}>
+              Under {inr(maxPrice)} ✕
+            </Pill>
+          )}
+          {inStockOnly && setInStockOnly && (
+            <Pill bg="#D6E8B0" onClick={() => setInStockOnly(false)}>
+              In-Stock Only 🟢 ✕
+            </Pill>
+          )}
         </div>
       )}
 
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      {brands.length > 0 && (
+        <div className="no-scrollbar mb-1 flex gap-2 overflow-x-auto pb-2">
+          <Pill active={brand === "all"} onClick={() => setBrand("all")}>
+            {t("shop.allBrands")}
+          </Pill>
+          {brands.map((b) => (
+            <Pill key={b.id} active={brand === b.name} bg="#C7E9FF" onClick={() => setBrand(b.name)}>
+              {b.name}
+            </Pill>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 pb-2">
         <Pill active={milestone === "all"} onClick={() => setMilestone("all")}>
           {t("shop.allAges")}
         </Pill>
@@ -674,6 +768,43 @@ export function ShopGrid({
             </Pill>
           );
         })}
+
+        {/* Faceted Price Range & In-Stock Filters */}
+        {setMaxPrice && (
+          <div className="ml-auto flex flex-wrap items-center gap-1.5 pt-1 sm:pt-0">
+            <span className="text-[12px] font-bold text-mute uppercase">Price:</span>
+            <button
+              type="button"
+              onClick={() => setMaxPrice(null)}
+              className={`rounded-pill border border-ink px-2 py-0.5 text-[11px] font-bold ${maxPrice === null ? "bg-ink text-white" : "bg-white text-ink"}`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setMaxPrice(500)}
+              className={`rounded-pill border border-ink px-2 py-0.5 text-[11px] font-bold ${maxPrice === 500 ? "bg-ink text-white" : "bg-white text-ink"}`}
+            >
+              &lt; ₹500
+            </button>
+            <button
+              type="button"
+              onClick={() => setMaxPrice(1000)}
+              className={`rounded-pill border border-ink px-2 py-0.5 text-[11px] font-bold ${maxPrice === 1000 ? "bg-ink text-white" : "bg-white text-ink"}`}
+            >
+              &lt; ₹1000
+            </button>
+            {setInStockOnly && (
+              <button
+                type="button"
+                onClick={() => setInStockOnly(!inStockOnly)}
+                className={`rounded-pill border border-ink px-2.5 py-0.5 text-[11px] font-bold ${inStockOnly ? "bg-[#D6E8B0] text-ink border-2" : "bg-white text-mute"}`}
+              >
+                In-Stock 🟢
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <input
@@ -688,7 +819,7 @@ export function ShopGrid({
           <div
             key={p.id}
             style={glowStyle(p.tile_color)}
-            className="pop glow-card relative flex flex-col rounded-card border-3 border-ink bg-paper p-2.5 shadow-hard-4 hover:border-brand transition-colors cursor-pointer group"
+            className="pop glow-card relative flex flex-col rounded-card border-3 border-ink p-2.5 shadow-hard-4 hover:border-brand transition-colors cursor-pointer group"
             onClick={() => openProduct(p)}
           >
             <div className="flex flex-1 flex-col">
@@ -770,16 +901,6 @@ export function Trust() {
           </a>
           <div className="mt-[3px] text-[13px] font-bold">
             🕘 {t("trust.hours")} · 💬 WhatsApp
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {BUSINESS.staff.map((n) => (
-              <span
-                key={n}
-                className="rounded-pill border-2.5 border-ink bg-white px-3.5 py-[7px] font-display text-[13px] font-extrabold shadow-hard-2"
-              >
-                👩 {n}
-              </span>
-            ))}
           </div>
         </div>
         <div className="grid gap-2.5">

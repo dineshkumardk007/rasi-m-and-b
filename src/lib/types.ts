@@ -1,11 +1,23 @@
 import type { Category, Milestone } from "./constants";
 
+export interface ProductVariant {
+  id: string;
+  name_en: string;
+  name_ta: string;
+  price?: number;
+  mrp?: number;
+  stock: number;
+  sku?: string;
+}
+
 export interface Product {
   id: string;
   name_en: string;
   name_ta: string;
   slug: string;
   brand: string;
+  /** Optional link to a brands row, which is what carries the logo and page. */
+  brand_id?: string | null;
   milestone: Milestone;
   categories: Category[];
   price: number;
@@ -20,6 +32,8 @@ export interface Product {
   description_en: string;
   description_ta: string;
   ingredients: string | null;
+  variants?: ProductVariant[];
+  size_chart_type?: "diaper" | "clothing" | "shoes" | "none";
 }
 
 export interface Bundle {
@@ -55,6 +69,8 @@ export type PaymentStatus =
 
 export interface OrderItem {
   product_id: string;
+  variant_id?: string | null;
+  variant_name?: string | null;
   name_snapshot: string;
   price_snapshot: number;
   qty: number;
@@ -66,6 +82,19 @@ export interface AddressSnapshot {
   line: string;
   city: string;
   pin: string;
+}
+
+export interface CustomerAddress {
+  id: string;
+  customer_id: string;
+  label: string;
+  name: string;
+  phone: string;
+  line: string;
+  city: string;
+  pin: string;
+  is_default: boolean;
+  created_at?: string;
 }
 
 export interface Order {
@@ -87,6 +116,7 @@ export interface Order {
   /** Gift orders hide prices on the invoice and carry a message. */
   is_gift?: boolean;
   gift_message?: string | null;
+  gift_wrap_fee?: number;
 }
 
 export interface Coupon {
@@ -97,6 +127,33 @@ export interface Coupon {
   valid_until: string | null;
   usage_limit: number | null;
   used_count: number;
+  /** Advertised in the offer strip. Separate from being valid. */
+  featured?: boolean;
+}
+
+/** Fixed home-page positions a banner can occupy. */
+export type BannerSlot = "hero" | "mid";
+
+export interface Banner {
+  id: string;
+  slot: BannerSlot;
+  image_url: string;
+  alt: string;
+  /** Internal path or absolute URL. Null makes the banner decorative. */
+  link_url: string | null;
+  sort: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  active: boolean;
+}
+
+export interface Brand {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string;
+  sort: number;
+  active: boolean;
 }
 
 export interface Review {
@@ -122,6 +179,7 @@ export interface CustomerRecord {
   last_login_at?: string | null;
   login_count?: number;
   created_at: string;
+  addresses?: CustomerAddress[];
 }
 
 export interface StoreSettings {
@@ -130,10 +188,13 @@ export interface StoreSettings {
   unserviceable_pins?: string[];
   free_delivery_threshold: number;
   cod_limit: number;
+  gift_wrap_enabled?: boolean;
+  gift_wrap_fee?: number;
 }
 
 export interface CartLine {
   /** product or bundle id, prefixed "b:" for bundles */
   itemId: string;
+  variantId?: string;
   qty: number;
 }

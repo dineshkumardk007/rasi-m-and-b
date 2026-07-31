@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Order, Product, Review, StoreSettings } from "@/lib/types";
+import type { CustomerAddress, Order, Product, Review, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { useSession } from "@/lib/store/SessionProvider";
 import { useWishlist } from "@/lib/store/WishlistProvider";
@@ -14,10 +14,61 @@ import {
   submitReviewAction,
   trackOrderAction,
 } from "@/app/actions";
-import { notifyRestockAction } from "@/app/customer-actions";
+import { myAddressesAction, notifyRestockAction, saveCustomerAddressAction } from "@/app/customer-actions";
 import { ShareButton } from "./ShareButton";
 import { BoughtTogether } from "./BoughtTogether";
 import { GIFT_MESSAGE_MAX } from "@/lib/gift";
+
+/* ── Interactive Size Guide Modal ────────────────────────────────────────── */
+export function SizeGuideModal({
+  type,
+  onClose,
+}: {
+  type: "diaper" | "clothing" | "shoes";
+  onClose: () => void;
+}) {
+  return (
+    <Modal onClose={onClose}>
+      <h3 className="font-display text-[22px] font-extrabold mb-2 text-ink">
+        📏 {type === "diaper" ? "Diaper Weight Size Guide" : type === "clothing" ? "Baby Clothing Size Guide" : "Footwear Size Guide"}
+      </h3>
+      {type === "diaper" && (
+        <div className="space-y-2 text-[14px]">
+          <p className="text-mute text-[13px]">Pick diaper size based on your baby&apos;s weight for leak-proof comfort:</p>
+          <div className="rounded-tile border-2 border-ink bg-cream p-3 grid gap-1.5 font-bold">
+            <div className="flex justify-between border-b pb-1"><span>Newborn (NB)</span><span className="text-brand">Up to 5 kg</span></div>
+            <div className="flex justify-between border-b pb-1"><span>Small (S)</span><span className="text-brand">4 to 8 kg</span></div>
+            <div className="flex justify-between border-b pb-1"><span>Medium (M)</span><span className="text-brand">7 to 12 kg</span></div>
+            <div className="flex justify-between border-b pb-1"><span>Large (L)</span><span className="text-brand">9 to 14 kg</span></div>
+            <div className="flex justify-between"><span>Extra Large (XL)</span><span className="text-brand">12 to 17 kg</span></div>
+          </div>
+        </div>
+      )}
+      {type === "clothing" && (
+        <div className="space-y-2 text-[14px]">
+          <p className="text-mute text-[13px]">Recommended clothing sizes by age and height:</p>
+          <div className="rounded-tile border-2 border-ink bg-cream p-3 grid gap-1.5 font-bold">
+            <div className="flex justify-between border-b pb-1"><span>0 – 3 Months</span><span className="text-brand">50 – 60 cm</span></div>
+            <div className="flex justify-between border-b pb-1"><span>3 – 6 Months</span><span className="text-brand">60 – 68 cm</span></div>
+            <div className="flex justify-between border-b pb-1"><span>6 – 12 Months</span><span className="text-brand">68 – 80 cm</span></div>
+            <div className="flex justify-between border-b pb-1"><span>12 – 18 Months</span><span className="text-brand">80 – 86 cm</span></div>
+            <div className="flex justify-between"><span>18 – 24 Months</span><span className="text-brand">86 – 92 cm</span></div>
+          </div>
+        </div>
+      )}
+      {type === "shoes" && (
+        <div className="space-y-2 text-[14px]">
+          <p className="text-mute text-[13px]">First walker shoe sizes by foot length (cm):</p>
+          <div className="rounded-tile border-2 border-ink bg-cream p-3 grid gap-1.5 font-bold">
+            <div className="flex justify-between border-b pb-1"><span>Size 1 (0-6m)</span><span className="text-brand">10.5 cm</span></div>
+            <div className="flex justify-between border-b pb-1"><span>Size 2 (6-12m)</span><span className="text-brand">11.5 cm</span></div>
+            <div className="flex justify-between border-b pb-1"><span>Size 3 (12-18m)</span><span className="text-brand">12.5 cm</span></div>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
 
 /* ── Product quick view ──────────────────────────────────────────────────── */
 export function ProductModal({
@@ -506,6 +557,27 @@ export function CheckoutModal({
     city: "Thoothukudi",
     pin: "",
   });
+  const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
+  const [saveThisAddress, setSaveThisAddress] = useState(false);
+
+  useEffect(() => {
+    if (session) {
+      myAddressesAction().then((addrs) => {
+        setSavedAddresses(addrs);
+        const def = addrs.find((a) => a.is_default) || addrs[0];
+        if (def) {
+          setF({
+            name: def.name,
+            phone: def.phone,
+            line: def.line,
+            city: def.city,
+            pin: def.pin,
+          });
+        }
+      });
+    }
+  }, [session]);
+
   const [code, setCode] = useState("");
   const [coupon, setCoupon] = useState<{ code: string; discount: number } | null>(null);
   const [paying, setPaying] = useState(false);
@@ -523,7 +595,8 @@ export function CheckoutModal({
 
   const delivery = subtotal > settings.free_delivery_threshold ? 0 : 49;
   const discount = coupon?.discount ?? 0;
-  const total = subtotal + delivery - discount;
+  const giftWrapFee = isGift && (settings.gift_wrap_enabled ?? true) ? (settings.gift_wrap_fee ?? 30) : 0;
+  const total = subtotal + delivery - discount + giftWrapFee;
   const codAllowed = total <= settings.cod_limit;
 
   const applyCoupon = async () => {
@@ -552,6 +625,17 @@ export function CheckoutModal({
 
   const placeWith = async (method: "razorpay" | "cod") => {
     setPaying(true);
+    if (session && saveThisAddress) {
+      await saveCustomerAddressAction({
+        name: f.name,
+        phone: f.phone,
+        line: f.line,
+        city: f.city,
+        pin: f.pin,
+        label: "Saved Address",
+        is_default: savedAddresses.length === 0,
+      });
+    }
     const result = await submitOrderAction({
       items: items.map((c) => ({ itemId: c.itemId, qty: c.qty })),
       address: { name: f.name, phone: f.phone, line: f.line, city: f.city, pin: f.pin },
@@ -675,10 +759,47 @@ export function CheckoutModal({
           <h3 className="mb-3.5 font-display text-[24px] font-extrabold">
             {t("checkout.title")} 🚚
           </h3>
-          {!session && (
+          {!session ? (
             <div className="mb-3 rounded-tile border-2.5 border-ink bg-[#FFE1A8] p-3 text-[14px]">
               {t("checkout.guest")}
             </div>
+          ) : (
+            savedAddresses.length > 0 && (
+              <div className="mb-3.5">
+                <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+                  📍 Select Saved Delivery Address
+                </span>
+                <div className="mt-1.5 grid gap-2">
+                  {savedAddresses.map((addr) => {
+                    const isSelected = f.line === addr.line && f.pin === addr.pin;
+                    return (
+                      <button
+                        key={addr.id}
+                        type="button"
+                        onClick={() =>
+                          setF({
+                            name: addr.name,
+                            phone: addr.phone,
+                            line: addr.line,
+                            city: addr.city,
+                            pin: addr.pin,
+                          })
+                        }
+                        className={`flex items-start justify-between rounded-tile border-2 border-ink p-2.5 text-left text-[13px] transition-all cursor-pointer ${
+                          isSelected ? "bg-[#C7E9FF] shadow-hard-2" : "bg-white hover:bg-cream"
+                        }`}
+                      >
+                        <div>
+                          <span className="font-extrabold text-ink">{addr.label || "Saved Address"}</span>: {addr.name} ({addr.phone})
+                          <div className="text-mute text-[12px]">{addr.line}, {addr.city} - {addr.pin}</div>
+                        </div>
+                        {isSelected && <span className="font-extrabold text-brand">✓ Selected</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )
           )}
           <Field label={t("checkout.name")} value={f.name} onChange={(v) => setF({ ...f, name: v })} placeholder="Priya Raman" />
           <Field label={t("checkout.phone")} value={f.phone} onChange={(v) => setF({ ...f, phone: v })} placeholder="98765 43210" inputMode="tel" />
@@ -687,6 +808,19 @@ export function CheckoutModal({
             <Field label={t("checkout.city")} value={f.city} onChange={(v) => setF({ ...f, city: v })} />
             <Field label={t("checkout.pin")} value={f.pin} onChange={(v) => setF({ ...f, pin: v.replace(/\D/g, "").slice(0, 6) })} placeholder="628001" inputMode="numeric" maxLength={6} />
           </div>
+
+          {session && (
+            <label className="mb-3.5 flex items-center gap-2 cursor-pointer text-[13px] font-bold text-ink">
+              <input
+                type="checkbox"
+                checked={saveThisAddress}
+                onChange={(e) => setSaveThisAddress(e.target.checked)}
+                className="h-4 w-4 accent-brand rounded border-ink"
+              />
+              <span>💾 Save this address for future orders</span>
+            </label>
+          )}
+
           {/* Gift mode — baby products are heavily gifted (showers, first birthdays) */}
           <div className="mb-3 rounded-tile border-2.5 border-ink bg-[#FFF6ED] p-3">
             <label className="flex cursor-pointer items-center gap-2.5">
@@ -696,7 +830,9 @@ export function CheckoutModal({
                 onChange={(e) => setIsGift(e.target.checked)}
                 className="h-5 w-5 shrink-0 accent-[#EC5D8A]"
               />
-              <span className="font-display text-[14px] font-extrabold">{t("gift.isGift")}</span>
+              <span className="font-display text-[14px] font-extrabold">
+                {t("gift.isGift")} {(settings.gift_wrap_enabled ?? true) ? `(+${inr(settings.gift_wrap_fee ?? 30)})` : ""}
+              </span>
             </label>
             {isGift && (
               <div className="mt-2.5">

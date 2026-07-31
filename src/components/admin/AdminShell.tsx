@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type {
+  Banner,
+  Brand,
   Coupon,
   CustomerRecord,
   Order,
@@ -23,6 +25,7 @@ import {
   ReviewsTab,
   SettingsTab,
 } from "./tabs";
+import { BannersTab, BrandsTab } from "./merch-tabs";
 
 export interface AdminProps {
   orders: Order[];
@@ -31,6 +34,8 @@ export interface AdminProps {
   coupons: Coupon[];
   reviews: Review[];
   settings: StoreSettings;
+  banners: Banner[];
+  brands: Brand[];
   isDemo: boolean;
 }
 
@@ -38,6 +43,8 @@ const TABS = [
   ["dashboard", "📊 Dashboard"],
   ["orders", "🚚 Orders"],
   ["products", "📦 Products"],
+  ["banners", "🖼️ Banners"],
+  ["brands", "🏭 Brands"],
   ["customers", "👥 Customers"],
   ["coupons", "🏷️ Coupons"],
   ["reviews", "⭐ Reviews"],
@@ -88,6 +95,8 @@ export function AdminShell(props: AdminProps) {
         {tab === "dashboard" && <Dashboard {...props} />}
         {tab === "orders" && <OrdersBoard orders={props.orders} />}
         {tab === "products" && <ProductsTab products={props.products} />}
+        {tab === "banners" && <BannersTab banners={props.banners} />}
+        {tab === "brands" && <BrandsTab brands={props.brands} />}
         {tab === "customers" && <CustomersTab customers={props.customers} orders={props.orders} />}
         {tab === "coupons" && <CouponsTab coupons={props.coupons} />}
         {tab === "reviews" && <ReviewsTab reviews={props.reviews} products={props.products} />}

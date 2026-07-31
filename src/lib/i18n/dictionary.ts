@@ -36,6 +36,23 @@ const en = {
   "marquee.title": "Fresh picks",
   "marquee.sub": "just added",
 
+  // Offer strip
+  "offer.percent": "{value}% off with {code} above {min}",
+  "offer.flat": "{value} off with {code} above {min}",
+  "offer.freeDelivery": "Free delivery above {amount}",
+  "offer.sameDay": "Same-day delivery in Thoothukudi",
+
+  // Deal of the day
+  "deal.title": "Deals of the day",
+  "deal.today": "today only",
+  "deal.endsIn": "ends in {time}",
+
+  // Brands
+  "brand.title": "Shop by brand",
+
+  // Reviews
+  "reviews.title": "What families say",
+
   // Categories
   "category.title": "Shop by category",
   "category.clear": "Clear",
@@ -56,6 +73,7 @@ const en = {
   "shop.byAge": "Shop by age",
   "shop.filtering": "Filtering:",
   "shop.allAges": "All ages",
+  "shop.allBrands": "All brands",
   "shop.search": "Search products…",
   "shop.addToCart": "Add to cart",
   "shop.add": "Add",
@@ -269,6 +287,19 @@ const ta: Record<TranslationKey, string> = {
   "marquee.title": "புதிய தேர்வுகள்",
   "marquee.sub": "புதிதாக",
 
+  "offer.percent": "{code} கொண்டு {value}% தள்ளுபடி — {min} மேல்",
+  "offer.flat": "{code} கொண்டு {value} தள்ளுபடி — {min} மேல்",
+  "offer.freeDelivery": "{amount} மேல் இலவச டெலிவரி",
+  "offer.sameDay": "தூத்துக்குடியில் அன்றே டெலிவரி",
+
+  "deal.title": "இன்றைய சலுகைகள்",
+  "deal.today": "இன்று மட்டும்",
+  "deal.endsIn": "{time} இல் முடிகிறது",
+
+  "brand.title": "பிராண்ட் வாரியாக",
+
+  "reviews.title": "குடும்பங்கள் சொல்வது",
+
   "category.title": "வகைப்படி வாங்குங்கள்",
   "category.clear": "அழி",
   "category.selected": "தேர்வு ✓",
@@ -285,6 +316,7 @@ const ta: Record<TranslationKey, string> = {
   "shop.byAge": "வயதுப்படி வாங்குங்கள்",
   "shop.filtering": "வடிகட்டல்:",
   "shop.allAges": "அனைத்து வயது",
+  "shop.allBrands": "அனைத்து பிராண்ட்",
   "shop.search": "தேடுங்கள்…",
   "shop.addToCart": "சேர்",
   "shop.add": "சேர்",

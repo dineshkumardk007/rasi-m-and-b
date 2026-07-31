@@ -1,5 +1,8 @@
 import "server-only";
 import type {
+  Banner,
+  BannerSlot,
+  Brand,
   Coupon,
   CustomerRecord,
   Order,
@@ -156,6 +159,8 @@ export interface ProductInput {
   description_en: string;
   description_ta: string;
   images?: string[];
+  variants?: Product["variants"];
+  size_chart_type?: Product["size_chart_type"];
 }
 
 const slugify = (s: string) =>
@@ -226,6 +231,8 @@ export async function upsertProduct(staffId: string, input: ProductInput): Promi
       description_en: input.description_en,
       description_ta: input.description_ta || input.description_en,
       ingredients: null,
+      variants: input.variants,
+      size_chart_type: input.size_chart_type,
     });
     await logStaff(staffId, "create", "product", id);
     return id;
@@ -245,6 +252,8 @@ export async function upsertProduct(staffId: string, input: ProductInput): Promi
     description_en: input.description_en,
     description_ta: input.description_ta || input.description_en,
     ...(input.images ? { images: input.images } : {}),
+    ...(input.variants ? { variants: input.variants } : {}),
+    ...(input.size_chart_type ? { size_chart_type: input.size_chart_type } : {}),
   };
   let productId = input.id ?? null;
   if (productId) {
@@ -349,6 +358,149 @@ export async function deleteCoupon(staffId: string, code: string): Promise<void>
   await logStaff(staffId, "delete", "coupon", code);
 }
 
+/** Advertise a coupon in the offer strip, or stop advertising it. */
+export async function setCouponFeatured(
+  staffId: string,
+  code: string,
+  featured: boolean,
+): Promise<void> {
+  if (isDemo()) {
+    const coupon = demoDB().coupons.find((c) => c.code === code);
+    if (coupon) coupon.featured = featured;
+  } else {
+    const supabase = createAdminClient();
+    await supabase.from("coupons").update({ featured }).eq("code", code);
+  }
+  await logStaff(staffId, featured ? "feature" : "unfeature", "coupon", code);
+}
+
+/* ── Banners ─────────────────────────────────────────────────────────────── */
+
+export type BannerInput = {
+  id?: string;
+  slot: BannerSlot;
+  image_url: string;
+  alt: string;
+  link_url: string | null;
+  sort: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  active: boolean;
+};
+
+export async function upsertBanner(
+  staffId: string,
+  input: BannerInput,
+): Promise<string | null> {
+  if (!input.image_url) return null;
+
+  if (isDemo()) {
+    const db = demoDB();
+    const id = input.id ?? `demo-bn${db.banners.length + 1}`;
+    const row: Banner = { ...input, id };
+    const at = db.banners.findIndex((b) => b.id === id);
+    if (at === -1) db.banners.push(row);
+    else db.banners[at] = row;
+    await logStaff(staffId, input.id ? "update" : "create", "banner", id);
+    return id;
+  }
+
+  const supabase = createAdminClient();
+  const payload = {
+    slot: input.slot,
+    image_url: input.image_url,
+    alt: input.alt,
+    link_url: input.link_url,
+    sort: input.sort,
+    starts_at: input.starts_at,
+    ends_at: input.ends_at,
+    active: input.active,
+  };
+
+  const { data, error } = input.id
+    ? await supabase.from("banners").update(payload).eq("id", input.id).select("id").maybeSingle()
+    : await supabase.from("banners").insert(payload).select("id").maybeSingle();
+
+  if (error || !data) return null;
+  await logStaff(staffId, input.id ? "update" : "create", "banner", data.id);
+  return data.id;
+}
+
+export async function deleteBanner(staffId: string, id: string): Promise<void> {
+  if (isDemo()) {
+    const db = demoDB();
+    db.banners = db.banners.filter((b) => b.id !== id);
+  } else {
+    await createAdminClient().from("banners").delete().eq("id", id);
+  }
+  await logStaff(staffId, "delete", "banner", id);
+}
+
+/* ── Brands ──────────────────────────────────────────────────────────────── */
+
+export type BrandInput = {
+  id?: string;
+  name: string;
+  slug: string;
+  logo_url: string;
+  sort: number;
+  active: boolean;
+};
+
+export async function upsertBrand(staffId: string, input: BrandInput): Promise<string | null> {
+  const name = input.name.trim();
+  const slug = input.slug.trim().toLowerCase();
+  if (!name || !slug || !input.logo_url) return null;
+
+  if (isDemo()) {
+    const db = demoDB();
+    // The unique index does this in Postgres; demo mode has to check by hand.
+    if (db.brands.some((b) => b.slug === slug && b.id !== input.id)) return null;
+    const id = input.id ?? `demo-br${db.brands.length + 1}`;
+    const row: Brand = { ...input, id, name, slug };
+    const at = db.brands.findIndex((b) => b.id === id);
+    if (at === -1) db.brands.push(row);
+    else db.brands[at] = row;
+    await logStaff(staffId, input.id ? "update" : "create", "brand", id);
+    return id;
+  }
+
+  const supabase = createAdminClient();
+  const payload = {
+    name,
+    slug,
+    logo_url: input.logo_url,
+    sort: input.sort,
+    active: input.active,
+  };
+
+  const { data, error } = input.id
+    ? await supabase.from("brands").update(payload).eq("id", input.id).select("id").maybeSingle()
+    : await supabase.from("brands").insert(payload).select("id").maybeSingle();
+
+  if (error || !data) return null;
+  await logStaff(staffId, input.id ? "update" : "create", "brand", data.id);
+  return data.id;
+}
+
+/**
+ * Remove a brand. Products keep their free-text brand name and simply lose the
+ * link, which is why the column is ON DELETE SET NULL rather than a cascade —
+ * deleting a logo must never delete stock.
+ */
+export async function deleteBrand(staffId: string, id: string): Promise<void> {
+  if (isDemo()) {
+    const db = demoDB();
+    db.brands = db.brands.filter((b) => b.id !== id);
+    for (const product of db.products) {
+      if (product.brand_id === id) product.brand_id = null;
+    }
+  } else {
+    await createAdminClient().from("brands").delete().eq("id", id);
+  }
+  await logStaff(staffId, "delete", "brand", id);
+}
+
 /* ── Reviews ─────────────────────────────────────────────────────────────── */
 
 export async function listReviews(status?: Review["status"]): Promise<Review[]> {
@@ -385,6 +537,35 @@ export async function moderateReview(
     await supabase.from("reviews").update({ status }).eq("id", reviewId);
   }
   await logStaff(staffId, `review:${status}`, "review", reviewId);
+}
+
+export async function addAdminReview(
+  staffId: string,
+  input: { author_name: string; rating: number; text: string; product_id: string },
+): Promise<void> {
+  const id = isDemo() ? `r-${Date.now()}` : crypto.randomUUID();
+  if (isDemo()) {
+    demoDB().reviews.unshift({
+      id,
+      product_id: input.product_id,
+      author_name: input.author_name,
+      rating: input.rating,
+      text: input.text,
+      status: "approved",
+      created_at: new Date().toISOString(),
+    });
+  } else {
+    const supabase = createAdminClient();
+    await supabase.from("reviews").insert({
+      id,
+      product_id: input.product_id,
+      author_name: input.author_name,
+      rating: input.rating,
+      text: input.text,
+      status: "approved",
+    });
+  }
+  await logStaff(staffId, "review:create", "review", id);
 }
 
 /* ── Customers ───────────────────────────────────────────────────────────── */

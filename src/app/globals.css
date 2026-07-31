@@ -81,6 +81,30 @@
     animation-play-state: paused;
   }
 
+  /* Offer ticker. The track holds the message list twice, so translating it
+     exactly -50% lands the second copy where the first began and the loop is
+     seamless — change one and the other has to change with it. */
+  @keyframes tickerScroll {
+    from {
+      transform: translateX(0);
+    }
+
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .marquee-track {
+    animation: tickerScroll 34s linear infinite;
+    will-change: transform;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track {
+      animation: none;
+    }
+  }
+
   /* Hero background blobs — the ONLY place blur is allowed */
   .blob {
     filter: blur(48px);

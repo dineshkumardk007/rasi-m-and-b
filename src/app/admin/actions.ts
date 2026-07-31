@@ -2,16 +2,24 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  addAdminReview,
   addCoupon,
   archiveProduct,
+  deleteBanner,
+  deleteBrand,
   deleteCoupon,
   moderateReview,
   requireStaff,
   saveCustomerNote,
+  setCouponFeatured,
   setOrderStatus,
   updateProductStock,
   updateSettings,
+  upsertBanner,
+  upsertBrand,
   upsertProduct,
+  type BannerInput,
+  type BrandInput,
   type ProductInput,
 } from "@/lib/data/admin";
 import type { Coupon, OrderStatus, StoreSettings } from "@/lib/types";
@@ -21,6 +29,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/env.mjs";
 import { PRODUCT_IMAGE_BUCKET, relatedObjectPaths, validateImage } from "@/lib/images";
 import { uploadProductImageSet } from "@/lib/product-image-upload";
+import { uploadMerchImage } from "@/lib/merch-image-upload";
 
 /** Every admin action re-checks the staff gate server-side, then audits. */
 
@@ -90,6 +99,76 @@ export async function deleteProductImageAction(url: string): Promise<void> {
   await createAdminClient().storage.from(PRODUCT_IMAGE_BUCKET).remove(paths);
 }
 
+/**
+ * Upload a banner slide or a brand logo, fitted to its slot.
+ *
+ * Separate from the product upload because the destination and the fit differ:
+ * a banner is cropped to fill its 3:1 frame, a logo is contained on white and
+ * never cropped. Both land in the same bucket behind the same staff gate.
+ */
+export async function uploadMerchImageAction(
+  formData: FormData,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  await gate();
+
+  if (isDemo()) {
+    return { ok: false, error: "Image upload needs Supabase keys — currently in demo mode." };
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) return { ok: false, error: "No file received." };
+
+  const check = validateImage(file.type, file.size);
+  if (!check.ok) return { ok: false, error: check.error };
+
+  const kind = formData.get("kind") === "brandLogo" ? "brandLogo" : "banner";
+
+  return uploadMerchImage(createAdminClient(), {
+    supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
+    kind,
+    slugHint: (formData.get("slug") as string | null) ?? kind,
+    source: Buffer.from(await file.arrayBuffer()),
+    random: randomUUID(),
+  });
+}
+
+export async function upsertBannerAction(input: BannerInput) {
+  const userId = await gate();
+  const id = await upsertBanner(userId, input);
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return id;
+}
+
+export async function deleteBannerAction(id: string) {
+  const userId = await gate();
+  await deleteBanner(userId, id);
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function upsertBrandAction(input: BrandInput) {
+  const userId = await gate();
+  const id = await upsertBrand(userId, input);
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return id;
+}
+
+export async function deleteBrandAction(id: string) {
+  const userId = await gate();
+  await deleteBrand(userId, id);
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function setCouponFeaturedAction(code: string, featured: boolean) {
+  const userId = await gate();
+  await setCouponFeatured(userId, code, featured);
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
 export async function setOrderStatusAction(orderId: string, status: OrderStatus) {
   const userId = await gate();
   const ok = await setOrderStatus(userId, orderId, status);
@@ -137,6 +216,13 @@ export async function deleteCouponAction(code: string) {
 export async function moderateReviewAction(reviewId: string, status: "approved" | "rejected") {
   const userId = await gate();
   await moderateReview(userId, reviewId, status);
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function addAdminReviewAction(input: { author_name: string; rating: number; text: string; product_id: string }) {
+  const userId = await gate();
+  await addAdminReview(userId, input);
   revalidatePath("/admin");
   revalidatePath("/");
 }

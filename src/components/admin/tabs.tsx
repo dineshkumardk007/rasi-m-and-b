@@ -7,6 +7,7 @@ import type {
   CustomerRecord,
   Order,
   Product,
+  ProductVariant,
   Review,
   StoreSettings,
 } from "@/lib/types";
@@ -24,10 +25,12 @@ import { Art, Badge, Btn, Card, Field, Modal, Pill, Stars } from "@/components/u
 import { bannerUrlFor, MIN_SOURCE_LONG_EDGE, RENDITIONS } from "@/lib/images";
 import { formatPinSummary, isPinServiceable, parsePinInput } from "@/lib/pin";
 import {
+  addAdminReviewAction,
   addCouponAction,
   archiveProductAction,
   deleteCouponAction,
   deleteProductImageAction,
+  setCouponFeaturedAction,
   uploadProductImageAction,
   moderateReviewAction,
   saveCustomerNoteAction,
@@ -271,6 +274,8 @@ function ProductForm({
     description_en: product?.description_en ?? "",
     description_ta: product?.description_ta ?? "",
     images: product?.images ?? [],
+    size_chart_type: product?.size_chart_type ?? "none",
+    variants: product?.variants ?? [],
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -301,6 +306,8 @@ function ProductForm({
       description_en: f.description_en,
       description_ta: f.description_ta,
       images: f.images,
+      size_chart_type: f.size_chart_type as Product["size_chart_type"],
+      variants: f.variants,
     });
     // upsertProduct returns null when the database rejects the row. Closing the
     // form regardless made a failed save look like a successful one.
@@ -390,17 +397,116 @@ function ProductForm({
           className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2.5 font-body text-[15px] outline-none"
         />
       </label>
-      <label className="mb-4 block">
+      <label className="mb-3 block">
         <span className="font-display text-[12px] font-extrabold uppercase text-mute">
-          Description (Tamil)
+          Size Chart Guide
         </span>
-        <textarea
-          value={f.description_ta}
-          onChange={(e) => setF({ ...f, description_ta: e.target.value })}
-          rows={2}
-          className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2.5 font-body text-[15px] outline-none"
-        />
+        <select
+          value={f.size_chart_type ?? "none"}
+          onChange={(e) => setF({ ...f, size_chart_type: e.target.value as NonNullable<Product["size_chart_type"]> })}
+          className="mt-1 w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2.5 font-body text-[15px] outline-none"
+        >
+          <option value="none">None</option>
+          <option value="diaper">🧷 Diaper Weight Guide (NB, S, M, L, XL)</option>
+          <option value="clothing">👕 Baby Clothing Age Guide (0-3m, 3-6m...)</option>
+          <option value="shoes">👟 Footwear Guide</option>
+        </select>
       </label>
+
+      {/* Product Variants UI */}
+      <div className="mb-4 rounded-tile border-2 border-dashed border-ink/20 bg-cream p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-display text-[13px] font-extrabold text-ink uppercase">
+            📦 Product Variants (Sizes / Packs / Options)
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setF((prev) => ({
+                ...prev,
+                variants: [
+                  ...prev.variants,
+                  {
+                    id: `v-${Date.now()}`,
+                    name_en: "New Variant",
+                    name_ta: "புதிய அளவு",
+                    price: Number(f.price) || 100,
+                    stock: 10,
+                  },
+                ],
+              }))
+            }
+            className="rounded-pill border-2 border-ink bg-brand px-2.5 py-0.5 text-[12px] font-extrabold text-white shadow-hard-1"
+          >
+            + Add Variant
+          </button>
+        </div>
+        {f.variants.length === 0 ? (
+          <p className="text-[12px] text-mute italic">No variants added. Product will sell as a single standard SKU.</p>
+        ) : (
+          <div className="grid gap-2">
+            {f.variants.map((v, idx) => (
+              <div key={v.id || idx} className="flex flex-wrap items-center gap-2 rounded-tile border border-ink/30 bg-white p-2 text-[13px]">
+                <input
+                  type="text"
+                  placeholder="Name (EN)"
+                  value={v.name_en}
+                  onChange={(e) => {
+                    const next = [...f.variants];
+                    next[idx] = { ...next[idx], name_en: e.target.value } as ProductVariant;
+                    setF({ ...f, variants: next });
+                  }}
+                  className="min-w-[110px] flex-1 rounded-pill border border-ink px-2 py-1 outline-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Name (TA)"
+                  value={v.name_ta}
+                  onChange={(e) => {
+                    const next = [...f.variants];
+                    next[idx] = { ...next[idx], name_ta: e.target.value } as ProductVariant;
+                    setF({ ...f, variants: next });
+                  }}
+                  className="min-w-[110px] flex-1 rounded-pill border border-ink px-2 py-1 outline-none"
+                />
+                <input
+                  type="number"
+                  placeholder="Price (₹)"
+                  value={v.price ?? f.price}
+                  onChange={(e) => {
+                    const next = [...f.variants];
+                    next[idx] = { ...next[idx], price: Number(e.target.value) } as ProductVariant;
+                    setF({ ...f, variants: next });
+                  }}
+                  className="w-[80px] rounded-pill border border-ink px-2 py-1 outline-none"
+                />
+                <input
+                  type="number"
+                  placeholder="Stock"
+                  value={v.stock}
+                  onChange={(e) => {
+                    const next = [...f.variants];
+                    next[idx] = { ...next[idx], stock: Number(e.target.value) } as ProductVariant;
+                    setF({ ...f, variants: next });
+                  }}
+                  className="w-[70px] rounded-pill border border-ink px-2 py-1 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setF((prev) => ({ ...prev, variants: prev.variants.filter((_, i) => i !== idx) }));
+                  }}
+                  className="text-[#E24B4A] font-extrabold text-[14px] px-1 hover:scale-110"
+                  title="Remove variant"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <ProductImages
         images={f.images}
         slugHint={f.name_en || product?.slug || "product"}
@@ -804,17 +910,39 @@ export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
                   {expired ? "EXPIRED" : "LIMIT REACHED"}
                 </span>
               )}
+              {c.featured && (
+                <span className="ml-2 rounded-pill border-2 border-ink bg-[#FFE66D] px-2 py-0.5 text-[11px] font-extrabold">
+                  ON HOME PAGE
+                </span>
+              )}
             </div>
-            <Btn
-              small
-              bg="#E24B4A"
-              onClick={async () => {
-                await deleteCouponAction(c.code);
-                router.refresh();
-              }}
-            >
-              Delete
-            </Btn>
+            <div className="flex shrink-0 gap-2">
+              {/* An expired or exhausted code is never advertised, so offering
+                  the toggle on one would promise something checkout refuses. */}
+              {!expired && !exhausted && (
+                <Btn
+                  small
+                  bg={c.featured ? "#F2EAE0" : "#FFE66D"}
+                  color="#2B2140"
+                  onClick={async () => {
+                    await setCouponFeaturedAction(c.code, !c.featured);
+                    router.refresh();
+                  }}
+                >
+                  {c.featured ? "Unfeature" : "Feature"}
+                </Btn>
+              )}
+              <Btn
+                small
+                bg="#E24B4A"
+                onClick={async () => {
+                  await deleteCouponAction(c.code);
+                  router.refresh();
+                }}
+              >
+                Delete
+              </Btn>
+            </div>
           </Card>
           );
         })}
@@ -826,6 +954,13 @@ export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
 /* ── Review moderation queue ─────────────────────────────────────────────── */
 export function ReviewsTab({ reviews, products }: { reviews: Review[]; products: Product[] }) {
   const router = useRouter();
+  const [showAdd, setShowAdd] = useState(false);
+  const [authorName, setAuthorName] = useState("");
+  const [rating, setRating] = useState(5);
+  const [text, setText] = useState("");
+  const [productId, setProductId] = useState(products[0]?.id ?? "");
+  const [submitting, setSubmitting] = useState(false);
+
   const pending = reviews.filter((r) => r.status === "pending");
   const rest = reviews.filter((r) => r.status !== "pending");
   const productName = (id: string) => products.find((p) => p.id === id)?.name_en ?? "—";
@@ -835,41 +970,167 @@ export function ReviewsTab({ reviews, products }: { reviews: Review[]; products:
     router.refresh();
   };
 
+  const handleAddReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authorName.trim() || !text.trim()) return;
+    setSubmitting(true);
+    await addAdminReviewAction({
+      author_name: authorName.trim(),
+      rating,
+      text: text.trim(),
+      product_id: productId,
+    });
+    setSubmitting(false);
+    setAuthorName("");
+    setText("");
+    setShowAdd(false);
+    router.refresh();
+  };
+
   return (
-    <div className="grid gap-3">
-      <h3 className="font-display font-extrabold">Pending ({pending.length})</h3>
-      {pending.length === 0 && <p className="text-[14px] text-mute">Queue is clear ✨</p>}
-      {pending.map((r) => (
-        <Card key={r.id} className="p-4">
-          <div className="text-[13px] text-mute">{productName(r.product_id)}</div>
-          <div className="mt-1">
-            <Stars n={r.rating} />{" "}
-            <span className="font-display font-extrabold">{r.author_name}</span>
-          </div>
-          <p className="mt-1 text-[14px] text-mute">{r.text}</p>
-          <div className="mt-3 flex gap-2">
-            <Btn small bg="#D6E8B0" color="#2B2140" onClick={() => decide(r.id, "approved")}>
-              ✓ Approve
-            </Btn>
-            <Btn small bg="#FFCBD9" color="#2B2140" onClick={() => decide(r.id, "rejected")}>
-              ✕ Reject
-            </Btn>
-          </div>
-        </Card>
-      ))}
-      {rest.length > 0 && (
-        <>
-          <h3 className="mt-2 font-display font-extrabold">Moderated</h3>
-          {rest.map((r) => (
-            <Card key={r.id} className="flex items-center justify-between p-3 text-[14px]">
-              <div className="min-w-0">
-                <Stars n={r.rating} /> <b>{r.author_name}</b>{" "}
-                <span className="text-mute">— {r.text.slice(0, 60)}</span>
+    <div className="grid gap-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-display font-extrabold text-[18px]">Customer Reviews Management</h3>
+        <Btn small bg="#B9EBDD" color="#2B2140" onClick={() => setShowAdd(!showAdd)}>
+          {showAdd ? "✕ Close Form" : "➕ Add Customer Review"}
+        </Btn>
+      </div>
+
+      {showAdd && (
+        <Card className="p-4 bg-paper border-2.5 border-ink">
+          <form onSubmit={handleAddReview} className="grid gap-3">
+            <h4 className="font-display font-extrabold text-[15px]">Create & Approve New Review</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[12px] font-extrabold text-mute uppercase mb-1">
+                  Customer Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Karthiga"
+                  required
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  className="w-full rounded-pill border border-ink px-3 py-1.5 outline-none text-[14px]"
+                />
               </div>
-              <Badge bg={r.status === "approved" ? "#D6E8B0" : "#FFCBD9"}>{r.status}</Badge>
-            </Card>
-          ))}
-        </>
+
+              <div>
+                <label className="block text-[12px] font-extrabold text-mute uppercase mb-1">
+                  Rating (1-5 Stars)
+                </label>
+                <select
+                  value={rating}
+                  onChange={(e) => setRating(Number(e.target.value))}
+                  className="w-full rounded-pill border border-ink px-3 py-1.5 outline-none text-[14px] bg-white"
+                >
+                  <option value={5}>⭐⭐⭐⭐⭐ (5 Stars)</option>
+                  <option value={4}>⭐⭐⭐⭐ (4 Stars)</option>
+                  <option value={3}>⭐⭐⭐ (3 Stars)</option>
+                  <option value={2}>⭐⭐ (2 Stars)</option>
+                  <option value={1}>⭐ (1 Star)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-extrabold text-mute uppercase mb-1">
+                Associated Product
+              </label>
+              <select
+                value={productId}
+                onChange={(e) => setProductId(e.target.value)}
+                className="w-full rounded-pill border border-ink px-3 py-1.5 outline-none text-[14px] bg-white"
+              >
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name_en}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-extrabold text-mute uppercase mb-1">
+                Review Text
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Write customer review text here..."
+                required
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className="w-full rounded-tile border border-ink p-2.5 outline-none text-[14px]"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 mt-1">
+              <Btn small bg="#FFE1A8" color="#2B2140" type="submit" disabled={submitting}>
+                {submitting ? "Saving..." : "✓ Publish & Feature Review"}
+              </Btn>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      <div>
+        <h4 className="font-display font-extrabold text-[15px] mb-2">Pending Moderation ({pending.length})</h4>
+        {pending.length === 0 && <p className="text-[14px] text-mute">Queue is clear ✨</p>}
+        {pending.map((r) => (
+          <Card key={r.id} className="p-4 mb-2">
+            <div className="text-[13px] text-mute">{productName(r.product_id)}</div>
+            <div className="mt-1">
+              <Stars n={r.rating} />{" "}
+              <span className="font-display font-extrabold">{r.author_name}</span>
+            </div>
+            <p className="mt-1 text-[14px] text-mute">{r.text}</p>
+            <div className="mt-3 flex gap-2">
+              <Btn small bg="#D6E8B0" color="#2B2140" onClick={() => decide(r.id, "approved")}>
+                ✓ Approve
+              </Btn>
+              <Btn small bg="#FFCBD9" color="#2B2140" onClick={() => decide(r.id, "rejected")}>
+                ✕ Reject
+              </Btn>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {rest.length > 0 && (
+        <div>
+          <h4 className="font-display font-extrabold text-[15px] mb-2">Moderated & Approved ({rest.length})</h4>
+          <div className="grid gap-2">
+            {rest.map((r) => (
+              <Card key={r.id} className="flex items-center justify-between p-3 text-[14px]">
+                <div className="min-w-0">
+                  <Stars n={r.rating} /> <b>{r.author_name}</b>{" "}
+                  <span className="text-mute">— &ldquo;{r.text}&rdquo;</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <Badge bg={r.status === "approved" ? "#D6E8B0" : "#FFCBD9"}>{r.status}</Badge>
+                  {r.status === "approved" && (
+                    <button
+                      type="button"
+                      onClick={() => decide(r.id, "rejected")}
+                      className="text-[12px] font-bold text-brand hover:underline cursor-pointer"
+                    >
+                      Hide
+                    </button>
+                  )}
+                  {r.status === "rejected" && (
+                    <button
+                      type="button"
+                      onClick={() => decide(r.id, "approved")}
+                      className="text-[12px] font-bold text-emerald-700 hover:underline cursor-pointer"
+                    >
+                      Approve
+                    </button>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1041,6 +1302,46 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
         >
           {settings.same_day_enabled ? "ON ✓" : "OFF ✕"}
         </Pill>
+      </Card>
+
+      {/* Gift Wrapping & Greeting Note Settings */}
+      <Card className="p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-ink/10 pb-3">
+          <div>
+            <div className="font-display text-[17px] font-extrabold text-ink">
+              🎁 Gift Wrapping & Greeting Note Settings
+            </div>
+            <p className="text-[13px] text-mute">
+              Enable gift wrap packaging service at checkout and configure the wrap fee.
+            </p>
+          </div>
+          <Pill
+            bg={(settings.gift_wrap_enabled ?? true) ? "#D6E8B0" : "#FFCBD9"}
+            onClick={async () => {
+              await updateSettingsAction({ gift_wrap_enabled: !((settings.gift_wrap_enabled ?? true)) });
+              router.refresh();
+            }}
+          >
+            {(settings.gift_wrap_enabled ?? true) ? "ENABLED ✓" : "DISABLED ✕"}
+          </Pill>
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <label className="min-w-0 flex-1">
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+              Gift Wrap Fee (₹)
+            </span>
+            <input
+              type="number"
+              defaultValue={settings.gift_wrap_fee ?? 30}
+              onBlur={async (e) => {
+                const val = Number(e.target.value) || 0;
+                await updateSettingsAction({ gift_wrap_fee: val });
+                router.refresh();
+              }}
+              className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[15px] outline-none"
+            />
+          </label>
+        </div>
       </Card>
 
       {/* Serviceable PIN Codes Manager */}

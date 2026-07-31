@@ -112,8 +112,15 @@ const TILE_GLOW: Record<string, string> = {
 export const glowFor = (tile: string): string =>
   TILE_GLOW[tile.trim().toUpperCase()] ?? "#EC5D8A";
 
-/** Inline `--glow` for the .glow-card utility. */
-export const glowStyle = (tile: string): Record<string, string> => ({ "--glow": glowFor(tile) });
+/** Inline `--glow` and vibrant pastel background gradient matching All Reviews cards. */
+export const glowStyle = (tile: string): Record<string, string> => {
+  const hex = tile.trim();
+  return {
+    "--glow": glowFor(hex),
+    background: `linear-gradient(135deg, ${hex}95 0%, #FFFDF8 50%, ${hex}45 100%)`,
+    boxShadow: "6px 6px 0px #2B2140",
+  };
+};
 
 /**
  * Absolute site origin, never with a trailing slash — NEXT_PUBLIC_SITE_URL is

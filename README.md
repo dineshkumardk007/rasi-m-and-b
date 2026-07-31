@@ -265,6 +265,40 @@ plausible new scenery is outpainting and needs an image model; sharp can only
 move, repeat and blur the pixels it was given. `blur` and `mirror` are the
 closest honest approximations.
 
+## Merchandising
+
+The parts of the home page a shopkeeper controls without a deploy. Migration:
+`supabase/migrations/20260730000001_merchandising.sql`.
+
+**Banners** (admin → Banners) fill two fixed slots: a rotating hero carousel and
+one mid-page promo. Each carries an optional link and an optional start/end
+window, so a festival banner can be loaded a week early and expire on its own.
+The schedule is enforced both in the RLS policy and in `getLiveBanners()` —
+storefront reads use the service-role client, which bypasses RLS, so the query
+has to filter too. With no hero banner set the built-in `Hero` renders instead.
+
+**Brands** (admin → Brands) drive the logo rail and a `/brand/[slug]` page. That
+page is the storefront with its brand filter pre-set rather than a bespoke
+listing, so cart, quick view, search and age pills all behave identically.
+`products.brand` stays free text — `brand_id` is an optional link, and deleting
+a brand nulls it rather than touching stock.
+
+**Offers** are advertised by featuring a coupon (admin → Coupons → Feature).
+`featuredOffers()` re-checks expiry and usage limits before anything reaches the
+strip, so a code that checkout would reject is never shown. The Feature button
+is hidden on expired or exhausted coupons.
+
+**Deals of the day** needs no table — it is `topDeals()` over `mrp` and `price`,
+deepest discount first, out-of-stock excluded, with a countdown to midnight IST.
+
+Rules live in `src/lib/merchandising.ts` as pure functions taking `now` as an
+argument, so scheduling can be tested without waiting for a festival.
+
+One layering rule worth keeping: `merch-image-specs.ts` holds the sizes and is
+safe to import from client components; `merch-image-upload.ts` holds the upload
+and pulls in sharp. Importing the latter from a `"use client"` file drags a
+native Node module into the browser bundle and breaks the build.
+
 ## Catalog import
 
 Real product data drops in without code changes:

@@ -92,11 +92,12 @@ export function Card({
   style?: CSSProperties;
   onClick?: () => void;
 }) {
+  const hasCustomBg = Boolean(style && ("background" in style || "backgroundColor" in style));
   return (
     <div
       onClick={onClick}
       style={style}
-      className={`rounded-card border-3 border-ink bg-paper shadow-hard-4 ${className}`}
+      className={`rounded-card border-3 border-ink ${hasCustomBg ? "" : "bg-paper"} shadow-hard-4 ${className}`}
     >
       {children}
     </div>
@@ -181,20 +182,9 @@ export function Art({
   const src = image && ratio === "banner" ? bannerUrlFor(image) : image;
   const aspect = ratio === "banner" ? "aspect-[3/1]" : ratio === "tile" ? "aspect-[5/3]" : "";
 
-  return (
+  const box = (
     <div
-      style={
-        ratio
-          ? {
-              background: bg,
-              // Ratio boxes have no fixed height, so the emoji placeholder is
-              // sized off the container width instead — the cqw values are the
-              // same 0.34-of-height proportion the fixed-height boxes use.
-              containerType: "inline-size",
-              fontSize: ratio === "banner" ? "11cqw" : "20cqw",
-            }
-          : { height: h, background: bg, fontSize: h * 0.34 }
-      }
+      style={ratio ? { background: bg } : { height: h, background: bg, fontSize: h * 0.34 }}
       className={`relative flex w-full items-center justify-center overflow-hidden rounded-tile border-2.5 border-ink ${aspect}`}
     >
       {src ? (
@@ -207,13 +197,36 @@ export function Art({
           className={`${fit === "contain" ? "object-contain p-1.5 drop-shadow-sm" : "object-cover"} transition-transform duration-200 group-hover:scale-105`}
         />
       ) : (
-        <span aria-hidden>{emoji}</span>
+        <span
+          aria-hidden
+          // The cqw values reproduce the 0.34-of-height proportion the
+          // fixed-height boxes get from `h`, measured off the container width.
+          style={ratio ? { fontSize: ratio === "banner" ? "11cqw" : "20cqw" } : undefined}
+        >
+          {emoji}
+        </span>
       )}
       {isBundle && (
         <span className="absolute left-1.5 top-1.5 rounded-xl border-2 border-ink bg-brand px-2 py-[2px] text-[10px] font-extrabold text-white">
           BUNDLE
         </span>
       )}
+    </div>
+  );
+
+  if (!ratio) return box;
+
+  /**
+   * The container has to be an ancestor of whatever reads `cqw`, never the same
+   * element: an element cannot query itself, so `20cqw` set alongside
+   * `container-type` silently measures the viewport instead — which rendered a
+   * 256px emoji inside a 144px tile. Sizing containment on the aspect box also
+   * stopped `aspect-ratio` resolving, so the wrapper carries the container and
+   * the box below stays a plain ratio box.
+   */
+  return (
+    <div style={{ containerType: "inline-size" }} className="w-full">
+      {box}
     </div>
   );
 }

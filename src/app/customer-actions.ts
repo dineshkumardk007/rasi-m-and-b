@@ -7,7 +7,7 @@ import { logEvent } from "@/lib/data/events";
 import { currentCustomer, currentCustomerPhone } from "@/lib/customer-session";
 import { getLanguage as currentLanguage } from "@/lib/i18n/server";
 import { isValidDob } from "@/lib/baby";
-import type { Order, Product } from "@/lib/types";
+import type { CustomerAddress, Order, Product } from "@/lib/types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- supabase row shapes */
 function mapOrder(row: any): Order {
@@ -229,4 +229,153 @@ export async function myBabyDobAction(): Promise<string | null> {
     .eq("id", customerId)
     .maybeSingle();
   return data?.baby_dob ?? null;
+}
+
+/* ── Customer Address Book ────────────────────────────────────────────────── */
+
+export async function myAddressesAction(): Promise<CustomerAddress[]> {
+  const me = await currentCustomer();
+  if (!me) return [];
+
+  if (isDemo()) {
+    const digits = me.sub.replace(/\D/g, "");
+    const customer = demoDB().customers.find(
+      (c) => c.phone === digits || c.email?.toLowerCase() === me.sub.toLowerCase(),
+    );
+    return customer?.addresses ?? [];
+  }
+
+  const customerId = await findMyCustomerId(me.sub);
+  if (!customerId) return [];
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("customer_addresses")
+    .select("*")
+    .eq("customer_id", customerId)
+    .order("is_default", { ascending: false });
+  return (data ?? []) as CustomerAddress[];
+}
+
+export async function saveCustomerAddressAction(
+  address: Omit<CustomerAddress, "id" | "customer_id"> & { id?: string },
+): Promise<{ ok: boolean; address?: CustomerAddress; error?: string }> {
+  const me = await currentCustomer();
+  if (!me) return { ok: false, error: "Please sign in first." };
+
+  if (isDemo()) {
+    const db = demoDB();
+    const digits = me.sub.replace(/\D/g, "");
+    let customer = db.customers.find(
+      (c) => c.phone === digits || c.email?.toLowerCase() === me.sub.toLowerCase(),
+    );
+    if (!customer) {
+      customer = {
+        id: `demo-c-${Date.now()}`,
+        name: address.name,
+        phone: address.phone,
+        email: me.sub.includes("@") ? me.sub : null,
+        language: "en",
+        whatsapp_opt_in: true,
+        baby_dob: null,
+        notes: "",
+        created_at: new Date().toISOString(),
+        addresses: [],
+      };
+      db.customers.push(customer);
+    }
+    if (!customer.addresses) customer.addresses = [];
+
+    if (address.is_default) {
+      customer.addresses.forEach((a) => (a.is_default = false));
+    }
+
+    if (address.id) {
+      const existing = customer.addresses.find((a) => a.id === address.id);
+      if (existing) {
+        Object.assign(existing, address);
+        return { ok: true, address: existing };
+      }
+    }
+
+    const newAddr: CustomerAddress = {
+      id: `addr-${Date.now()}`,
+      customer_id: customer.id,
+      label: address.label || "Home",
+      name: address.name,
+      phone: address.phone,
+      line: address.line,
+      city: address.city || "Thoothukudi",
+      pin: address.pin,
+      is_default: address.is_default || customer.addresses.length === 0,
+    };
+    customer.addresses.push(newAddr);
+    return { ok: true, address: newAddr };
+  }
+
+  const customerId = await findMyCustomerId(me.sub);
+  if (!customerId) return { ok: false, error: "Customer not found." };
+  const supabase = createAdminClient();
+
+  if (address.is_default) {
+    await supabase.from("customer_addresses").update({ is_default: false }).eq("customer_id", customerId);
+  }
+
+  if (address.id) {
+    const { data, error } = await supabase
+      .from("customer_addresses")
+      .update({
+        label: address.label,
+        name: address.name,
+        phone: address.phone,
+        line: address.line,
+        city: address.city,
+        pin: address.pin,
+        is_default: address.is_default,
+      })
+      .eq("id", address.id)
+      .select()
+      .single();
+    if (error) return { ok: false, error: "Failed to update address." };
+    return { ok: true, address: data as CustomerAddress };
+  }
+
+  const { data, error } = await supabase
+    .from("customer_addresses")
+    .insert({
+      customer_id: customerId,
+      label: address.label,
+      name: address.name,
+      phone: address.phone,
+      line: address.line,
+      city: address.city,
+      pin: address.pin,
+      is_default: address.is_default,
+    })
+    .select()
+    .single();
+
+  if (error) return { ok: false, error: "Failed to save address." };
+  return { ok: true, address: data as CustomerAddress };
+}
+
+export async function deleteCustomerAddressAction(addressId: string): Promise<boolean> {
+  const me = await currentCustomer();
+  if (!me) return false;
+
+  if (isDemo()) {
+    const digits = me.sub.replace(/\D/g, "");
+    const customer = demoDB().customers.find(
+      (c) => c.phone === digits || c.email?.toLowerCase() === me.sub.toLowerCase(),
+    );
+    if (customer?.addresses) {
+      customer.addresses = customer.addresses.filter((a) => a.id !== addressId);
+    }
+    return true;
+  }
+
+  const customerId = await findMyCustomerId(me.sub);
+  if (!customerId) return false;
+  const supabase = createAdminClient();
+  await supabase.from("customer_addresses").delete().eq("id", addressId).eq("customer_id", customerId);
+  return true;
 }

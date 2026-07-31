@@ -10,6 +10,7 @@ export function mapProductRow(row: any): Product {
     name_ta: row.name_ta,
     slug: row.slug,
     brand: row.brand,
+    brand_id: row.brand_id ?? null,
     milestone: row.milestone,
     categories: (row.product_categories ?? []).map((c: any) => c.category as Category),
     price: row.price,
