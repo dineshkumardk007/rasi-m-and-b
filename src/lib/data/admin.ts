@@ -612,7 +612,7 @@ export async function resetCustomerPassword(
   const hashed = hashPassword(newPassword);
   if (isDemo()) {
     const c = demoDB().customers.find((x) => x.id === customerId);
-    if (c) (c as any).password = hashed;
+    if (c) c.password = hashed;
   } else {
     const supabase = createAdminClient();
     const { error } = await supabase
@@ -622,7 +622,7 @@ export async function resetCustomerPassword(
     if (error) {
       console.warn("Supabase customer password reset error:", error);
       const c = demoDB().customers.find((x) => x.id === customerId);
-      if (c) (c as any).password = hashed;
+      if (c) c.password = hashed;
     }
   }
   await logStaff(staffId, "reset_password", "customer", customerId);

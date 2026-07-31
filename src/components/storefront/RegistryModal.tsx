@@ -94,7 +94,7 @@ export function CreateRegistryModal({
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <div>
             <label className="block text-[11px] font-extrabold uppercase text-mute mb-1">
               Parent(s) Name
@@ -104,6 +104,18 @@ export function CreateRegistryModal({
               required
               value={parentName}
               onChange={(e) => setParentName(e.target.value)}
+              className="w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 text-[14px] font-bold outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-extrabold uppercase text-mute mb-1">
+              Baby&apos;s Name (or &quot;Baby&quot;)
+            </label>
+            <input
+              type="text"
+              required
+              value={babyName}
+              onChange={(e) => setBabyName(e.target.value)}
               className="w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 text-[14px] font-bold outline-none"
             />
           </div>
@@ -221,7 +233,7 @@ export function ViewRegistryModal({
       </h4>
 
       <div className="space-y-2 max-h-[300px] overflow-y-auto">
-        {regProducts.map(({ item, product }) => {
+        {regProducts.map(({ product }) => {
           if (!product) return null;
           return (
             <div

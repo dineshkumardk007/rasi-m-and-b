@@ -15,7 +15,6 @@ import type {
 import { autoTranslateToTamil } from "@/lib/i18n/auto-translate";
 import {
   CATEGORIES,
-  CATEGORY_META,
   MILESTONES,
   MILESTONE_META,
   TILE_SWATCHES,
