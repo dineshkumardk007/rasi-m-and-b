@@ -47,14 +47,12 @@ import {
   WishlistModal,
 } from "./modals";
 import {
-  BannerCarousel,
   BrandRail,
   DealOfTheDay,
   OfferStrip,
   PromoBanner,
   ReviewsStrip,
 } from "./merch";
-import { liveBanners } from "@/lib/merchandising";
 import { Ribbon } from "./Ribbon";
 import { BabyClub } from "./BabyClub";
 import { WhatsAppFab } from "./WhatsAppFab";
@@ -108,9 +106,6 @@ export default function Storefront(props: StorefrontProps) {
   const [brand, setBrandState] = useState<string>(props.initialBrand ?? "all");
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [inStockOnly, setInStockOnly] = useState(false);
-
-  /** Whether to show the managed carousel or fall back to the built-in hero. */
-  const hasHeroBanner = useMemo(() => liveBanners(banners, "hero").length > 0, [banners]);
 
   /**
    * Filters are mirrored into the URL so a filtered view can be shared, linked

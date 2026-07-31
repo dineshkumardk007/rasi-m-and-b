@@ -17,7 +17,7 @@ import Link from "next/link";
 import type { Banner, Brand, Coupon, Product, Review, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { inr } from "@/lib/constants";
-import { Card, Stars } from "@/components/ui";
+import { Stars } from "@/components/ui";
 import { Marquee } from "./sections";
 import {
   featuredOffers,
