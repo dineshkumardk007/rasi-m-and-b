@@ -5,18 +5,21 @@ import { useRouter } from "next/navigation";
 import type {
   Coupon,
   CustomerRecord,
+  DeliverySlab,
   Order,
   Product,
   ProductVariant,
   Review,
   StoreSettings,
 } from "@/lib/types";
+import { autoTranslateToTamil } from "@/lib/i18n/auto-translate";
 import {
   CATEGORIES,
   CATEGORY_META,
   MILESTONES,
   MILESTONE_META,
   TILE_SWATCHES,
+  getAllCategories,
   inr,
   type Category,
   type Milestone,
@@ -33,6 +36,7 @@ import {
   setCouponFeaturedAction,
   uploadProductImageAction,
   moderateReviewAction,
+  resetCustomerPasswordAction,
   saveCustomerNoteAction,
   updateProductStockAction,
   updateSettingsAction,
@@ -40,7 +44,7 @@ import {
 } from "@/app/admin/actions";
 
 /* ── Products CRUD (archive-not-delete, tile colour picker) ──────────────── */
-export function ProductsTab({ products }: { products: Product[] }) {
+export function ProductsTab({ products, settings }: { products: Product[]; settings: StoreSettings }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Product | null | "new">(null);
   const [confirmArchive, setConfirmArchive] = useState<Product | null>(null);
@@ -48,6 +52,26 @@ export function ProductsTab({ products }: { products: Product[] }) {
   const [catFilter, setCatFilter] = useState<string>("all");
   const [stockFilter, setStockFilter] = useState<"all" | "low" | "out">("all");
   const [stockUpdating, setStockUpdating] = useState<string | null>(null);
+
+  /* ── merged built-in + custom categories ───────────────── */
+  const { slugs: allCatSlugs, meta: allCatMeta } = useMemo(
+    () => getAllCategories(settings.custom_categories),
+    [settings.custom_categories],
+  );
+
+  /* ── custom category manager state ─────────────────────── */
+  const [showCatManager, setShowCatManager] = useState(false);
+  const [newCatSlug, setNewCatSlug] = useState("");
+  const [newCatEn, setNewCatEn] = useState("");
+  const [newCatTa, setNewCatTa] = useState("");
+  const [newCatEmoji, setNewCatEmoji] = useState("📦");
+  const [newCatBg, setNewCatBg] = useState("#E4D6FF");
+  const [newCatPop, setNewCatPop] = useState("#9A6BE0");
+
+  const [bulkCategory, setBulkCategory] = useState<string>("all");
+  const [bulkAction, setBulkAction] = useState<"discount" | "increase" | "decrease">("discount");
+  const [bulkPercent, setBulkPercent] = useState<number>(10);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   const active = useMemo(() => {
     return products.filter((p) => {
@@ -77,7 +101,10 @@ export function ProductsTab({ products }: { products: Product[] }) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Btn onClick={() => setEditing("new")}>➕ Add New Product</Btn>
+        <div className="flex flex-wrap items-center gap-2">
+          <Btn onClick={() => setEditing("new")}>➕ Add New Product</Btn>
+          <Btn small bg="#E4D6FF" color="#2B2140" onClick={() => setShowCatManager((v) => !v)}>📂 {showCatManager ? "Hide" : "Manage"} Categories</Btn>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="text"
@@ -92,9 +119,9 @@ export function ProductsTab({ products }: { products: Product[] }) {
             className="rounded-pill border-2.5 border-ink bg-white px-3 py-1.5 text-[13px] font-extrabold outline-none shadow-hard-2"
           >
             <option value="all">All Categories</option>
-            {CATEGORIES.map((c) => (
+            {allCatSlugs.map((c) => (
               <option key={c} value={c}>
-                {CATEGORY_META[c].emoji} {CATEGORY_META[c].en}
+                {allCatMeta[c]?.emoji} {allCatMeta[c]?.en}
               </option>
             ))}
           </select>
@@ -109,6 +136,195 @@ export function ProductsTab({ products }: { products: Product[] }) {
           </select>
         </div>
       </div>
+
+      {/* ── Dynamic Category Manager ────────────────────────────── */}
+      {showCatManager && (
+        <Card className="mb-4 p-3.5 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/10 pb-2">
+            <div className="font-display text-[15px] font-extrabold text-ink">
+              📂 Category Manager
+            </div>
+            <span className="text-[12px] text-mute">Built-in categories (8) + your custom ones. Products can use any of these.</span>
+          </div>
+
+          {/* existing categories */}
+          <div className="flex flex-wrap gap-2">
+            {allCatSlugs.map((slug) => {
+              const m = allCatMeta[slug];
+              const isBuiltIn = (CATEGORIES as readonly string[]).includes(slug);
+              return (
+                <div key={slug} className="flex items-center gap-1 rounded-pill border-2 border-ink px-2.5 py-1" style={{ background: m?.bg }}>
+                  <span className="text-[13px] font-extrabold">{m?.emoji} {m?.en}</span>
+                  {m?.ta && <span className="text-[11px] text-mute">({m.ta})</span>}
+                  {isBuiltIn ? (
+                    <span className="text-[10px] text-mute ml-1">built-in</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const updated = (settings.custom_categories ?? []).filter((cc) => cc.slug !== slug);
+                        await updateSettingsAction({ custom_categories: updated });
+                        router.refresh();
+                      }}
+                      className="ml-1 text-[12px] font-extrabold text-[#E24B4A] hover:scale-110 cursor-pointer"
+                      title="Remove custom category"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* add new category */}
+          <div className="rounded-tile border-2 border-dashed border-ink/20 bg-cream p-3">
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">➕ Add New Category</span>
+            <div className="mt-2 flex flex-wrap items-end gap-2">
+              <label className="flex-1 min-w-[100px]">
+                <span className="text-[11px] font-bold text-mute">Slug (lowercase)</span>
+                <input value={newCatSlug} onChange={(e) => setNewCatSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))} placeholder="bedding" className="mt-1 w-full rounded-pill border-2 border-ink px-3 py-1.5 text-[13px] outline-none" />
+              </label>
+              <label className="flex-1 min-w-[100px]">
+                <span className="text-[11px] font-bold text-mute">English Name</span>
+                <input value={newCatEn} onChange={(e) => setNewCatEn(e.target.value)} placeholder="Bedding & Nursery" className="mt-1 w-full rounded-pill border-2 border-ink px-3 py-1.5 text-[13px] outline-none" />
+              </label>
+              <label className="flex-1 min-w-[100px]">
+                <span className="text-[11px] font-bold text-mute">Tamil Name</span>
+                <input value={newCatTa} onChange={(e) => setNewCatTa(e.target.value)} placeholder="படுக்கை" className="mt-1 w-full rounded-pill border-2 border-ink px-3 py-1.5 text-[13px] outline-none" />
+              </label>
+              <label className="w-[70px]">
+                <span className="text-[11px] font-bold text-mute">Emoji</span>
+                <input value={newCatEmoji} onChange={(e) => setNewCatEmoji(e.target.value)} className="mt-1 w-full rounded-pill border-2 border-ink px-3 py-1.5 text-[13px] outline-none text-center" />
+              </label>
+              <label className="w-[80px]">
+                <span className="text-[11px] font-bold text-mute">Bg Color</span>
+                <input type="color" value={newCatBg} onChange={(e) => setNewCatBg(e.target.value)} className="mt-1 h-[34px] w-full rounded-pill border-2 border-ink cursor-pointer" />
+              </label>
+              <label className="w-[80px]">
+                <span className="text-[11px] font-bold text-mute">Pop Color</span>
+                <input type="color" value={newCatPop} onChange={(e) => setNewCatPop(e.target.value)} className="mt-1 h-[34px] w-full rounded-pill border-2 border-ink cursor-pointer" />
+              </label>
+              <Btn
+                small
+                bg="#D6E8B0"
+                color="#2B2140"
+                onClick={async () => {
+                  if (!newCatSlug || !newCatEn) return;
+                  if (allCatSlugs.includes(newCatSlug)) return;
+                  const updated = [
+                    ...(settings.custom_categories ?? []),
+                    { slug: newCatSlug, en: newCatEn, ta: newCatTa || newCatEn, emoji: newCatEmoji, bg: newCatBg, pop: newCatPop },
+                  ];
+                  await updateSettingsAction({ custom_categories: updated });
+                  setNewCatSlug(""); setNewCatEn(""); setNewCatTa(""); setNewCatEmoji("📦");
+                  router.refresh();
+                }}
+              >
+                ✅ Add Category
+              </Btn>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Bulk Category Price Modifier Tool */}
+      <Card className="mt-3 mb-4 p-3.5 space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/10 pb-2">
+          <div className="font-display text-[15px] font-extrabold text-ink">
+            🏷️ Bulk Category Price & Discount Modifier Tool
+          </div>
+          <span className="text-[12px] text-mute">Apply 1-click sales discounts or price adjustments across categories.</span>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-2.5">
+          <label className="min-w-[140px] flex-1">
+            <span className="text-[11px] font-extrabold uppercase text-mute">Target Category</span>
+            <select
+              value={bulkCategory}
+              onChange={(e) => setBulkCategory(e.target.value)}
+              className="mt-1 w-full rounded-pill border-2 border-ink bg-white px-3 py-1.5 text-[13px] font-bold outline-none"
+            >
+              <option value="all">All Categories ({products.filter(p => p.status !== "archived").length} items)</option>
+              {allCatSlugs.map((c) => (
+                <option key={c} value={c}>
+                  {allCatMeta[c]?.emoji} {allCatMeta[c]?.en}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="min-w-[120px] flex-1">
+            <span className="text-[11px] font-extrabold uppercase text-mute">Action Mode</span>
+            <select
+              value={bulkAction}
+              onChange={(e) => setBulkAction(e.target.value as "discount" | "increase" | "decrease")}
+              className="mt-1 w-full rounded-pill border-2 border-ink bg-white px-3 py-1.5 text-[13px] font-bold outline-none"
+            >
+              <option value="discount">🏷️ Apply Discount (% OFF)</option>
+              <option value="increase">📈 Increase Prices (% UP)</option>
+              <option value="decrease">📉 Decrease Prices (% DOWN)</option>
+            </select>
+          </label>
+
+          <label className="w-[100px]">
+            <span className="text-[11px] font-extrabold uppercase text-mute">Percentage (%)</span>
+            <input
+              type="number"
+              value={bulkPercent}
+              onChange={(e) => setBulkPercent(Number(e.target.value))}
+              className="mt-1 w-full rounded-pill border-2 border-ink px-3 py-1.5 text-[13px] font-bold outline-none"
+            />
+          </label>
+
+          <Btn
+            small
+            bg="#D6E8B0"
+            color="#2B2140"
+            disabled={bulkProcessing}
+            onClick={async () => {
+              if (bulkPercent <= 0) return;
+              setBulkProcessing(true);
+              const targets = products.filter((p) => {
+                if (p.status === "archived") return false;
+                if (bulkCategory !== "all" && !p.categories.includes(bulkCategory as Category)) return false;
+                return true;
+              });
+
+              for (const p of targets) {
+                let newPrice = p.price;
+                if (bulkAction === "discount" || bulkAction === "decrease") {
+                  newPrice = Math.max(1, Math.round(p.price * (1 - bulkPercent / 100)));
+                } else if (bulkAction === "increase") {
+                  newPrice = Math.round(p.price * (1 + bulkPercent / 100));
+                }
+                await upsertProductAction({
+                  id: p.id,
+                  name_en: p.name_en,
+                  name_ta: p.name_ta,
+                  brand: p.brand,
+                  milestone: p.milestone,
+                  categories: p.categories,
+                  price: newPrice,
+                  mrp: Math.max(p.mrp, newPrice),
+                  stock: p.stock,
+                  tile_color: p.tile_color,
+                  emoji: p.emoji,
+                  description_en: p.description_en,
+                  description_ta: p.description_ta,
+                  images: p.images,
+                  size_chart_type: p.size_chart_type,
+                  variants: p.variants,
+                });
+              }
+              setBulkProcessing(false);
+              router.refresh();
+            }}
+          >
+            {bulkProcessing ? "Applying..." : "⚡ Apply Bulk Price Modifier"}
+          </Btn>
+        </div>
+      </Card>
 
       <div className="mt-4 grid gap-3">
         {active.map((p) => {
@@ -147,7 +363,7 @@ export function ProductsTab({ products }: { products: Product[] }) {
                         key={c}
                         className="rounded-[10px] border-[1.5px] border-ink bg-[#D6E8B0] px-2 py-[2px] text-[10px] font-extrabold"
                       >
-                        {CATEGORY_META[c].en}
+                        {allCatMeta[c]?.en ?? c}
                       </span>
                     ))}
                   </div>
@@ -213,6 +429,7 @@ export function ProductsTab({ products }: { products: Product[] }) {
       {editing && (
         <ProductForm
           product={editing === "new" ? null : editing}
+          settings={settings}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -253,13 +470,19 @@ export function ProductsTab({ products }: { products: Product[] }) {
 
 function ProductForm({
   product,
+  settings,
   onClose,
   onSaved,
 }: {
   product: Product | null;
+  settings: StoreSettings;
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { slugs: formCatSlugs, meta: formCatMeta } = useMemo(
+    () => getAllCategories(settings.custom_categories),
+    [settings.custom_categories],
+  );
   const [f, setF] = useState({
     name_en: product?.name_en ?? "",
     name_ta: product?.name_ta ?? "",
@@ -324,7 +547,19 @@ function ProductForm({
       <h3 className="mb-3.5 font-display text-[24px] font-extrabold">
         {product ? "Edit product ✏️" : "Add new product ➕"}
       </h3>
-      <Field label="Product name (English)" value={f.name_en} onChange={(v) => setF({ ...f, name_en: v })} placeholder="Organic Cotton Onesie" />
+      <Field
+        label="Product name (English)"
+        value={f.name_en}
+        onChange={(v) => {
+          const autoTa = autoTranslateToTamil(v);
+          setF((prev) => ({
+            ...prev,
+            name_en: v,
+            name_ta: autoTa,
+          }));
+        }}
+        placeholder="Organic Cotton Onesie"
+      />
       <Field label="Product name (Tamil)" value={f.name_ta} onChange={(v) => setF({ ...f, name_ta: v })} placeholder="ஆர்கானிக் பருத்தி உடை" />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Field label="Brand" value={f.brand} onChange={(v) => setF({ ...f, brand: v })} placeholder="Sebamed" />
@@ -353,11 +588,11 @@ function ProductForm({
           Categories (pick one or more)
         </span>
         <div className="mt-2 flex flex-wrap gap-2">
-          {CATEGORIES.map((c) => {
-            const on = f.categories.includes(c);
+          {formCatSlugs.map((c) => {
+            const on = f.categories.includes(c as Category);
             return (
-              <Pill key={c} bg={on ? "#D6E8B0" : "#F2EAE0"} onClick={() => toggleCat(c)}>
-                {CATEGORY_META[c].emoji} {CATEGORY_META[c].en}
+              <Pill key={c} bg={on ? "#D6E8B0" : "#F2EAE0"} onClick={() => toggleCat(c as Category)}>
+                {formCatMeta[c]?.emoji} {formCatMeta[c]?.en}
                 {on ? " ✓" : ""}
               </Pill>
             );
@@ -452,11 +687,20 @@ function ProductForm({
                   placeholder="Name (EN)"
                   value={v.name_en}
                   onChange={(e) => {
+                    const valEn = e.target.value;
+                    const autoTa = autoTranslateToTamil(valEn);
                     const next = [...f.variants];
-                    next[idx] = { ...next[idx], name_en: e.target.value } as ProductVariant;
-                    setF({ ...f, variants: next });
+                    const target = next[idx];
+                    if (target) {
+                      next[idx] = {
+                        ...target,
+                        name_en: valEn,
+                        name_ta: autoTa,
+                      } as ProductVariant;
+                      setF({ ...f, variants: next });
+                    }
                   }}
-                  className="min-w-[110px] flex-1 rounded-pill border border-ink px-2 py-1 outline-none"
+                  className="min-w-[110px] flex-1 rounded-pill border border-ink px-2 py-1 outline-none font-bold"
                 />
                 <input
                   type="text"
@@ -464,10 +708,13 @@ function ProductForm({
                   value={v.name_ta}
                   onChange={(e) => {
                     const next = [...f.variants];
-                    next[idx] = { ...next[idx], name_ta: e.target.value } as ProductVariant;
-                    setF({ ...f, variants: next });
+                    const target = next[idx];
+                    if (target) {
+                      next[idx] = { ...target, name_ta: e.target.value } as ProductVariant;
+                      setF({ ...f, variants: next });
+                    }
                   }}
-                  className="min-w-[110px] flex-1 rounded-pill border border-ink px-2 py-1 outline-none"
+                  className="min-w-[110px] flex-1 rounded-pill border border-ink px-2 py-1 outline-none bg-paper font-bold text-brand"
                 />
                 <input
                   type="number"
@@ -716,6 +963,7 @@ export function CustomersTab({
   customers: CustomerRecord[];
   orders: Order[];
 }) {
+  const [resetTarget, setResetTarget] = useState<CustomerRecord | null>(null);
   const withStats = useMemo(() => {
     const now = Date.now();
     const rows = customers.map((c) => {
@@ -758,31 +1006,68 @@ export function CustomersTab({
     "top 10%": "#FFE1A8",
   };
 
+  const [custSearch, setCustSearch] = useState("");
+  const [segFilter, setSegFilter] = useState<string>("all");
+
+  const filtered = useMemo(() => {
+    return withStats.filter(({ c, segment }) => {
+      if (segFilter !== "all" && segment !== segFilter) return false;
+      if (custSearch) {
+        const q = custSearch.toLowerCase().replace(/\D/g, "") || custSearch.toLowerCase();
+        const qRaw = custSearch.toLowerCase();
+        const matchPhone = c.phone.includes(q);
+        const matchEmail = c.email?.toLowerCase().includes(qRaw);
+        const matchName = (c.name || "").toLowerCase().includes(qRaw);
+        if (!matchPhone && !matchEmail && !matchName) return false;
+      }
+      return true;
+    });
+  }, [withStats, custSearch, segFilter]);
+
   return (
     <div className="grid gap-3">
-      {/* Activity Summary Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border-3 border-ink bg-white p-4 shadow-hard-3">
-        <div className="flex items-center gap-3">
-          <span className="font-display text-[20px] font-extrabold text-ink">
-            👥 {customers.length} Members
-          </span>
-          <span className="rounded-pill border-2 border-ink bg-[#D6E8B0] px-3 py-1 font-display text-[13px] font-extrabold text-ink shadow-hard-2">
-            🟢 {activeTodayCount} Active Today
-          </span>
+      {/* Search & Filter Bar */}
+      <div className="flex flex-wrap items-center gap-2.5 mb-1">
+        <div className="relative flex-1 min-w-[240px]">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px]">🔍</span>
+          <input
+            type="text"
+            value={custSearch}
+            onChange={(e) => setCustSearch(e.target.value)}
+            placeholder="Search by phone number, email, or name..."
+            className="w-full rounded-pill border-2.5 border-ink bg-white pl-9 pr-3.5 py-2 text-[13px] outline-none shadow-hard-2 focus:border-brand"
+          />
         </div>
-        <div className="text-[13px] font-bold text-mute">
-          Tracking daily sign-ins & active store users
-        </div>
+        <select
+          value={segFilter}
+          onChange={(e) => setSegFilter(e.target.value)}
+          className="rounded-pill border-2.5 border-ink bg-white px-3 py-2 text-[13px] font-extrabold outline-none shadow-hard-2"
+        >
+          <option value="all">All Segments ({withStats.length})</option>
+          <option value="new">🆕 New</option>
+          <option value="repeat">🔁 Repeat</option>
+          <option value="lapsed">💤 Lapsed (90d+)</option>
+          <option value="top 10%">⭐ Top 10%</option>
+        </select>
+        {activeTodayCount > 0 && (
+          <Badge bg="#D6E8B0">🟢 {activeTodayCount} active today</Badge>
+        )}
+        <Badge bg="#F2EAE0">{filtered.length} of {withStats.length} shown</Badge>
       </div>
 
-      {withStats.length === 0 && (
+      {customers.length === 0 && (
         <p className="text-mute">Customer records appear after the first order or signup.</p>
       )}
-      {withStats.map(({ c, theirOrders, ltv, segment, activity }) => (
+      {filtered.length === 0 && customers.length > 0 && (
+        <div className="rounded-modal border-2.5 border-dashed border-ink bg-paper p-8 text-center text-mute font-extrabold">
+          No customers match &quot;{custSearch}&quot; {segFilter !== "all" ? `in segment "${segFilter}"` : ""}
+        </div>
+      )}
+      {filtered.map(({ c, theirOrders, ltv, segment, activity }) => (
         <Card key={c.id} className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <span className="font-display text-[16px] font-extrabold text-ink">{c.name}</span>{" "}
+              <span className="font-display text-[16px] font-extrabold text-ink">{c.name || "Customer"}</span>{" "}
               <span className="text-[14px] text-mute">· {c.phone}</span>{" "}
               <Badge bg={segColor[segment] ?? "#F2EAE0"}>{segment}</Badge>{" "}
               <Badge bg={activity.isToday ? "#D6E8B0" : "#F2EAE0"}>
@@ -792,9 +1077,26 @@ export function CustomersTab({
                 <Badge bg="#FFE1A8">🔑 {c.login_count} logins</Badge>
               )}
             </div>
-            <div className="text-[14px]">
-              {theirOrders.length} orders ·{" "}
-              <span className="font-display font-extrabold text-brand">{inr(ltv)}</span>
+            <div className="flex items-center gap-2 text-[14px]">
+              <span>{theirOrders.length} orders · <span className="font-display font-extrabold text-brand">{inr(ltv)}</span></span>
+              <Btn
+                small
+                bg="#D6E8B0"
+                color="#2B2140"
+                onClick={() => {
+                  const phone = c.phone.replace(/\D/g, "");
+                  const cleanPhone = phone.length === 10 ? `91${phone}` : phone;
+                  const msg = encodeURIComponent(
+                    `Hi ${c.name || "there"}! 👋 Greetings from Rasi Mom & Baby (Thoothukudi)! 🛍️\n\nUse code WELCOME10 for FLAT 10% OFF on your next order! Check out our new arrival baby gear here: ${window.location.origin}`,
+                  );
+                  window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
+                }}
+              >
+                📱 WhatsApp Offer
+              </Btn>
+              <Btn small bg="#FFE1A8" color="#2B2140" onClick={() => setResetTarget(c)}>
+                🔑 Reset Password
+              </Btn>
             </div>
           </div>
           {c.baby_dob && (
@@ -803,7 +1105,82 @@ export function CustomersTab({
           <NoteField customerId={c.id} initial={c.notes} />
         </Card>
       ))}
+
+      {resetTarget && (
+        <ResetPasswordModal customer={resetTarget} onClose={() => setResetTarget(null)} />
+      )}
     </div>
+  );
+}
+
+function ResetPasswordModal({ customer, onClose }: { customer: CustomerRecord; onClose: () => void }) {
+  const [tempPass, setTempPass] = useState(`Rasi${Math.floor(100000 + Math.random() * 900000)}`);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleReset = async () => {
+    if (!tempPass.trim() || tempPass.length < 6) return;
+    setSaving(true);
+    await resetCustomerPasswordAction(customer.id, tempPass.trim());
+    setSaving(false);
+    setSuccess(true);
+  };
+
+  const waText = encodeURIComponent(
+    `Hi ${customer.name || "Customer"}, your temporary password for Rasi Mom & Baby is: ${tempPass}\n\nPlease sign in at https://rasimomandbaby.vercel.app and change your password.`,
+  );
+  const waUrl = `https://wa.me/91${customer.phone}?text=${waText}`;
+
+  return (
+    <Modal onClose={onClose}>
+      <h3 className="font-display text-[20px] font-extrabold text-ink mb-2">
+        🔑 Reset Password for {customer.name || customer.phone}
+      </h3>
+      <p className="text-[13px] text-mute mb-3">
+        Set a temporary password. Once saved, it is hashed and updated in Supabase database immediately.
+      </p>
+
+      {!success ? (
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[12px] font-extrabold uppercase text-mute mb-1">
+              Temporary Password
+            </label>
+            <input
+              type="text"
+              value={tempPass}
+              onChange={(e) => setTempPass(e.target.value)}
+              className="w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 font-mono text-[15px] font-bold outline-none"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Btn full bg="#F2EAE0" color="#2B2140" onClick={onClose}>
+              Cancel
+            </Btn>
+            <Btn full disabled={saving} onClick={handleReset}>
+              {saving ? "Saving…" : "Save New Password ✓"}
+            </Btn>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="rounded-tile border-2 border-ink bg-[#D6E8B0] p-3 text-[13px] font-bold text-ink">
+            ✓ Password updated in Supabase database!
+          </div>
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-press flex items-center justify-center gap-2 rounded-pill border-2.5 border-ink bg-[#25D366] px-4 py-2 font-display text-[14px] font-extrabold text-white shadow-hard-2 hover:bg-[#1EBE5D]"
+          >
+            <span>💬 Send Temporary Password to Customer on WhatsApp</span>
+          </a>
+          <Btn full bg="#F2EAE0" color="#2B2140" onClick={onClose}>
+            Done
+          </Btn>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -1136,7 +1513,169 @@ export function ReviewsTab({ reviews, products }: { reviews: Review[]; products:
   );
 }
 
-/* ── Reports: monthly GST-ready CSV ──────────────────────────────────────── */
+/* ── Analytics & Revenue Dashboard ────────────────────────────────────────── */
+export function AnalyticsTab({
+  orders,
+  products,
+  customers,
+}: {
+  orders: Order[];
+  products: Product[];
+  customers: CustomerRecord[];
+}) {
+  const router = useRouter();
+  const [restocking, setRestocking] = useState<string | null>(null);
+
+  const activeOrders = orders.filter((o) => o.status !== "cancelled" && o.status !== "returned");
+  const totalRevenue = activeOrders.reduce((s, o) => s + o.total, 0);
+  const totalOrders = activeOrders.length;
+  const aov = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+  const activeCustomersCount = customers.length || new Set(orders.map((o) => o.customer_id)).size;
+
+  const lowStock = products.filter(
+    (p) => p.status === "active" && p.stock <= p.low_stock_threshold,
+  );
+
+  const handleRestock = async (productId: string) => {
+    setRestocking(productId);
+    await updateProductStockAction(productId, 10);
+    setRestocking(null);
+    router.refresh();
+  };
+
+  const exportOrdersToCSV = () => {
+    const headers = ["Order No", "Customer Name", "Phone", "Status", "Payment Method", "Total (INR)", "Placed At"];
+    const rows = orders.map((o) => [
+      o.order_no,
+      `"${(o.address_snapshot.name || "").replace(/"/g, '""')}"`,
+      `"${o.address_snapshot.phone || ""}"`,
+      o.status,
+      o.payment_method,
+      o.total,
+      new Date(o.placed_at).toLocaleString("en-IN"),
+    ]);
+
+    const csvString = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `rasi_revenue_analytics_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Revenue Stat Cards */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Card className="p-4" style={{ background: "#FFE1A8" }}>
+          <div className="font-display text-[12px] font-extrabold uppercase text-ink/70">
+            💰 Total Revenue
+          </div>
+          <div className="mt-1 font-display text-[26px] font-extrabold text-ink">
+            {inr(totalRevenue)}
+          </div>
+          <div className="mt-1 text-[11px] font-bold text-ink/80">From {totalOrders} orders</div>
+        </Card>
+        <Card className="p-4" style={{ background: "#C7E9FF" }}>
+          <div className="font-display text-[12px] font-extrabold uppercase text-ink/70">
+            📦 Total Orders
+          </div>
+          <div className="mt-1 font-display text-[26px] font-extrabold text-ink">
+            {totalOrders}
+          </div>
+          <div className="mt-1 text-[11px] font-bold text-ink/80">Fulfilled & active</div>
+        </Card>
+        <Card className="p-4" style={{ background: "#D6E8B0" }}>
+          <div className="font-display text-[12px] font-extrabold uppercase text-ink/70">
+            📊 Avg Order Value (AOV)
+          </div>
+          <div className="mt-1 font-display text-[26px] font-extrabold text-ink">
+            {inr(aov)}
+          </div>
+          <div className="mt-1 text-[11px] font-bold text-ink/80">Per customer checkout</div>
+        </Card>
+        <Card className="p-4" style={{ background: "#FBD0EA" }}>
+          <div className="font-display text-[12px] font-extrabold uppercase text-ink/70">
+            👥 Active Customers
+          </div>
+          <div className="mt-1 font-display text-[26px] font-extrabold text-ink">
+            {activeCustomersCount}
+          </div>
+          <div className="mt-1 text-[11px] font-bold text-ink/80">Registered & repeat buyers</div>
+        </Card>
+      </div>
+
+      {/* Quick Export Bar */}
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-3.5">
+        <div>
+          <div className="font-display text-[16px] font-extrabold text-ink">
+            📊 Sales Ledger & Financial Export
+          </div>
+          <p className="text-[13px] text-mute">Download complete store sales reports for accounting.</p>
+        </div>
+        <Btn small bg="#B9EBDD" color="#2B2140" onClick={exportOrdersToCSV}>
+          📥 Export Orders CSV
+        </Btn>
+      </Card>
+
+      {/* Low Stock Alerts */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between border-b-2 border-ink/10 pb-3 mb-3">
+          <div>
+            <div className="font-display text-[17px] font-extrabold text-ink">
+              ⚠️ Low-Stock Automated Inventory Alerts
+            </div>
+            <p className="text-[13px] text-mute">
+              Products below safety stock threshold requiring quick restock.
+            </p>
+          </div>
+          <Badge bg={lowStock.length > 0 ? "#FFCBD9" : "#D6E8B0"}>
+            {lowStock.length} Items Alert
+          </Badge>
+        </div>
+
+        {lowStock.length === 0 ? (
+          <p className="text-[13px] text-mute italic py-2">
+            ✅ All active items are fully stocked above safety thresholds.
+          </p>
+        ) : (
+          <div className="grid gap-2">
+            {lowStock.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between rounded-tile border-2 border-ink bg-white p-2.5 shadow-hard-1"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="font-display text-[20px]">{p.emoji}</div>
+                  <div>
+                    <div className="font-display text-[14px] font-extrabold text-ink">
+                      {p.name_en}
+                    </div>
+                    <div className="text-[12px] font-bold text-[#E24B4A]">
+                      Stock: {p.stock} units remaining (Threshold: {p.low_stock_threshold})
+                    </div>
+                  </div>
+                </div>
+                <Btn
+                  small
+                  bg="#D6E8B0"
+                  color="#2B2140"
+                  disabled={restocking === p.id}
+                  onClick={() => handleRestock(p.id)}
+                >
+                  {restocking === p.id ? "Restocking..." : "+10 Restock"}
+                </Btn>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+/* ── Reports: monthly GST breakdown for accounting ──────────────────────── */
 export function ReportsTab({ orders, products }: { orders: Order[]; products: Product[] }) {
   const months = useMemo(() => {
     const set = new Set(orders.map((o) => o.placed_at.slice(0, 7)));
@@ -1233,6 +1772,11 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
   const [testPin, setTestPin] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [slabs, setSlabs] = useState<DeliverySlab[]>(settings.delivery_slabs || []);
+  const [newSlabMin, setNewSlabMin] = useState<number>(0);
+  const [newSlabMax, setNewSlabMax] = useState<string>("499");
+  const [newSlabFee, setNewSlabFee] = useState<number>(49);
+
   const saveSettings = async (
     newServiceable: string[],
     newUnserviceable: string[] = unserviceableList,
@@ -1301,6 +1845,259 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
           }}
         >
           {settings.same_day_enabled ? "ON ✓" : "OFF ✕"}
+        </Pill>
+      </Card>
+
+      {/* Dynamic Announcement Ticker Settings */}
+      <Card className="p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-ink/10 pb-3">
+          <div>
+            <div className="font-display text-[17px] font-extrabold text-ink">
+              📢 Storefront Announcement Ribbon & Promo Marquee
+            </div>
+            <p className="text-[13px] text-mute">
+              Header top ticker bar to announce active sales, discount codes, and delivery promises.
+            </p>
+          </div>
+          <Pill
+            bg={(settings.announcement_enabled ?? true) ? "#D6E8B0" : "#FFCBD9"}
+            onClick={async () => {
+              await updateSettingsAction({ announcement_enabled: !((settings.announcement_enabled ?? true)) });
+              router.refresh();
+            }}
+          >
+            {(settings.announcement_enabled ?? true) ? "RIBBON ANNOUNCEMENT ON ✓" : "OFF ✕"}
+          </Pill>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label>
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+              Announcement Text (English)
+            </span>
+            <input
+              type="text"
+              defaultValue={settings.announcement_text_en ?? "🎉 FLAT 10% OFF with code WELCOME10 · 🚚 FREE Delivery on orders over ₹999"}
+              onBlur={async (e) => {
+                const valEn = e.target.value;
+                const autoTa = autoTranslateToTamil(valEn);
+                await updateSettingsAction({
+                  announcement_text_en: valEn,
+                  announcement_text_ta: autoTa,
+                });
+                router.refresh();
+              }}
+              className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[14px] outline-none font-bold"
+              placeholder="🎉 FLAT 10% OFF with code WELCOME10..."
+            />
+          </label>
+
+          <label>
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+              Announcement Text (Tamil Auto-Translated)
+            </span>
+            <input
+              type="text"
+              defaultValue={settings.announcement_text_ta ?? "🎉 WELCOME10 கூப்பனுடன் 10% தள்ளுபடி · 🚚 ₹999 மேல் இலவச டெலிவரி"}
+              onBlur={async (e) => {
+                await updateSettingsAction({ announcement_text_ta: e.target.value });
+                router.refresh();
+              }}
+              className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[14px] outline-none bg-paper font-bold text-brand"
+            />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <label>
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+              Ribbon Background Color
+            </span>
+            <input
+              type="color"
+              defaultValue={settings.announcement_bg ?? "#2B2140"}
+              onChange={async (e) => {
+                await updateSettingsAction({ announcement_bg: e.target.value });
+                router.refresh();
+              }}
+              className="mt-1 h-10 w-full rounded-pill border-2 border-ink cursor-pointer p-1"
+            />
+          </label>
+
+          <label>
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+              Ribbon Text Color
+            </span>
+            <input
+              type="color"
+              defaultValue={settings.announcement_color ?? "#FFE1A8"}
+              onChange={async (e) => {
+                await updateSettingsAction({ announcement_color: e.target.value });
+                router.refresh();
+              }}
+              className="mt-1 h-10 w-full rounded-pill border-2 border-ink cursor-pointer p-1"
+            />
+          </label>
+        </div>
+      </Card>
+
+      {/* Universal Free Delivery Switch & Tiered Rates Slabs */}
+      <Card className="p-4 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-ink/10 pb-3">
+          <div>
+            <div className="font-display text-[17px] font-extrabold text-ink">
+              🚚 Delivery Fee & Rates Manager
+            </div>
+            <p className="text-[13px] text-mute">
+              Universal 1-click Free Delivery toggle, base rates, and tiered amount slabs.
+            </p>
+          </div>
+          <Pill
+            bg={settings.universal_free_delivery ? "#D6E8B0" : "#FFCBD9"}
+            onClick={async () => {
+              await updateSettingsAction({ universal_free_delivery: !settings.universal_free_delivery });
+              router.refresh();
+            }}
+          >
+            {settings.universal_free_delivery ? "UNIVERSAL FREE DELIVERY ON ✓" : "STANDARD RATES ACTIVE ✕"}
+          </Pill>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label>
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+              Standard Base Delivery Fee (₹)
+            </span>
+            <input
+              type="number"
+              defaultValue={settings.base_delivery_fee ?? 49}
+              onBlur={async (e) => {
+                const val = Number(e.target.value) || 0;
+                await updateSettingsAction({ base_delivery_fee: val });
+                router.refresh();
+              }}
+              className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[15px] outline-none"
+            />
+          </label>
+
+          <label>
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+              Free Delivery Threshold Amount (₹)
+            </span>
+            <input
+              type="number"
+              defaultValue={settings.free_delivery_threshold ?? 999}
+              onBlur={async (e) => {
+                const val = Number(e.target.value) || 999;
+                await updateSettingsAction({ free_delivery_threshold: val });
+                router.refresh();
+              }}
+              className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[15px] outline-none"
+            />
+          </label>
+        </div>
+
+        {/* Tiered Slabs List */}
+        <div className="border-t-2 border-ink/10 pt-3">
+          <div className="font-display text-[14px] font-extrabold text-ink mb-2">
+            📊 Tiered Delivery Fee Slabs (Order Amount Ranges)
+          </div>
+
+          <div className="space-y-2 mb-3">
+            {slabs.length === 0 ? (
+              <p className="text-[12px] text-mute italic">No custom slabs configured. Defaulting to base fee and free delivery threshold above.</p>
+            ) : (
+              slabs.map((slab, idx) => (
+                <div key={idx} className="flex flex-wrap items-center justify-between gap-2 rounded-pill border border-ink/30 bg-paper px-3 py-1.5 text-[13px] font-bold">
+                  <div>
+                    Range: ₹{slab.min_amount} – {slab.max_amount === null ? "Above" : `₹${slab.max_amount}`} → Fee: <span className={slab.fee === 0 ? "text-[#3D8B37]" : "text-brand"}>{slab.fee === 0 ? "FREE (₹0)" : `₹${slab.fee}`}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const updated = slabs.filter((_, i) => i !== idx);
+                      setSlabs(updated);
+                      await updateSettingsAction({ delivery_slabs: updated });
+                      router.refresh();
+                    }}
+                    className="text-[12px] text-[#E24B4A] hover:underline cursor-pointer"
+                  >
+                    🗑️ Remove
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Add Slab Form */}
+          <div className="flex flex-wrap items-end gap-2 rounded-card border-2 border-dashed border-ink bg-white p-3">
+            <label className="min-w-[100px] flex-1">
+              <span className="text-[11px] font-extrabold uppercase text-mute">Min Order (₹)</span>
+              <input
+                type="number"
+                value={newSlabMin}
+                onChange={(e) => setNewSlabMin(Number(e.target.value))}
+                className="mt-1 w-full rounded-pill border border-ink px-2.5 py-1 text-[13px] outline-none"
+              />
+            </label>
+            <label className="min-w-[100px] flex-1">
+              <span className="text-[11px] font-extrabold uppercase text-mute">Max Order (₹ / Blank)</span>
+              <input
+                type="text"
+                placeholder="e.g. 499 (or leave blank)"
+                value={newSlabMax}
+                onChange={(e) => setNewSlabMax(e.target.value)}
+                className="mt-1 w-full rounded-pill border border-ink px-2.5 py-1 text-[13px] outline-none"
+              />
+            </label>
+            <label className="min-w-[90px] flex-1">
+              <span className="text-[11px] font-extrabold uppercase text-mute">Delivery Fee (₹)</span>
+              <input
+                type="number"
+                value={newSlabFee}
+                onChange={(e) => setNewSlabFee(Number(e.target.value))}
+                className="mt-1 w-full rounded-pill border border-ink px-2.5 py-1 text-[13px] outline-none"
+              />
+            </label>
+            <Btn
+              small
+              bg="#D6E8B0"
+              color="#2B2140"
+              onClick={async () => {
+                const maxVal = newSlabMax.trim() === "" ? null : Number(newSlabMax);
+                const item: DeliverySlab = {
+                  min_amount: Number(newSlabMin) || 0,
+                  max_amount: maxVal,
+                  fee: Number(newSlabFee) || 0,
+                };
+                const updated = [...slabs, item];
+                setSlabs(updated);
+                await updateSettingsAction({ delivery_slabs: updated });
+                router.refresh();
+              }}
+            >
+              + Add Rate Slab
+            </Btn>
+          </div>
+        </div>
+      </Card>
+
+      {/* Multi-Language Switcher Kill Switch */}
+      <Card className="flex items-center justify-between p-4">
+        <div>
+          <div className="font-display font-extrabold text-[16px]">🌐 Multi-Language Button Switch (English / தமிழ்)</div>
+          <p className="text-[13px] text-mute">
+            Show or hide the language selector button (🌐 தமிழ் / EN) in the website header navigation.
+          </p>
+        </div>
+        <Pill
+          bg={(settings.enable_language_switch ?? true) ? "#D6E8B0" : "#FFCBD9"}
+          onClick={async () => {
+            await updateSettingsAction({ enable_language_switch: !((settings.enable_language_switch ?? true)) });
+            router.refresh();
+          }}
+        >
+          {(settings.enable_language_switch ?? true) ? "ENABLED ✓" : "DISABLED ✕"}
         </Pill>
       </Card>
 

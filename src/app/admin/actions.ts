@@ -9,7 +9,9 @@ import {
   deleteBrand,
   deleteCoupon,
   moderateReview,
+  quickRestockProduct,
   requireStaff,
+  resetCustomerPassword,
   saveCustomerNote,
   setCouponFeatured,
   setOrderStatus,
@@ -231,6 +233,21 @@ export async function saveCustomerNoteAction(customerId: string, notes: string) 
   const userId = await gate();
   await saveCustomerNote(userId, customerId, notes);
   revalidatePath("/admin");
+}
+
+export async function resetCustomerPasswordAction(customerId: string, newPassword: string) {
+  const userId = await gate();
+  const ok = await resetCustomerPassword(userId, customerId, newPassword);
+  revalidatePath("/admin");
+  return ok;
+}
+
+export async function quickRestockProductAction(productId: string, addedStock: number) {
+  const userId = await gate();
+  const ok = await quickRestockProduct(userId, productId, addedStock);
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return ok;
 }
 
 export async function updateSettingsAction(patch: Partial<StoreSettings>) {

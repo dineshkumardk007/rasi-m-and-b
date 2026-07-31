@@ -1,5 +1,6 @@
 import "server-only";
 import type {
+  BabyRegistry,
   Banner,
   Brand,
   Bundle,
@@ -9,6 +10,7 @@ import type {
   Product,
   Review,
   StoreSettings,
+  Subscription,
 } from "@/lib/types";
 import type { Category } from "@/lib/constants";
 import { CATALOG } from "./seed-catalog";
@@ -30,6 +32,8 @@ export interface DemoDB {
   reviews: Review[];
   orders: Order[];
   customers: CustomerRecord[];
+  registries: BabyRegistry[];
+  subscriptions: Subscription[];
   settings: StoreSettings;
   events: { type: string; payload: Record<string, unknown>; at: string }[];
   staffLog: { action: string; entity: string; entity_id: string; at: string }[];
@@ -345,6 +349,8 @@ function buildInitial(): DemoDB {
         ],
       },
     ],
+    registries: [],
+    subscriptions: [],
     settings: {
       same_day_enabled: true,
       serviceable_pins: ["628001", "628002", "628003", "628004", "628005", "628008"],
@@ -352,6 +358,13 @@ function buildInitial(): DemoDB {
       cod_limit: 3000,
       gift_wrap_enabled: true,
       gift_wrap_fee: 30,
+      enable_language_switch: true,
+      announcement_enabled: true,
+      announcement_text_en: "🎉 FLAT 10% OFF with code WELCOME10 · 🚚 FREE Delivery on orders over ₹999 · ⚡ Express 3-Hour Store Delivery in Thoothukudi",
+      announcement_text_ta: "🎉 WELCOME10 கூப்பனுடன் 10% தள்ளுபடி · 🚚 ₹999 மேல் இலவச டெலிவரி · ⚡ தூத்துக்குடியில் 3 மணி நேர விரைவு டெலிவரி",
+      announcement_bg: "#2B2140",
+      announcement_color: "#FFE1A8",
+      announcement_link: "",
     },
     events: [],
     staffLog: [],

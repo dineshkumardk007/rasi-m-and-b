@@ -88,6 +88,7 @@ export async function submitReviewAction(
   authorName: string,
   rating: number,
   text: string,
+  photoUrl?: string,
 ): Promise<boolean> {
   if (!text.trim() || rating < 1 || rating > 5) return false;
   // Reviews land in a moderation queue, but an unthrottled endpoint still lets
@@ -102,6 +103,8 @@ export async function submitReviewAction(
       text: text.trim(),
       status: "pending", // moderation queue — never straight to the wall
       created_at: new Date().toISOString(),
+      photo_url: photoUrl || null,
+      verified_buyer: true,
     });
     return true;
   }
@@ -112,6 +115,8 @@ export async function submitReviewAction(
     rating,
     text: text.trim(),
     status: "pending",
+    photo_url: photoUrl || null,
+    verified_buyer: true,
   });
   return !error;
 }

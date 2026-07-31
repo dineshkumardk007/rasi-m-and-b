@@ -5,7 +5,7 @@ import type { CustomerAddress, Order, Product, Review, StoreSettings } from "@/l
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { useSession } from "@/lib/store/SessionProvider";
 import { useWishlist } from "@/lib/store/WishlistProvider";
-import { MILESTONE_META, inr } from "@/lib/constants";
+import { MILESTONE_META, calculateDeliveryFee, inr } from "@/lib/constants";
 import { Art, Badge, Btn, Field, Modal, Stars } from "@/components/ui";
 import {
   checkCouponAction,
@@ -14,7 +14,7 @@ import {
   submitReviewAction,
   trackOrderAction,
 } from "@/app/actions";
-import { myAddressesAction, notifyRestockAction, saveCustomerAddressAction } from "@/app/customer-actions";
+import { createSubscriptionAction, myAddressesAction, notifyRestockAction, saveCustomerAddressAction, updateMyPasswordAction } from "@/app/customer-actions";
 import { ShareButton } from "./ShareButton";
 import { BoughtTogether } from "./BoughtTogether";
 import { GIFT_MESSAGE_MAX } from "@/lib/gift";
@@ -93,6 +93,7 @@ export function ProductModal({
   const [text, setText] = useState("");
   const [author, setAuthor] = useState(session?.name ?? "");
   const [rating, setRating] = useState(5);
+  const [photoUrl, setPhotoUrl] = useState("");
   const [pin, setPin] = useState("");
   const [pinResult, setPinResult] = useState<
     "same-day" | "tomorrow" | "courier" | "unserviceable" | null
@@ -118,11 +119,10 @@ export function ProductModal({
             wishlist.toggle(p.id);
             notify(wishlist.has(p.id) ? "Removed from Wishlist" : "Saved to Wishlist ❤️");
           }}
-          className={`btn-press absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border-2.5 border-ink transition-all duration-200 cursor-pointer ${
-            wishlist.has(p.id)
+          className={`btn-press absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border-2.5 border-ink transition-all duration-200 cursor-pointer ${wishlist.has(p.id)
               ? "bg-[#FF5A78] text-white shadow-hard-3 scale-110 rotate-6"
               : "bg-white/95 text-ink shadow-hard-2 hover:bg-[#FFCBD9] hover:scale-110"
-          }`}
+            }`}
           title={wishlist.has(p.id) ? "Remove from Wishlist" : "Save to Wishlist"}
           aria-label={wishlist.has(p.id) ? "Remove from Wishlist" : "Save to Wishlist"}
         >
@@ -191,42 +191,62 @@ export function ProductModal({
       </div>
 
       {/* Action Buttons Toolbar */}
-      <div className="mt-4 flex items-center gap-2.5">
-        <div className="flex-1">
-          {p.stock > 0 ? (
-            <Btn full onClick={onAdd}>
-              🛒 {t("shop.addToCart")} — {inr(p.price)}
-            </Btn>
-          ) : (
-            <Btn
-              full
-              bg="#FFE1A8"
-              color="#2B2140"
-              onClick={async () => {
-                await notifyRestockAction(p.id);
-                notify(t("product.notifySaved"));
-              }}
-            >
-              🔔 {t("product.notifyMe")}
-            </Btn>
-          )}
+      <div className="mt-4 flex flex-col gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="flex-1">
+            {p.stock > 0 ? (
+              <Btn full onClick={onAdd}>
+                🛒 {t("shop.addToCart")} — {inr(p.price)}
+              </Btn>
+            ) : (
+              <Btn
+                full
+                bg="#FFE1A8"
+                color="#2B2140"
+                onClick={async () => {
+                  await notifyRestockAction(p.id);
+                  notify(t("product.notifySaved"));
+                }}
+              >
+                🔔 {t("product.notifyMe")}
+              </Btn>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              wishlist.toggle(p.id);
+              notify(wishlist.has(p.id) ? "Removed from Wishlist" : "Saved to Wishlist ❤️");
+            }}
+            className={`btn-press shrink-0 flex items-center justify-center gap-1.5 rounded-pill border-2.5 border-ink px-4 py-2.5 font-display text-[13px] font-extrabold shadow-hard-2 transition-all cursor-pointer ${wishlist.has(p.id)
+                ? "bg-[#FF5A78] text-white"
+                : "bg-[#A0D2EB] text-ink hover:bg-[#FFCBD9]"
+              }`}
+            title={wishlist.has(p.id) ? "Saved in Wishlist" : "Add to Wishlist"}
+          >
+            <span>{wishlist.has(p.id) ? "❤️" : "♡"}</span>
+            <span>{wishlist.has(p.id) ? "Saved" : "Wishlist"}</span>
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            wishlist.toggle(p.id);
-            notify(wishlist.has(p.id) ? "Removed from Wishlist" : "Saved to Wishlist ❤️");
-          }}
-          className={`btn-press shrink-0 flex items-center justify-center gap-1.5 rounded-pill border-2.5 border-ink px-4 py-2.5 font-display text-[13px] font-extrabold shadow-hard-2 transition-all cursor-pointer ${
-            wishlist.has(p.id)
-              ? "bg-[#FF5A78] text-white"
-              : "bg-[#A0D2EB] text-ink hover:bg-[#FFCBD9]"
-          }`}
-          title={wishlist.has(p.id) ? "Saved in Wishlist" : "Add to Wishlist"}
-        >
-          <span>{wishlist.has(p.id) ? "❤️" : "♡"}</span>
-          <span>{wishlist.has(p.id) ? "Saved" : "Wishlist"}</span>
-        </button>
+
+        {/* Subscribe & Save 10% Auto-Replenishment Button */}
+        {p.stock > 0 && (p.categories.includes("diapering") || p.categories.includes("feeding")) && (
+          <button
+            type="button"
+            onClick={async () => {
+              const res = await createSubscriptionAction(p.id, null, 1, 30);
+              if (res.ok) {
+                notify("🔄 Subscribed! Saved 10% on monthly delivery");
+                onAdd();
+              } else {
+                notify(res.error ?? "Please sign in to subscribe");
+              }
+            }}
+            className="btn-press w-full flex items-center justify-center gap-2 rounded-pill border-2.5 border-ink bg-[#D6E8B0] px-4 py-2 font-display text-[13px] font-extrabold text-ink shadow-hard-2 hover:bg-[#B9EBDD] cursor-pointer"
+          >
+            <span>🔄 Subscribe & Save 10% ({inr(Math.round(p.price * 0.9))}) · Auto-delivers every 30 days</span>
+          </button>
+        )}
       </div>
 
       {/* Share + permanent link to the product's own page */}
@@ -254,9 +274,23 @@ export function ProductModal({
         )}
         {reviews.map((r) => (
           <div key={r.id} className="mb-2 rounded-tile border-3 border-ink bg-paper p-3 text-[14px]">
-            <Stars n={r.rating} />{" "}
-            <span className="font-display font-extrabold">{r.author_name}</span>
+            <div className="flex flex-wrap items-center justify-between gap-1">
+              <div className="flex items-center gap-2">
+                <Stars n={r.rating} />{" "}
+                <span className="font-display font-extrabold">{r.author_name}</span>
+              </div>
+              {r.verified_buyer !== false && (
+                <Badge bg="#D6E8B0">VERIFIED BUYER ✓</Badge>
+              )}
+            </div>
             <p className="mt-1 text-mute">{r.text}</p>
+            {r.photo_url && (
+              <img
+                src={r.photo_url}
+                alt="Review photo"
+                className="mt-2 max-h-36 rounded-tile border-2 border-ink object-cover"
+              />
+            )}
           </div>
         ))}
         <div className="mt-3">
@@ -288,13 +322,21 @@ export function ProductModal({
             placeholder={t("product.writeReview")}
             className="w-full rounded-tile border-2.5 border-ink px-3.5 py-2.5 font-body text-[14px] outline-none"
           />
+          <input
+            type="text"
+            value={photoUrl}
+            onChange={(e) => setPhotoUrl(e.target.value)}
+            placeholder="📷 Add Image/Photo Link (Optional)"
+            className="mt-2 mb-2 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[13px] outline-none"
+          />
           <div className="mt-2">
             <Btn
               small
               onClick={async () => {
                 if (!text.trim()) return;
-                await submitReviewAction(p.id, author || session?.name || "", rating, text);
+                await submitReviewAction(p.id, author || session?.name || "", rating, text, photoUrl);
                 setText("");
+                setPhotoUrl("");
                 notify(t("product.reviewPending"));
               }}
             >
@@ -344,63 +386,83 @@ export function CartModal({
   onCheckout: () => void;
 }) {
   const { t } = useT();
-  const threshold = settings.free_delivery_threshold;
-  const free = subtotal > threshold;
-  const progress = Math.min(100, Math.round((subtotal / (threshold + 1)) * 100));
+  const deliveryInfo = calculateDeliveryFee(subtotal, settings);
+  const threshold = deliveryInfo.freeThreshold;
+  const free = deliveryInfo.isFree;
+  const progress = free ? 100 : Math.min(100, Math.round((subtotal / (threshold + 1)) * 100));
   return (
     <Modal onClose={onClose}>
       <h3 className="mb-3.5 font-display text-[24px] font-extrabold">{t("cart.title")} 🛒</h3>
-      {items.length === 0 && <p className="text-mute">{t("cart.empty")}</p>}
-      {items.map((c) => (
-        <div
-          key={c.itemId}
-          className="flex items-center gap-3 border-b-2 border-dashed border-[#E5DBCC] py-2.5"
-        >
-          <div className="w-12 shrink-0">
-            <Art emoji={c.emoji} bg={c.bg} h={48} isBundle={c.isBundle} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[14px] font-bold">{c.name}</div>
-            <div className="font-display text-[14px] font-extrabold text-brand">
-              {inr(c.price)}
+      {items.length === 0 && (
+        <div className="rounded-card border-3 border-dashed border-ink bg-paper p-6 text-center text-mute font-extrabold">
+          {t("cart.empty")}
+        </div>
+      )}
+      <div className="space-y-2.5">
+        {items.map((c) => (
+          <div
+            key={c.itemId}
+            className="flex items-center gap-3 rounded-card border-2.5 border-ink bg-white p-3 shadow-hard-2"
+          >
+            <div className="w-12 shrink-0">
+              <Art emoji={c.emoji} bg={c.bg} h={48} isBundle={c.isBundle} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[14px] font-extrabold text-ink">{c.name}</div>
+              <div className="font-display text-[15px] font-extrabold text-brand">
+                {inr(c.price)}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setQty(c.itemId, c.qty - 1)}
+                className="btn-press flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink bg-[#FFCBD9] font-display text-[15px] font-extrabold shadow-hard-1 hover:bg-[#FF5A78] hover:text-white cursor-pointer transition-all"
+                aria-label="decrease"
+              >
+                −
+              </button>
+              <span className="w-5 text-center font-display text-[15px] font-extrabold text-ink">{c.qty}</span>
+              <button
+                type="button"
+                onClick={() => setQty(c.itemId, Math.min(c.qty + 1, c.maxStock))}
+                className="btn-press flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink bg-[#D6E8B0] font-display text-[15px] font-extrabold shadow-hard-1 hover:bg-[#B9EBDD] cursor-pointer transition-all"
+                aria-label="increase"
+              >
+                +
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setQty(c.itemId, c.qty - 1)}
-              className="h-7 w-7 rounded-full border-2.5 border-ink bg-[#F2EAE0] font-extrabold"
-              aria-label="decrease"
-            >
-              −
-            </button>
-            <span className="w-4 text-center font-extrabold">{c.qty}</span>
-            <button
-              onClick={() => setQty(c.itemId, Math.min(c.qty + 1, c.maxStock))}
-              className="h-7 w-7 rounded-full border-2.5 border-ink bg-[#D6E8B0] font-extrabold"
-              aria-label="increase"
-            >
-              +
-            </button>
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
       {items.length > 0 && (
-        <div className="mt-4">
-          <div className="flex justify-between text-[14px]">
+        <div className="mt-4 rounded-tile border-3 border-ink bg-[#FFFDF7] p-3.5 shadow-hard-3">
+          <div className="flex items-center justify-between text-[15px] font-bold text-ink">
             <span>{t("cart.subtotal")}</span>
-            <span className="font-extrabold">{inr(subtotal)}</span>
+            <span className="font-display text-[18px] font-extrabold text-ink">{inr(subtotal)}</span>
           </div>
-          <div className="mt-1 flex justify-between text-[14px]">
-            <span>{t("cart.delivery")}</span>
-            <span className="font-extrabold">{free ? t("cart.free") : inr(49)}</span>
+          <div className="mt-2 flex items-center justify-between border-t-2 border-dashed border-ink/20 pt-2 text-[14px] font-bold text-ink">
+            <span className="flex items-center gap-1.5">
+              <span>🚚</span>
+              <span>{t("cart.delivery")}</span>
+            </span>
+            {free ? (
+              <span className="inline-flex items-center gap-1 rounded-pill border-2 border-ink bg-[#D6E8B0] px-3 py-1 font-display text-[12px] font-extrabold text-ink shadow-hard-2 animate-bounce">
+                🎉 FREE DELIVERY
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-pill border-2 border-ink bg-[#FFE1A8] px-3 py-1 font-display text-[12px] font-extrabold text-ink shadow-hard-2">
+                {inr(49)}
+              </span>
+            )}
           </div>
           {!free && (
-            <div className="mt-2">
+            <div className="mt-3">
               {/* free-delivery progress bar */}
               <div className="h-3 overflow-hidden rounded-full border-2 border-ink bg-paper">
                 <div className="h-full bg-brand" style={{ width: `${progress}%` }} />
               </div>
-              <div className="mt-1 text-[12px] text-mute">
+              <div className="mt-1 text-[12px] font-extrabold text-mute">
                 {t("cart.addMore", { amount: inr(threshold + 1 - subtotal) })}
               </div>
             </div>
@@ -586,6 +648,7 @@ export function CheckoutModal({
   const [sameDay, setSameDay] = useState<boolean | null>(null);
   const [isGift, setIsGift] = useState(false);
   const [giftMessage, setGiftMessage] = useState("");
+  const [deliveryMode, setDeliveryMode] = useState<"standard" | "express_3hr" | "store_pickup">("standard");
 
   const valid =
     f.name.trim() &&
@@ -593,7 +656,8 @@ export function CheckoutModal({
     f.line.trim() &&
     /^\d{6}$/.test(f.pin);
 
-  const delivery = subtotal > settings.free_delivery_threshold ? 0 : 49;
+  const deliveryInfo = calculateDeliveryFee(subtotal, settings);
+  const delivery = deliveryInfo.fee;
   const discount = coupon?.discount ?? 0;
   const giftWrapFee = isGift && (settings.gift_wrap_enabled ?? true) ? (settings.gift_wrap_fee ?? 30) : 0;
   const total = subtotal + delivery - discount + giftWrapFee;
@@ -644,6 +708,7 @@ export function CheckoutModal({
       language: lang,
       is_gift: isGift,
       gift_message: isGift ? giftMessage : undefined,
+      delivery_mode: deliveryMode,
     });
     if (!result.ok) {
       setPaying(false);
@@ -785,9 +850,8 @@ export function CheckoutModal({
                             pin: addr.pin,
                           })
                         }
-                        className={`flex items-start justify-between rounded-tile border-2 border-ink p-2.5 text-left text-[13px] transition-all cursor-pointer ${
-                          isSelected ? "bg-[#C7E9FF] shadow-hard-2" : "bg-white hover:bg-cream"
-                        }`}
+                        className={`flex items-start justify-between rounded-tile border-2 border-ink p-2.5 text-left text-[13px] transition-all cursor-pointer ${isSelected ? "bg-[#C7E9FF] shadow-hard-2" : "bg-white hover:bg-cream"
+                          }`}
                       >
                         <div>
                           <span className="font-extrabold text-ink">{addr.label || "Saved Address"}</span>: {addr.name} ({addr.phone})
@@ -807,6 +871,86 @@ export function CheckoutModal({
           <div className="grid grid-cols-2 gap-3">
             <Field label={t("checkout.city")} value={f.city} onChange={(v) => setF({ ...f, city: v })} />
             <Field label={t("checkout.pin")} value={f.pin} onChange={(v) => setF({ ...f, pin: v.replace(/\D/g, "").slice(0, 6) })} placeholder="628001" inputMode="numeric" maxLength={6} />
+          </div>
+
+          {/* Delivery Speed & Mode Picker */}
+          <div className="mb-3.5 rounded-card border-2.5 border-ink bg-white p-3 shadow-hard-1">
+            <div className="font-display text-[13px] font-extrabold text-ink mb-2">
+              🚚 Choose Delivery Speed & Method:
+            </div>
+            <div className="grid gap-2">
+              <label
+                className={`flex cursor-pointer items-start gap-2.5 rounded-tile border-2 p-2.5 transition-all ${
+                  deliveryMode === "express_3hr"
+                    ? "border-ink bg-[#D6E8B0] shadow-hard-1"
+                    : "border-ink/20 bg-paper hover:bg-paper/80"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="deliveryMode"
+                  checked={deliveryMode === "express_3hr"}
+                  onChange={() => setDeliveryMode("express_3hr")}
+                  className="mt-0.5 h-4 w-4 accent-brand"
+                />
+                <div>
+                  <div className="font-display text-[13px] font-extrabold text-ink">
+                    ⚡ Express 3-Hour Store Delivery (Thoothukudi)
+                  </div>
+                  <div className="text-[11px] font-bold text-ink/80">
+                    Direct rider delivery from Palayamkottai Rd store today!
+                  </div>
+                </div>
+              </label>
+
+              <label
+                className={`flex cursor-pointer items-start gap-2.5 rounded-tile border-2 p-2.5 transition-all ${
+                  deliveryMode === "standard"
+                    ? "border-ink bg-[#C7E9FF] shadow-hard-1"
+                    : "border-ink/20 bg-paper hover:bg-paper/80"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="deliveryMode"
+                  checked={deliveryMode === "standard"}
+                  onChange={() => setDeliveryMode("standard")}
+                  className="mt-0.5 h-4 w-4 accent-brand"
+                />
+                <div>
+                  <div className="font-display text-[13px] font-extrabold text-ink">
+                    🚚 Standard Courier Delivery (2-3 Days)
+                  </div>
+                  <div className="text-[11px] font-bold text-ink/80">
+                    Safe delivery via courier partner across Tamil Nadu
+                  </div>
+                </div>
+              </label>
+
+              <label
+                className={`flex cursor-pointer items-start gap-2.5 rounded-tile border-2 p-2.5 transition-all ${
+                  deliveryMode === "store_pickup"
+                    ? "border-ink bg-[#FFE1A8] shadow-hard-1"
+                    : "border-ink/20 bg-paper hover:bg-paper/80"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="deliveryMode"
+                  checked={deliveryMode === "store_pickup"}
+                  onChange={() => setDeliveryMode("store_pickup")}
+                  className="mt-0.5 h-4 w-4 accent-brand"
+                />
+                <div>
+                  <div className="font-display text-[13px] font-extrabold text-ink">
+                    🛍️ Store Pickup (Palayamkottai Road Store)
+                  </div>
+                  <div className="text-[11px] font-bold text-ink/80">
+                    Pick up in 30 mins at 176, Palayamkottai Rd (FREE)
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
 
           {session && (
@@ -1281,13 +1425,15 @@ export function AuthModal({
       )}
 
       {mode === "login" && (
-        <div>
-          <h3 className="mb-1 font-display text-[22px] font-extrabold">Welcome Back! 🛍️</h3>
-          <p className="mb-3.5 text-[13px] text-mute">
-            {authType === "email"
-              ? "Sign in with your registered email address & password"
-              : "Sign in with your registered phone number & password"}
-          </p>
+        <div className="rounded-card border-3 border-ink bg-[#FFFDF7] p-4 shadow-hard-4 space-y-3">
+          <div>
+            <h3 className="mb-0.5 font-display text-[22px] font-extrabold text-ink">Welcome Back! 🛍️</h3>
+            <p className="text-[13px] text-mute font-medium">
+              {authType === "email"
+                ? "Sign in with your registered email address & password"
+                : "Sign in with your registered phone number & password"}
+            </p>
+          </div>
 
           {authType === "email" ? (
             <Field
@@ -1316,7 +1462,20 @@ export function AuthModal({
             placeholder="••••••••"
           />
 
-          <div className="mt-4">
+          <div className="pt-0.5 text-right">
+            <a
+              href={`https://wa.me/919442054101?text=${encodeURIComponent(
+                `Hi Rasi Mom & Baby, I forgot my account password for mobile: ${phone || "[your phone]"}. Please help me reset it.`,
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-pill border-2 border-ink bg-[#D6E8B0] px-3 py-1 font-display text-[12px] font-extrabold text-ink shadow-hard-2 hover:bg-[#25D366] hover:text-white transition-all cursor-pointer"
+            >
+              <span>💬 Forgot password? Reset via WhatsApp</span>
+            </a>
+          </div>
+
+          <div className="pt-1">
             <Btn
               full
               disabled={
@@ -1330,7 +1489,7 @@ export function AuthModal({
             </Btn>
           </div>
 
-          <div className="mt-3.5 text-center">
+          <div className="text-center pt-1">
             <button
               type="button"
               onClick={() => {
@@ -1440,10 +1599,12 @@ export function ProfileModal({
   onClose,
   onSignOut,
   onOpenOrders,
+  onOpenRegistry,
 }: {
   onClose: () => void;
   onSignOut: () => void;
   onOpenOrders?: () => void;
+  onOpenRegistry?: () => void;
 }) {
   const { session } = useSession();
 
@@ -1514,10 +1675,12 @@ export function ProfileModal({
             </div>
             <div className="bg-white p-2 rounded-tile border-2 border-ink text-center">
               <div className="font-extrabold text-[#9A6BE0]">Thoothukudi Store</div>
-              <div className="text-[10px] text-mute">Local Customer</div>
             </div>
           </div>
         </div>
+
+        {/* Change / Set Permanent Password Box */}
+        <ChangePasswordBox />
       </div>
 
       <div className="mt-5 flex flex-col gap-2.5">
@@ -1534,11 +1697,82 @@ export function ProfileModal({
             📦 View My Orders
           </Btn>
         )}
+        {onOpenRegistry && (
+          <Btn
+            full
+            bg="#FFE1A8"
+            color="#2B2140"
+            onClick={() => {
+              onClose();
+              onOpenRegistry();
+            }}
+          >
+            🎁 Create Baby Shower Registry
+          </Btn>
+        )}
         <Btn full bg="#FFCBD9" color="#2B2140" onClick={onSignOut}>
           Sign Out 🚪
         </Btn>
       </div>
     </Modal>
+  );
+}
+
+function ChangePasswordBox() {
+  const [open, setOpen] = useState(false);
+  const [newPass, setNewPass] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPass || newPass.length < 6) {
+      setStatus("Password must be at least 6 characters");
+      return;
+    }
+    setSaving(true);
+    setStatus(null);
+    const res = await updateMyPasswordAction(newPass);
+    setSaving(false);
+    if (res.ok) {
+      setStatus("✓ New password saved successfully!");
+      setNewPass("");
+    } else {
+      setStatus(res.error ?? "Failed to save password.");
+    }
+  };
+
+  return (
+    <div className="rounded-tile border-2.5 border-ink bg-[#FFFDF7] p-3 shadow-hard-2">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between font-display text-[13px] font-extrabold text-ink cursor-pointer"
+      >
+        <span>🔑 Change / Set Personal Password</span>
+        <span>{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <form onSubmit={handleSave} className="mt-3 space-y-2">
+          <input
+            type="password"
+            placeholder="Enter new permanent password"
+            value={newPass}
+            onChange={(e) => setNewPass(e.target.value)}
+            className="w-full rounded-pill border-2 border-ink px-3.5 py-1.5 text-[13px] font-semibold outline-none bg-white"
+          />
+          <Btn small full disabled={saving}>
+            {saving ? "Saving…" : "Save New Password ✓"}
+          </Btn>
+          {status && (
+            <p className={`text-[12px] font-extrabold ${status.startsWith("✓") ? "text-emerald-700" : "text-red-600"}`}>
+              {status}
+            </p>
+          )}
+        </form>
+      )}
+    </div>
   );
 }
 

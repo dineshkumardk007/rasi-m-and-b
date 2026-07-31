@@ -38,10 +38,12 @@ export function BabyClub({
   products,
   addToCart,
   openProduct,
+  onCreateRegistry,
 }: {
   products: Product[];
   addToCart: (id: string) => void;
   openProduct?: (p: Product) => void;
+  onCreateRegistry?: () => void;
 }) {
   const { t, lang } = useT();
   const { session } = useSession();
@@ -98,9 +100,16 @@ export function BabyClub({
               <p className="mt-0.5 text-[13px] text-mute">{t("baby.dobHelp")}</p>
             </div>
             {!editing && (
-              <Btn small bg="#FFE1A8" color="#2B2140" onClick={() => setEditing(true)}>
-                {t("baby.addDob")}
-              </Btn>
+              <div className="flex gap-2">
+                <Btn small bg="#FFE1A8" color="#2B2140" onClick={() => setEditing(true)}>
+                  {t("baby.addDob")}
+                </Btn>
+                {onCreateRegistry && (
+                  <Btn small bg="#D6E8B0" color="#2B2140" onClick={onCreateRegistry}>
+                    🎁 Baby Registry
+                  </Btn>
+                )}
+              </div>
             )}
           </div>
 

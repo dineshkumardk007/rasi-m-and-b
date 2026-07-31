@@ -7,7 +7,8 @@ import { logEvent } from "@/lib/data/events";
 import { currentCustomer, currentCustomerPhone } from "@/lib/customer-session";
 import { getLanguage as currentLanguage } from "@/lib/i18n/server";
 import { isValidDob } from "@/lib/baby";
-import type { CustomerAddress, Order, Product } from "@/lib/types";
+import { hashPassword } from "@/lib/admin-password";
+import type { BabyRegistry, CustomerAddress, Order, Product, RegistryItem, Subscription } from "@/lib/types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- supabase row shapes */
 function mapOrder(row: any): Order {
@@ -378,4 +379,196 @@ export async function deleteCustomerAddressAction(addressId: string): Promise<bo
   const supabase = createAdminClient();
   await supabase.from("customer_addresses").delete().eq("id", addressId).eq("customer_id", customerId);
   return true;
+}
+
+export async function updateMyPasswordAction(newPassword: string): Promise<{ ok: boolean; error?: string }> {
+  const me = await currentCustomer();
+  if (!me) return { ok: false, error: "Not signed in" };
+  if (!newPassword || newPassword.length < 6) return { ok: false, error: "Password must be at least 6 characters" };
+
+  const hashed = hashPassword(newPassword);
+  if (isDemo()) {
+    const digits = me.sub.replace(/\D/g, "");
+    const customer = demoDB().customers.find(
+      (c) => c.phone === digits || c.email?.toLowerCase() === me.sub.toLowerCase(),
+    );
+    if (customer) (customer as any).password = hashed;
+  } else {
+    const customerId = await findMyCustomerId(me.sub);
+    if (customerId) {
+      const supabase = createAdminClient();
+      await supabase.from("customers").update({ password_hash: hashed }).eq("id", customerId);
+    }
+  }
+
+  return { ok: true };
+}
+
+/* ── Baby Shower Registry Actions ───────────────────────────────────────── */
+
+export async function createBabyRegistryAction(
+  title: string,
+  parentName: string,
+  babyNameOrTitle: string,
+  eventDate: string,
+  items: RegistryItem[],
+): Promise<{ ok: boolean; slug?: string; error?: string }> {
+  const me = await currentCustomer();
+  if (!me) return { ok: false, error: "Please sign in to create a Baby Registry" };
+  if (!title.trim()) return { ok: false, error: "Please enter a registry title" };
+
+  const slug = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  if (isDemo()) {
+    const reg: BabyRegistry = {
+      id: `demo-reg-${Date.now()}`,
+      customer_id: me.sub,
+      title: title.trim(),
+      parent_name: parentName.trim() || me.name,
+      baby_name_or_title: babyNameOrTitle.trim() || "Baby",
+      event_date: eventDate,
+      slug,
+      items,
+      created_at: new Date().toISOString(),
+    };
+    demoDB().registries.unshift(reg);
+    return { ok: true, slug };
+  }
+
+  const customerId = await findMyCustomerId(me.sub);
+  if (!customerId) return { ok: false, error: "Customer record not found" };
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("registries").insert({
+    customer_id: customerId,
+    title: title.trim(),
+    parent_name: parentName.trim() || me.name,
+    baby_name_or_title: babyNameOrTitle.trim() || "Baby",
+    event_date: eventDate,
+    slug,
+    items,
+  });
+
+  if (error) {
+    console.warn("Supabase registry insert fallback to demoDB:", error);
+    const reg: BabyRegistry = {
+      id: `reg-${Date.now()}`,
+      customer_id: customerId,
+      title: title.trim(),
+      parent_name: parentName.trim() || me.name,
+      baby_name_or_title: babyNameOrTitle.trim() || "Baby",
+      event_date: eventDate,
+      slug,
+      items,
+      created_at: new Date().toISOString(),
+    };
+    demoDB().registries.unshift(reg);
+  }
+
+  return { ok: true, slug };
+}
+
+export async function myRegistriesAction(): Promise<BabyRegistry[]> {
+  const me = await currentCustomer();
+  if (!me) return [];
+
+  if (isDemo()) {
+    return demoDB().registries.filter((r) => r.customer_id === me.sub);
+  }
+
+  const customerId = await findMyCustomerId(me.sub);
+  if (!customerId) return [];
+
+  const supabase = createAdminClient();
+  const { data } = await supabase.from("registries").select("*").eq("customer_id", customerId);
+  return (data ?? demoDB().registries.filter((r) => r.customer_id === customerId)) as BabyRegistry[];
+}
+
+export async function getBabyRegistryBySlugAction(slug: string): Promise<BabyRegistry | null> {
+  if (isDemo()) {
+    return demoDB().registries.find((r) => r.slug === slug) ?? null;
+  }
+  const supabase = createAdminClient();
+  const { data } = await supabase.from("registries").select("*").eq("slug", slug).maybeSingle();
+  return (data ?? demoDB().registries.find((r) => r.slug === slug)) as BabyRegistry | null;
+}
+
+/* ── Subscribe & Save Actions ────────────────────────────────────────────── */
+
+export async function createSubscriptionAction(
+  productId: string,
+  variantId: string | null,
+  qty: number,
+  frequencyDays: number,
+): Promise<{ ok: boolean; error?: string }> {
+  const me = await currentCustomer();
+  if (!me) return { ok: false, error: "Please sign in to subscribe" };
+
+  const nextDate = new Date(Date.now() + frequencyDays * 24 * 3600 * 1000).toISOString().slice(0, 10);
+
+  if (isDemo()) {
+    const sub: Subscription = {
+      id: `demo-sub-${Date.now()}`,
+      customer_id: me.sub,
+      product_id: productId,
+      variant_id: variantId,
+      qty,
+      frequency_days: frequencyDays,
+      status: "active",
+      discount_percent: 10,
+      next_delivery_date: nextDate,
+      created_at: new Date().toISOString(),
+    };
+    demoDB().subscriptions.unshift(sub);
+    return { ok: true };
+  }
+
+  const customerId = await findMyCustomerId(me.sub);
+  if (!customerId) return { ok: false, error: "Customer account not found" };
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("subscriptions").insert({
+    customer_id: customerId,
+    product_id: productId,
+    variant_id: variantId,
+    qty,
+    frequency_days: frequencyDays,
+    status: "active",
+    discount_percent: 10,
+    next_delivery_date: nextDate,
+  });
+
+  if (error) {
+    console.warn("Supabase subscription fallback to demoDB:", error);
+    demoDB().subscriptions.unshift({
+      id: `sub-${Date.now()}`,
+      customer_id: customerId,
+      product_id: productId,
+      variant_id: variantId,
+      qty,
+      frequency_days: frequencyDays,
+      status: "active",
+      discount_percent: 10,
+      next_delivery_date: nextDate,
+      created_at: new Date().toISOString(),
+    });
+  }
+
+  return { ok: true };
+}
+
+export async function mySubscriptionsAction(): Promise<Subscription[]> {
+  const me = await currentCustomer();
+  if (!me) return [];
+
+  if (isDemo()) {
+    return demoDB().subscriptions.filter((s) => s.customer_id === me.sub);
+  }
+
+  const customerId = await findMyCustomerId(me.sub);
+  if (!customerId) return [];
+
+  const supabase = createAdminClient();
+  const { data } = await supabase.from("subscriptions").select("*").eq("customer_id", customerId);
+  return (data ?? demoDB().subscriptions.filter((s) => s.customer_id === customerId)) as Subscription[];
 }

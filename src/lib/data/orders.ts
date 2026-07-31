@@ -1,4 +1,5 @@
 import "server-only";
+import { calculateDeliveryFee } from "@/lib/constants";
 import type {
   AddressSnapshot,
   Order,
@@ -26,6 +27,7 @@ export interface PlaceOrderInput {
   whatsapp_opt_in?: boolean;
   is_gift?: boolean;
   gift_message?: string;
+  delivery_mode?: "standard" | "express_3hr" | "store_pickup";
 }
 
 export type PlaceOrderResult =
@@ -207,7 +209,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   const lines = await resolveLines(input.items);
   if (!lines) return { ok: false, error: "server", detail: "unknown item" };
   const subtotal = lines.reduce((s, l) => s + l.price_snapshot * l.qty, 0);
-  const delivery_fee = subtotal > settings.free_delivery_threshold ? 0 : DELIVERY_FEE;
+  const delivery_fee = calculateDeliveryFee(subtotal, settings).fee;
 
   let discount = 0;
   let coupon_code: string | null = null;
@@ -275,6 +277,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       language: input.language,
       is_gift,
       gift_message,
+      delivery_mode: input.delivery_mode ?? (sameDay ? "express_3hr" : "standard"),
     };
     db.orders.unshift(order);
     if (coupon_code) {

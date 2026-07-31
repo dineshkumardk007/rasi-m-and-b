@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LEGAL_DOCS, LEGAL_SHORT } from "@/lib/legal/content";
 import type {
+  BabyRegistry,
   Banner,
   Brand,
   Bundle,
@@ -20,7 +21,7 @@ import { useWishlist } from "@/lib/store/WishlistProvider";
 import { useSession } from "@/lib/store/SessionProvider";
 import { inr } from "@/lib/constants";
 import { Badge, Card, Modal, Toast, Btn } from "@/components/ui";
-import { myOrdersAction, recordCartAbandonedAction } from "@/app/customer-actions";
+import { getBabyRegistryBySlugAction, myOrdersAction, recordCartAbandonedAction } from "@/app/customer-actions";
 import {
   trackAddToCart,
   trackBeginCheckout,
@@ -46,6 +47,7 @@ import {
   TrackModal,
   WishlistModal,
 } from "./modals";
+import { CreateRegistryModal, ViewRegistryModal } from "./RegistryModal";
 import {
   BrandRail,
   DealOfTheDay,
@@ -88,6 +90,8 @@ export type ModalState =
   | { type: "confirmSignOut" }
   | { type: "profile" }
   | { type: "wishlist" }
+  | { type: "createRegistry" }
+  | { type: "viewRegistry"; registry: BabyRegistry }
   | null;
 
 export default function Storefront(props: StorefrontProps) {
@@ -191,6 +195,17 @@ export default function Storefront(props: StorefrontProps) {
       ),
     [products, milestone, category, query, brand, maxPrice, inStockOnly],
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const regSlug = params.get("registry");
+    if (regSlug) {
+      getBabyRegistryBySlugAction(regSlug).then((reg) => {
+        if (reg) setModal({ type: "viewRegistry", registry: reg });
+      });
+    }
+  }, []);
 
   const addToCart = useCallback(
     (itemId: string) => {
@@ -401,13 +416,15 @@ export default function Storefront(props: StorefrontProps) {
 
         {/* Right Action Buttons */}
         <div className="flex shrink-0 items-center gap-1 sm:gap-2 flex-wrap justify-center lg:justify-end">
-          <button
-            type="button"
-            onClick={() => setLang(lang === "en" ? "ta" : "en")}
-            className="btn-press shrink-0 flex items-center rounded-pill border-2 sm:border-2.5 border-ink bg-[#B9EBDD] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[32px] sm:min-h-[36px] cursor-pointer"
-          >
-            {t("nav.language")}
-          </button>
+          {(settings.enable_language_switch ?? true) && (
+            <button
+              type="button"
+              onClick={() => setLang(lang === "en" ? "ta" : "en")}
+              className="btn-press shrink-0 flex items-center rounded-pill border-2 sm:border-2.5 border-ink bg-[#B9EBDD] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[32px] sm:min-h-[36px] cursor-pointer"
+            >
+              {t("nav.language")}
+            </button>
+          )}
 
           <button
             type="button"
@@ -489,7 +506,12 @@ export default function Storefront(props: StorefrontProps) {
             <CategoryGrid category={category} setCategory={setCategory} />
             <BrandRail brands={brands} />
             <PromoBanner banners={banners} />
-            <BabyClub products={products} addToCart={addToCart} openProduct={openProduct} />
+            <BabyClub
+              products={products}
+              addToCart={addToCart}
+              openProduct={openProduct}
+              onCreateRegistry={() => setModal({ type: "createRegistry" })}
+            />
             <BuyAgain products={buyAgain} addToCart={addToCart} openProduct={openProduct} />
             <RecentlyViewed
               products={products}
@@ -603,7 +625,7 @@ export default function Storefront(props: StorefrontProps) {
             // logging failure must never block the customer reaching checkout.
             void recordCartAbandonedAction(
               cartItems.reduce((n, c) => n + c.qty, 0),
-            ).catch(() => {});
+            ).catch(() => { });
             setModal({ type: "checkout" });
           }}
         />
@@ -664,6 +686,14 @@ export default function Storefront(props: StorefrontProps) {
       {modal?.type === "track" && (
         <TrackModal onClose={() => setModal(null)} myOrders={myOrders} />
       )}
+      {modal?.type === "profile" && (
+        <ProfileModal
+          onClose={() => setModal(null)}
+          onSignOut={() => setModal({ type: "confirmSignOut" })}
+          onOpenOrders={() => setRoute("orders")}
+          onOpenRegistry={() => setModal({ type: "createRegistry" })}
+        />
+      )}
       {modal?.type === "wishlist" && (
         <WishlistModal
           products={products}
@@ -717,6 +747,27 @@ export default function Storefront(props: StorefrontProps) {
             </div>
           </div>
         </Modal>
+      )}
+      {modal?.type === "createRegistry" && (
+        <CreateRegistryModal
+          products={products}
+          onClose={() => setModal(null)}
+          onCreated={(slug) => {
+            setModal(null);
+            notify(`🎁 Registry created! Link: /?registry=${slug}`);
+          }}
+        />
+      )}
+      {modal?.type === "viewRegistry" && (
+        <ViewRegistryModal
+          registry={modal.registry}
+          products={products}
+          onClose={() => setModal(null)}
+          onAddToCart={(p) => {
+            addToCart(p.id);
+            notify(`Added ${p.name_en} as a gift! 🎁`);
+          }}
+        />
       )}
 
       <WhatsAppFab />

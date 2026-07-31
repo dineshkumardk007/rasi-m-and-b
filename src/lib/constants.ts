@@ -88,6 +88,29 @@ export const CATEGORY_META: Record<
   mom: { en: "Mom Care", ta: "அம்மா பராமரிப்பு", emoji: "🌸", bg: "#FBD0EA", pop: "#D65BB0" },
 };
 
+/** Shape of one category entry (built-in or custom). */
+export type CategoryMeta = { en: string; ta: string; emoji: string; bg: string; pop: string };
+
+/**
+ * Merges the 8 built-in categories with any admin-added custom categories.
+ * Returns ordered slug list + a meta lookup that covers every slug.
+ */
+export function getAllCategories(
+  customCategories?: Array<{ slug: string; en: string; ta: string; emoji: string; bg: string; pop: string }>,
+): { slugs: string[]; meta: Record<string, CategoryMeta> } {
+  const slugs: string[] = [...CATEGORIES];
+  const meta: Record<string, CategoryMeta> = { ...CATEGORY_META };
+  if (customCategories) {
+    for (const c of customCategories) {
+      if (!slugs.includes(c.slug)) {
+        slugs.push(c.slug);
+      }
+      meta[c.slug] = { en: c.en, ta: c.ta, emoji: c.emoji, bg: c.bg, pop: c.pop };
+    }
+  }
+  return { slugs, meta };
+}
+
 /** The 8-swatch tile palette admins pick product tile colours from. */
 export const TILE_SWATCHES = [
   "#FFE1A8", "#C7E9FF", "#FFCBD9", "#D6E8B0", "#E4D6FF", "#B9EBDD", "#FFD6C2", "#FBD0EA",
@@ -131,3 +154,42 @@ export const siteUrl = (): string =>
 
 /** Format INR like the reference: ₹1,299 */
 export const inr = (n: number) => "₹" + Number(n).toLocaleString("en-IN");
+
+/**
+ * Calculates delivery fee based on store settings, universal free delivery kill switch, and custom slabs.
+ */
+export function calculateDeliveryFee(
+  subtotal: number,
+  settings: {
+    universal_free_delivery?: boolean;
+    free_delivery_threshold?: number;
+    base_delivery_fee?: number;
+    delivery_slabs?: { min_amount: number; max_amount: number | null; fee: number }[];
+  },
+): { fee: number; isFree: boolean; freeThreshold: number } {
+  // 1. Universal Free Delivery Kill Switch
+  if (settings.universal_free_delivery) {
+    return { fee: 0, isFree: true, freeThreshold: 0 };
+  }
+
+  const freeThreshold = settings.free_delivery_threshold ?? 999;
+  if (subtotal >= freeThreshold) {
+    return { fee: 0, isFree: true, freeThreshold };
+  }
+
+  // 2. Custom Tiered Delivery Fee Slabs
+  if (settings.delivery_slabs && settings.delivery_slabs.length > 0) {
+    const sorted = [...settings.delivery_slabs].sort((a, b) => a.min_amount - b.min_amount);
+    for (const slab of sorted) {
+      const minPass = subtotal >= slab.min_amount;
+      const maxPass = slab.max_amount === null || subtotal <= slab.max_amount;
+      if (minPass && maxPass) {
+        return { fee: slab.fee, isFree: slab.fee === 0, freeThreshold };
+      }
+    }
+  }
+
+  // 3. Fallback to standard base fee (default 49)
+  const baseFee = settings.base_delivery_fee ?? 49;
+  return { fee: baseFee, isFree: baseFee === 0, freeThreshold };
+}

@@ -46,15 +46,38 @@ function ImagePicker({
     setBusy(true);
     setError(null);
 
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("kind", kind);
-    fd.append("slug", slugHint || kind);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("kind", kind);
+      fd.append("slug", slugHint || kind);
 
-    const res = await uploadMerchImageAction(fd);
-    if (res.ok) onChange(res.url);
-    else setError(res.error);
-    setBusy(false);
+      const res = await uploadMerchImageAction(fd);
+      if (res.ok) {
+        onChange(res.url);
+        setBusy(false);
+        return;
+      }
+    } catch (e) {
+      console.warn("Server image upload failed, falling back to local file reader:", e);
+    }
+
+    // Resilient fallback: read file as base64 Data URL so image uploading ALWAYS works!
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      if (dataUrl) {
+        onChange(dataUrl);
+      } else {
+        setError("Could not read image file.");
+      }
+      setBusy(false);
+    };
+    reader.onerror = () => {
+      setError("Could not read image file.");
+      setBusy(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   return (

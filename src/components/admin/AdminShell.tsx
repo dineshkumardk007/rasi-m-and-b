@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type {
@@ -18,6 +18,7 @@ import { BUSINESS, inr } from "@/lib/constants";
 import { Badge, Card, Modal, Pill } from "@/components/ui";
 import { logoutAdminAction, setOrderStatusAction, updateProductStockAction } from "@/app/admin/actions";
 import {
+  AnalyticsTab,
   CouponsTab,
   CustomersTab,
   ProductsTab,
@@ -41,6 +42,7 @@ export interface AdminProps {
 
 const TABS = [
   ["dashboard", "📊 Dashboard"],
+  ["analytics", "📈 Analytics"],
   ["orders", "🚚 Orders"],
   ["products", "📦 Products"],
   ["banners", "🖼️ Banners"],
@@ -48,13 +50,36 @@ const TABS = [
   ["customers", "👥 Customers"],
   ["coupons", "🏷️ Coupons"],
   ["reviews", "⭐ Reviews"],
-  ["reports", "📈 Reports"],
+  ["reports", "📄 GST Reports"],
   ["settings", "⚙️ Settings"],
 ] as const;
+
+const TAB_COLORS: Record<(typeof TABS)[number][0], { bg: string; activeBg: string }> = {
+  dashboard: { bg: "#FFE1A8", activeBg: "#FFC857" },
+  analytics: { bg: "#D6E8B0", activeBg: "#A7E052" },
+  orders: { bg: "#C7E9FF", activeBg: "#70C2FF" },
+  products: { bg: "#FFCBD9", activeBg: "#FF8DA9" },
+  banners: { bg: "#E2D4F9", activeBg: "#B892F7" },
+  brands: { bg: "#FFD6A5", activeBg: "#FFAB52" },
+  customers: { bg: "#B9EBDD", activeBg: "#52D1AF" },
+  coupons: { bg: "#FFE66D", activeBg: "#FFD000" },
+  reviews: { bg: "#FBD0EA", activeBg: "#F78BD1" },
+  reports: { bg: "#A0D2EB", activeBg: "#4DA8DA" },
+  settings: { bg: "#E5DBCC", activeBg: "#C4B29A" },
+};
 
 export function AdminShell(props: AdminProps) {
   const router = useRouter();
   const [tab, setTab] = useState<(typeof TABS)[number][0]>("dashboard");
+  const tabsRef = useRef<HTMLDivElement>(null);
+
+  const scrollTabs = (direction: "left" | "right") => {
+    if (tabsRef.current) {
+      // Skip 7 tabs (~900px scroll width) per arrow click
+      const scrollAmount = direction === "left" ? -900 : 900;
+      tabsRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-cream text-ink">
@@ -84,17 +109,59 @@ export function AdminShell(props: AdminProps) {
             🔒 Lock Admin
           </button>
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-3">
-          {TABS.map(([id, label]) => (
-            <Pill key={id} active={tab === id} onClick={() => setTab(id)}>
-              {label}
-            </Pill>
-          ))}
+
+        {/* Tab Navigation Section with Left (◀) & Right (▶) Arrows */}
+        <div className="relative mb-4 flex items-center gap-1.5 rounded-card border-3 border-ink bg-[#FFFDF7] p-2 shadow-hard-3">
+          <button
+            type="button"
+            onClick={() => scrollTabs("left")}
+            aria-label="Scroll tabs left"
+            className="btn-press shrink-0 flex h-9 w-9 items-center justify-center rounded-full border-2.5 border-ink bg-[#FFE1A8] font-display text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] active:scale-90 transition-all cursor-pointer"
+            title="Scroll left"
+          >
+            ◀
+          </button>
+
+          <div
+            ref={tabsRef}
+            className="flex flex-1 gap-2 overflow-x-auto scrollbar-none no-scrollbar scroll-smooth py-0.5"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          >
+            {TABS.map(([id, label]) => {
+              const colors = TAB_COLORS[id];
+              const isActive = tab === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setTab(id)}
+                  style={{ background: isActive ? colors.activeBg : colors.bg }}
+                  className={`btn-press whitespace-nowrap rounded-pill border-2.5 border-ink px-4 py-2 font-display text-[13px] font-extrabold text-ink transition-all cursor-pointer ${isActive
+                      ? "shadow-hard-3 scale-105 border-3 ring-2 ring-ink/20"
+                      : "shadow-hard-2 hover:opacity-100 opacity-90"
+                    }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => scrollTabs("right")}
+            aria-label="Scroll tabs right"
+            className="btn-press shrink-0 flex h-9 w-9 items-center justify-center rounded-full border-2.5 border-ink bg-[#FFE1A8] font-display text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] active:scale-90 transition-all cursor-pointer"
+            title="Scroll right"
+          >
+            ▶
+          </button>
         </div>
 
         {tab === "dashboard" && <Dashboard {...props} />}
+        {tab === "analytics" && <AnalyticsTab orders={props.orders} products={props.products} customers={props.customers} />}
         {tab === "orders" && <OrdersBoard orders={props.orders} />}
-        {tab === "products" && <ProductsTab products={props.products} />}
+        {tab === "products" && <ProductsTab products={props.products} settings={props.settings} />}
         {tab === "banners" && <BannersTab banners={props.banners} />}
         {tab === "brands" && <BrandsTab brands={props.brands} />}
         {tab === "customers" && <CustomersTab customers={props.customers} orders={props.orders} />}
@@ -315,6 +382,7 @@ const ORDER_FILTERS: { id: string; label: string; match: (o: Order) => boolean }
 function OrdersBoard({ orders }: { orders: Order[] }) {
   const router = useRouter();
   const [slip, setSlip] = useState<Order | null>(null);
+  const [label, setLabel] = useState<Order | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
@@ -424,8 +492,9 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
             {o.items.map((i) => `${i.name_snapshot} ×${i.qty}`).join(" · ")}{" "}
             <Badge bg="#FFE1A8">{o.payment_method === "cod" ? "COD" : "Paid online"}</Badge>
             {o.coupon_code && <Badge bg="#D6E8B0">{o.coupon_code}</Badge>}
-            {/* Packing needs to know: no price slip, and a message to include. */}
             {o.is_gift && <Badge bg="#FBD0EA">🎁 GIFT</Badge>}
+            {o.delivery_mode === "express_3hr" && <Badge bg="#D6E8B0">⚡ 3-HR EXPRESS</Badge>}
+            {o.delivery_mode === "store_pickup" && <Badge bg="#FFE1A8">🛍️ STORE PICKUP</Badge>}
             {(o.status === "cancelled" || o.status === "returned") && (
               <Badge bg="#FFCBD9">{o.status}</Badge>
             )}
@@ -449,6 +518,22 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
             <Pill bg="#E4D6FF" onClick={() => setSlip(o)}>
               🖨️ Slip
             </Pill>
+            <Pill bg="#FFE1A8" onClick={() => setLabel(o)}>
+              🏷️ Label
+            </Pill>
+            <Pill
+              bg="#D6E8B0"
+              onClick={() => {
+                const phone = o.address_snapshot.phone.replace(/\D/g, "");
+                const cleanPhone = phone.length === 10 ? `91${phone}` : phone;
+                const msg = encodeURIComponent(
+                  `Hi ${o.address_snapshot.name}! 👋 Your order #${o.order_no} from Rasi Mom & Baby (Thoothukudi) has been updated to "${o.status.toUpperCase()}"! 🚚\n\nTrack your parcel here: ${window.location.origin}/?track=${o.order_no}`,
+                );
+                window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
+              }}
+            >
+              📱 WhatsApp
+            </Pill>
             {o.status !== "cancelled" && o.status !== "delivered" && (
               <Pill bg="#FFCBD9" onClick={() => busy !== o.id && move(o, "cancelled")}>
                 ✕ Cancel
@@ -458,6 +543,7 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
         </Card>
       ))}
       {slip && <PackingSlip order={slip} onClose={() => setSlip(null)} />}
+      {label && <ShippingLabel order={label} onClose={() => setLabel(null)} />}
     </div>
   );
 }
@@ -498,6 +584,80 @@ function PackingSlip({ order, onClose }: { order: Order; onClose: () => void }) 
           className="btn-press flex-1 rounded-pill border-3 border-ink bg-brand px-5 py-2.5 font-display font-extrabold text-white shadow-hard-3"
         >
           🖨️ Print
+        </button>
+        <button
+          onClick={onClose}
+          className="btn-press flex-1 rounded-pill border-3 border-ink bg-[#F2EAE0] px-5 py-2.5 font-display font-extrabold shadow-hard-3"
+        >
+          Close
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function ShippingLabel({ order, onClose }: { order: Order; onClose: () => void }) {
+  return (
+    <Modal onClose={onClose}>
+      <div id="shipping-label" className="mx-auto max-w-[400px] border-4 border-ink bg-white p-5 shadow-hard-4">
+        <style>{`@media print { body * { visibility: hidden } #shipping-label, #shipping-label * { visibility: visible } #shipping-label { position: fixed; top: 0; left: 0; width: 4in; height: 6in; background: #fff; padding: 16px; border: 3px solid #000; font-family: sans-serif; } }`}</style>
+
+        {/* Header */}
+        <div className="flex items-center justify-between border-b-3 border-ink pb-3">
+          <div>
+            <h2 className="font-display text-[20px] font-extrabold tracking-tight text-ink">{BUSINESS.name}</h2>
+            <p className="text-[11px] font-bold text-mute">Palayamkottai Road, Thoothukudi</p>
+          </div>
+          <div className="text-right">
+            <span className="inline-block rounded-pill border-2 border-ink bg-[#FFE1A8] px-2.5 py-0.5 font-display text-[12px] font-extrabold text-ink">
+              {order.payment_method === "cod" ? `COD: ${inr(order.total)}` : "PAID PREPAID"}
+            </span>
+          </div>
+        </div>
+
+        {/* Order Barcode simulation */}
+        <div className="my-3 text-center bg-paper p-2 rounded-tile border-2 border-ink">
+          <div className="font-mono text-[22px] font-extrabold tracking-widest text-ink">*{order.order_no}*</div>
+          <div className="text-[10px] font-extrabold uppercase text-mute">Order Barcode / Dispatch Serial</div>
+        </div>
+
+        {/* Delivery Address Box */}
+        <div className="rounded-tile border-3 border-ink bg-[#FFFDF7] p-3">
+          <div className="text-[11px] font-extrabold uppercase text-mute font-display">
+            DELIVER TO (RECIPIENT):
+          </div>
+          <div className="mt-1 font-display text-[18px] font-extrabold text-ink leading-tight">
+            {order.address_snapshot.name}
+          </div>
+          <div className="mt-1 font-body text-[14px] font-bold text-ink leading-relaxed">
+            {order.address_snapshot.line}<br />
+            {order.address_snapshot.city}, Tamil Nadu
+          </div>
+          <div className="mt-1 flex items-center justify-between border-t-2 border-dashed border-ink/20 pt-1.5 font-display">
+            <span className="text-[16px] font-extrabold text-brand">PIN: {order.address_snapshot.pin}</span>
+            <span className="text-[13px] font-extrabold text-ink">📞 {order.address_snapshot.phone}</span>
+          </div>
+        </div>
+
+        {/* Package summary */}
+        <div className="mt-3 rounded-tile border-2 border-ink p-2 text-[12px]">
+          <div className="font-bold text-mute uppercase mb-0.5">Package Contents ({order.items.reduce((s, i) => s + i.qty, 0)} items):</div>
+          <div className="font-semibold text-ink line-clamp-2">
+            {order.items.map((i) => `${i.name_snapshot} (${i.qty})`).join(", ")}
+          </div>
+        </div>
+
+        <div className="mt-3 text-center text-[10px] font-bold text-mute border-t border-ink/20 pt-2">
+          Hand-packed with care in Thoothukudi · Express Courier Service
+        </div>
+      </div>
+
+      <div className="mt-4 flex gap-2.5">
+        <button
+          onClick={() => window.print()}
+          className="btn-press flex-1 rounded-pill border-3 border-ink bg-brand px-5 py-2.5 font-display font-extrabold text-white shadow-hard-3"
+        >
+          🏷️ Print Shipping Label (4x6&quot;)
         </button>
         <button
           onClick={onClose}

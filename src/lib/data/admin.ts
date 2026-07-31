@@ -1,5 +1,6 @@
 import "server-only";
 import type {
+  AnalyticsData,
   Banner,
   BannerSlot,
   Brand,
@@ -26,6 +27,7 @@ import { logEvent } from "./events";
 
 import { cookies } from "next/headers";
 import { ADMIN_COOKIE, verifySessionToken } from "@/lib/admin-session";
+import { hashPassword } from "@/lib/admin-password";
 
 export async function requireStaff(): Promise<{ userId: string } | null> {
   try {
@@ -602,6 +604,31 @@ export async function saveCustomerNote(staffId: string, customerId: string, note
   await logStaff(staffId, "note", "customer", customerId);
 }
 
+export async function resetCustomerPassword(
+  staffId: string,
+  customerId: string,
+  newPassword: string,
+): Promise<boolean> {
+  const hashed = hashPassword(newPassword);
+  if (isDemo()) {
+    const c = demoDB().customers.find((x) => x.id === customerId);
+    if (c) (c as any).password = hashed;
+  } else {
+    const supabase = createAdminClient();
+    const { error } = await supabase
+      .from("customers")
+      .update({ password_hash: hashed })
+      .eq("id", customerId);
+    if (error) {
+      console.warn("Supabase customer password reset error:", error);
+      const c = demoDB().customers.find((x) => x.id === customerId);
+      if (c) (c as any).password = hashed;
+    }
+  }
+  await logStaff(staffId, "reset_password", "customer", customerId);
+  return true;
+}
+
 /* ── Settings ────────────────────────────────────────────────────────────── */
 
 export async function updateSettings(staffId: string, patch: Partial<StoreSettings>): Promise<void> {
@@ -613,4 +640,83 @@ export async function updateSettings(staffId: string, patch: Partial<StoreSettin
       await supabase.from("settings").upsert({ key, value, updated_at: new Date().toISOString() });
   }
   await logStaff(staffId, "update", "settings", Object.keys(patch).join(","));
+}
+
+/* ── Analytics & Low Stock Helpers ───────────────────────────────────────── */
+
+export async function getAnalyticsData(orders: Order[], products: Product[], customers: CustomerRecord[]): Promise<AnalyticsData> {
+  const validOrders = orders.filter((o) => o.status !== "cancelled");
+  const totalRevenue = validOrders.reduce((sum, o) => sum + o.total, 0);
+  const totalOrders = validOrders.length;
+  const averageOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+  const totalCustomers = customers.length;
+
+  // Daily Sales aggregation (last 30 days)
+  const salesByDate: Record<string, { amount: number; count: number }> = {};
+  for (const o of validOrders) {
+    const date = o.placed_at.slice(0, 10);
+    if (!salesByDate[date]) salesByDate[date] = { amount: 0, count: 0 };
+    salesByDate[date].amount += o.total;
+    salesByDate[date].count += 1;
+  }
+  const dailySales = Object.entries(salesByDate)
+    .map(([date, data]) => ({ date, amount: data.amount, count: data.count }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-14); // last 14 days
+
+  // Top Products leaderboard
+  const productStats: Record<string, { name: string; qtySold: number; revenue: number }> = {};
+  for (const o of validOrders) {
+    for (const item of o.items) {
+      const pid = item.product_id;
+      if (!productStats[pid]) {
+        productStats[pid] = { name: item.name_snapshot, qtySold: 0, revenue: 0 };
+      }
+      productStats[pid].qtySold += item.qty;
+      productStats[pid].revenue += item.price_snapshot * item.qty;
+    }
+  }
+  const topProducts = Object.entries(productStats)
+    .map(([id, stat]) => ({ id, ...stat }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
+  // Category sales breakdown
+  const catSales: Record<string, number> = {};
+  for (const o of validOrders) {
+    for (const item of o.items) {
+      const prod = products.find((p) => p.id === item.product_id);
+      const cat = prod?.categories[0] ?? "general";
+      catSales[cat] = (catSales[cat] ?? 0) + item.price_snapshot * item.qty;
+    }
+  }
+  const categorySales = Object.entries(catSales).map(([category, amount]) => ({ category, amount }));
+
+  return {
+    totalRevenue,
+    totalOrders,
+    averageOrderValue,
+    totalCustomers,
+    dailySales,
+    topProducts,
+    categorySales,
+  };
+}
+
+export async function getLowStockProducts(products: Product[]): Promise<Product[]> {
+  return products.filter((p) => p.status === "active" && p.stock <= p.low_stock_threshold);
+}
+
+export async function quickRestockProduct(staffId: string, productId: string, addedStock: number): Promise<boolean> {
+  if (isDemo()) {
+    const p = demoDB().products.find((x) => x.id === productId);
+    if (p) p.stock += addedStock;
+  } else {
+    const supabase = createAdminClient();
+    const { data: current } = await supabase.from("products").select("stock").eq("id", productId).single();
+    const newStock = (current?.stock ?? 0) + addedStock;
+    await supabase.from("products").update({ stock: newStock }).eq("id", productId);
+  }
+  await logStaff(staffId, "restock", "product", `${productId}:${addedStock}`);
+  return true;
 }

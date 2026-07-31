@@ -121,6 +121,7 @@ export function Field({
   inputMode?: "text" | "numeric" | "tel" | "email";
   maxLength?: number;
 }) {
+  const isPhone = inputMode === "tel" || label.toLowerCase().includes("phone") || label.toLowerCase().includes("mobile");
   return (
     <label className="mb-3 block">
       <span className="text-[12px] font-extrabold uppercase tracking-[.5px] text-mute font-display">
@@ -129,9 +130,15 @@ export function Field({
       <input
         type={type}
         inputMode={inputMode}
-        maxLength={maxLength}
+        maxLength={maxLength ?? (isPhone ? 10 : undefined)}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          let val = e.target.value;
+          if (isPhone) {
+            val = val.replace(/\D/g, "").slice(0, 10);
+          }
+          onChange(val);
+        }}
         placeholder={placeholder}
         className="mt-1 w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2.5 font-body text-[15px] text-ink outline-none min-h-[44px]"
       />
@@ -247,6 +254,7 @@ export function Modal({
   hideClose,
 }: {
   onClose: () => void;
+  onChildren?: ReactNode;
   children: ReactNode;
   wide?: boolean;
   hideClose?: boolean;
@@ -255,11 +263,17 @@ export function Modal({
     <div
       className="animate-backdrop fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
       style={{ background: "rgba(43,33,64,0.6)" }}
-      onClick={onClose}
+      onMouseDown={(e) => {
+        // Only close if the mouse click started directly on the backdrop layer itself.
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
       role="dialog"
       aria-modal="true"
     >
       <div
+        onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: wide ? 680 : 460 }}
         className="animate-modal relative max-h-[92vh] w-full overflow-y-auto rounded-t-modal border-4 border-ink bg-[#FFF9F2] p-[22px] shadow-hard-6 sm:rounded-modal overflow-hidden"

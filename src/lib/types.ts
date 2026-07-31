@@ -117,6 +117,7 @@ export interface Order {
   is_gift?: boolean;
   gift_message?: string | null;
   gift_wrap_fee?: number;
+  delivery_mode?: "standard" | "express_3hr" | "store_pickup";
 }
 
 export interface Coupon {
@@ -164,6 +165,8 @@ export interface Review {
   text: string;
   status: "pending" | "approved" | "rejected";
   created_at: string;
+  photo_url?: string | null;
+  verified_buyer?: boolean;
 }
 
 export interface CustomerRecord {
@@ -182,14 +185,32 @@ export interface CustomerRecord {
   addresses?: CustomerAddress[];
 }
 
+export interface DeliverySlab {
+  min_amount: number;
+  max_amount: number | null;
+  fee: number;
+}
+
 export interface StoreSettings {
   same_day_enabled: boolean;
   serviceable_pins: string[];
   unserviceable_pins?: string[];
   free_delivery_threshold: number;
+  base_delivery_fee?: number;
+  universal_free_delivery?: boolean;
+  delivery_slabs?: DeliverySlab[];
   cod_limit: number;
   gift_wrap_enabled?: boolean;
   gift_wrap_fee?: number;
+  enable_language_switch?: boolean;
+  announcement_enabled?: boolean;
+  announcement_text_en?: string;
+  announcement_text_ta?: string;
+  announcement_bg?: string;
+  announcement_color?: string;
+  announcement_link?: string;
+  /** Admin-added categories beyond the 8 built-in ones. */
+  custom_categories?: Array<{ slug: string; en: string; ta: string; emoji: string; bg: string; pop: string }>;
 }
 
 export interface CartLine {
@@ -197,4 +218,45 @@ export interface CartLine {
   itemId: string;
   variantId?: string;
   qty: number;
+}
+
+export interface RegistryItem {
+  product_id: string;
+  desired_qty: number;
+  purchased_qty: number;
+}
+
+export interface BabyRegistry {
+  id: string;
+  customer_id: string;
+  title: string;
+  parent_name: string;
+  baby_name_or_title: string;
+  event_date: string;
+  slug: string;
+  items: RegistryItem[];
+  created_at: string;
+}
+
+export interface Subscription {
+  id: string;
+  customer_id: string;
+  product_id: string;
+  variant_id?: string | null;
+  qty: number;
+  frequency_days: number; // e.g. 30 or 45
+  status: "active" | "paused" | "cancelled";
+  discount_percent: number; // e.g. 10
+  next_delivery_date: string;
+  created_at: string;
+}
+
+export interface AnalyticsData {
+  totalRevenue: number;
+  totalOrders: number;
+  averageOrderValue: number;
+  totalCustomers: number;
+  dailySales: Array<{ date: string; amount: number; count: number }>;
+  topProducts: Array<{ id: string; name: string; qtySold: number; revenue: number }>;
+  categorySales: Array<{ category: string; amount: number }>;
 }

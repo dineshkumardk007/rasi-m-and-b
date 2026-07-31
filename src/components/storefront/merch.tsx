@@ -219,37 +219,140 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
         ))}
 
         {count > 1 && (
-          <div className="absolute bottom-2.5 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
-            {slides.map((banner, i) => (
-              <button
-                key={banner.id}
-                type="button"
-                onClick={() => go(i)}
-                aria-label={`Go to slide ${i + 1}`}
-                aria-current={i === index}
-                className={`h-2.5 rounded-full border-2 border-ink transition-all ${
-                  i === index ? "w-6 bg-brand" : "w-2.5 bg-white/90"
-                }`}
-              />
-            ))}
-          </div>
+          <>
+            {/* Left Nav Arrow Button */}
+            <button
+              type="button"
+              onClick={() => go(index - 1)}
+              className="btn-press absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 border-ink bg-white/90 text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer font-extrabold text-[16px]"
+              aria-label="Previous banner"
+            >
+              ‹
+            </button>
+
+            {/* Right Nav Arrow Button */}
+            <button
+              type="button"
+              onClick={() => go(index + 1)}
+              className="btn-press absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 border-ink bg-white/90 text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer font-extrabold text-[16px]"
+              aria-label="Next banner"
+            >
+              ›
+            </button>
+
+            {/* Pagination Dots */}
+            <div className="absolute bottom-2.5 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
+              {slides.map((banner, i) => (
+                <button
+                  key={banner.id}
+                  type="button"
+                  onClick={() => go(i)}
+                  aria-label={`Go to slide ${i + 1}`}
+                  aria-current={i === index}
+                  className={`h-2.5 rounded-full border-2 border-ink transition-all ${
+                    i === index ? "w-6 bg-brand" : "w-2.5 bg-white/90"
+                  }`}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>
   );
 }
 
-/** The single mid-page promo slot. Same 3:1 frame, no rotation. */
+/** The mid-page promo slot supporting multiple banners with auto-rotation, navigation arrows & dots. */
 export function PromoBanner({ banners }: { banners: Banner[] }) {
-  const slide = useMemo(() => liveBanners(banners, "mid")[0], [banners]);
-  if (!slide) return null;
+  const slides = useMemo(() => liveBanners(banners, "mid"), [banners]);
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+
+  const count = slides.length;
+  const go = useCallback((next: number) => setIndex(((next % count) + count) % count), [count]);
+
+  useEffect(() => {
+    if (count < 2 || paused) return;
+    const id = window.setInterval(() => setIndex((i) => (i + 1) % count), 5000);
+    return () => window.clearInterval(id);
+  }, [count, paused]);
+
+  if (count === 0) return null;
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const start = touchStartX.current;
+    touchStartX.current = null;
+    if (start === null) return;
+    const dx = e.changedTouches[0]!.clientX - start;
+    if (Math.abs(dx) > 40) go(index + (dx < 0 ? 1 : -1));
+  };
 
   return (
-    <div className="mx-auto max-w-[1080px] px-5 pt-5">
-      <div className="relative aspect-[3/1] w-full overflow-hidden rounded-card border-3 border-ink shadow-hard-4">
-        <BannerFrame banner={slide}>
-          <BannerImage banner={slide} />
-        </BannerFrame>
+    <div className="mx-auto max-w-[1080px] px-3 sm:px-5 pt-5">
+      <div
+        className="relative aspect-[3/1] w-full overflow-hidden rounded-modal border-[3.5px] border-ink shadow-[6px_6px_0px_#2B2140] group/midbanner"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onTouchStart={(e) => {
+          touchStartX.current = e.touches[0]!.clientX;
+          setPaused(true);
+        }}
+        onTouchEnd={onTouchEnd}
+      >
+        {slides.map((banner, i) => (
+          <div
+            key={banner.id}
+            aria-hidden={i !== index}
+            className={`absolute inset-0 transition-opacity duration-500 ${
+              i === index ? "opacity-100" : "pointer-events-none opacity-0"
+            }`}
+          >
+            <BannerFrame banner={banner}>
+              <BannerImage banner={banner} priority={i === 0} />
+            </BannerFrame>
+          </div>
+        ))}
+
+        {count > 1 && (
+          <>
+            {/* Left Nav Arrow Button */}
+            <button
+              type="button"
+              onClick={() => go(index - 1)}
+              className="btn-press absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 border-ink bg-white/90 text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer font-extrabold text-[16px]"
+              aria-label="Previous banner"
+            >
+              ‹
+            </button>
+
+            {/* Right Nav Arrow Button */}
+            <button
+              type="button"
+              onClick={() => go(index + 1)}
+              className="btn-press absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 border-ink bg-white/90 text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer font-extrabold text-[16px]"
+              aria-label="Next banner"
+            >
+              ›
+            </button>
+
+            {/* Pagination Dots */}
+            <div className="absolute bottom-2.5 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
+              {slides.map((banner, i) => (
+                <button
+                  key={banner.id}
+                  type="button"
+                  onClick={() => go(i)}
+                  aria-label={`Go to slide ${i + 1}`}
+                  aria-current={i === index}
+                  className={`h-2.5 rounded-full border-2 border-ink transition-all ${
+                    i === index ? "w-6 bg-brand" : "w-2.5 bg-white/90"
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
