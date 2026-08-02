@@ -18,7 +18,7 @@ export function PrintTrigger() {
         onClick={() => window.print()}
         className="rounded-full bg-black px-5 py-2 font-mono text-sm font-bold text-white shadow hover:bg-gray-800"
       >
-        🖨️ Print Label (4" × 6")
+        🖨️ Print Label (4&quot; × 6&quot;)
       </button>
       <button
         type="button"

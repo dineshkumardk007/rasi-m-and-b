@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PendingApproval } from "@/lib/types";
-import { Card, Btn, Badge } from "@/components/ui";
+import { Card, Badge } from "@/components/ui";
 import { approveActionRequestAction, rejectActionRequestAction } from "@/app/admin/actions";
 
 export function ApprovalsTab({ pendingApprovals }: { pendingApprovals: PendingApproval[] }) {

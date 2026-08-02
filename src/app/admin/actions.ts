@@ -342,7 +342,7 @@ export async function createStaffAccountAction(
   role: StaffRole,
   password: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const staff = await gate();
+  await gate();
   if (!username.trim() || !password.trim()) {
     return { ok: false, error: "Username and password are required" };
   }
