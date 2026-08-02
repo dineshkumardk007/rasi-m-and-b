@@ -377,22 +377,32 @@ export async function recordCustomerActivityAction(): Promise<boolean> {
   }
 
   const supabase = createAdminClient();
-  const { data: customer } = await supabase
+  const { data: c } = await supabase
     .from("customers")
-    .select("id, login_count")
+    .select("login_count")
     .eq("phone", clean)
     .maybeSingle();
 
-  if (customer) {
-    await supabase
-      .from("customers")
-      .update({
-        last_login_at: now,
-        login_count: (customer.login_count || 0) + 1,
-      })
-      .eq("id", customer.id);
-  }
+  await supabase
+    .from("customers")
+    .update({
+      last_login_at: now,
+      login_count: ((c?.login_count as number) || 0) + 1,
+    })
+    .eq("phone", clean);
+
   return true;
+}
+
+export async function getCurrentCustomerAction(): Promise<{ name: string; phone?: string; email?: string } | null> {
+  const me = await currentCustomer();
+  if (!me) return null;
+  const isEmail = me.sub.includes("@");
+  return {
+    name: me.name || "Customer",
+    phone: isEmail ? undefined : me.sub.replace(/\D/g, "").slice(-10),
+    email: isEmail ? me.sub : undefined,
+  };
 }
 
 /** Register with Email & Password via Supabase Auth & Database */

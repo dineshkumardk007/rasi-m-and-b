@@ -12,6 +12,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import {
   ensureCustomerProfileByEmailAction,
+  getCurrentCustomerAction,
   recordCustomerActivityAction,
   registerCustomerAction,
   registerCustomerWithEmailAction,
@@ -56,28 +57,73 @@ export function SessionProvider({
   const [session, setSession] = useState<CustomerSession | null>(null);
 
   useEffect(() => {
-    if (isDemo) {
-      try {
-        const raw = window.localStorage.getItem(DEMO_KEY);
-        if (raw) {
-          const s = JSON.parse(raw) as CustomerSession;
-          setSession(s);
-          if (s?.phone) recordCustomerActivityAction();
-        }
-      } catch {
-        /* ignore */
+    // 1. Fast local cache read so session doesn't flicker on refresh
+    try {
+      const raw = window.localStorage.getItem(DEMO_KEY);
+      if (raw) {
+        const s = JSON.parse(raw) as CustomerSession;
+        if (s && (s.phone || s.name)) setSession(s);
       }
+    } catch {
+      /* ignore */
+    }
+
+    if (isDemo) {
+      recordCustomerActivityAction();
       return;
     }
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        const name = (data.user.user_metadata?.name as string) ?? "";
-        const phone = data.user.phone ?? "";
-        setSession({ name, phone });
-        if (phone) recordCustomerActivityAction();
+
+    // 2. Re-verify session with server (HMAC cookie + Supabase Auth)
+    let isMounted = true;
+    (async () => {
+      const serverSession = await getCurrentCustomerAction();
+      if (!isMounted) return;
+      if (serverSession) {
+        const s: CustomerSession = {
+          name: serverSession.name,
+          phone: serverSession.phone ?? "",
+          email: serverSession.email,
+        };
+        setSession(s);
+        try {
+          window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        } catch {
+          /* ignore */
+        }
+        recordCustomerActivityAction();
+        return;
       }
-    });
+
+      // Check Supabase Auth as fallback for OTP users
+      const supabase = createClient();
+      const { data } = await supabase.auth.getUser();
+      if (!isMounted) return;
+      if (data?.user) {
+        const name = (data.user.user_metadata?.name as string) ?? "Customer";
+        const phone = data.user.phone ? data.user.phone.replace(/\D/g, "").slice(-10) : "";
+        const email = data.user.email ?? undefined;
+        const s: CustomerSession = { name, phone, email };
+        setSession(s);
+        try {
+          window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        } catch {
+          /* ignore */
+        }
+        if (phone) recordCustomerActivityAction();
+      } else {
+        // Not authenticated on server or Supabase -> clear local state
+        setSession(null);
+        try {
+          window.localStorage.removeItem(DEMO_KEY);
+        } catch {
+          /* ignore */
+        }
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isDemo]);
 
   const sendOtp = useCallback<SessionContextValue["sendOtp"]>(
@@ -101,7 +147,9 @@ export function SessionProvider({
         if (!/^\d{6}$/.test(otp)) return { ok: false, message: "bad_otp" };
         await registerCustomerAction(customerName, clean);
         const s = { name: customerName, phone: clean };
-        window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        try {
+          window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        } catch {}
         setSession(s);
         return { ok: true };
       }
@@ -127,7 +175,11 @@ export function SessionProvider({
       // Upsert customer record by unique phone number in database
       await registerCustomerAction(customerName, clean);
 
-      setSession({ name: customerName, phone: clean });
+      const s = { name: customerName, phone: clean };
+      try {
+        window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+      } catch {}
+      setSession(s);
       return { ok: true };
     },
     [isDemo],
@@ -138,13 +190,15 @@ export function SessionProvider({
       const res = await signInWithPasswordAction(phone, password);
       if (res.ok && res.name && res.phone) {
         const s = { name: res.name, phone: res.phone };
-        if (isDemo) window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        try {
+          window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        } catch {}
         setSession(s);
         return { ok: true, name: res.name };
       }
       return { ok: false, message: res.error ?? "Login failed" };
     },
-    [isDemo],
+    [],
   );
 
   const registerWithPassword = useCallback(
@@ -152,13 +206,15 @@ export function SessionProvider({
       const res = await registerCustomerWithPasswordAction(name, phone, password);
       if (res.ok && res.name && res.phone) {
         const s = { name: res.name, phone: res.phone };
-        if (isDemo) window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        try {
+          window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        } catch {}
         setSession(s);
         return { ok: true, name: res.name };
       }
       return { ok: false, message: res.error ?? "Registration failed" };
     },
-    [isDemo],
+    [],
   );
 
   const signInWithEmail = useCallback(
@@ -176,6 +232,9 @@ export function SessionProvider({
           const dbRes = await signInWithEmailAction(cleanEmail, password);
           if (dbRes.ok && dbRes.name) {
             const s = { name: dbRes.name, phone: "", email: cleanEmail };
+            try {
+              window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+            } catch {}
             setSession(s);
             return { ok: true, name: dbRes.name };
           }
@@ -187,13 +246,18 @@ export function SessionProvider({
         const profileName = (data?.user?.user_metadata?.name as string) ?? "";
         const profile = await ensureCustomerProfileByEmailAction(cleanEmail, profileName);
         const s = { name: profile.name || profileName || "Customer", phone: "", email: cleanEmail };
+        try {
+          window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        } catch {}
         setSession(s);
         return { ok: true, name: s.name };
       }
       const res = await signInWithEmailAction(cleanEmail, password);
       if (res.ok && res.name) {
         const s = { name: res.name, phone: "", email: cleanEmail };
-        if (isDemo) window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        try {
+          window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        } catch {}
         setSession(s);
         return { ok: true, name: res.name };
       }
@@ -218,16 +282,27 @@ export function SessionProvider({
             },
           });
         } catch {
-          /* ignore auth error and proceed with database customer creation */
+          /* ignore error if email requires confirmation */
         }
+        const res = await registerCustomerWithEmailAction(customerName, cleanEmail, password);
+        if (res.ok && res.name) {
+          const s = { name: res.name, phone: "", email: cleanEmail };
+          try {
+            window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+          } catch {}
+          setSession(s);
+          return { ok: true, name: s.name };
+        }
+        return { ok: false, message: res.error ?? "Registration failed" };
       }
-
       const res = await registerCustomerWithEmailAction(customerName, cleanEmail, password);
-      if (res.ok) {
-        const s = { name: res.name || customerName, phone: "", email: cleanEmail };
-        if (isDemo) window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+      if (res.ok && res.name) {
+        const s = { name: res.name, phone: "", email: cleanEmail };
+        try {
+          window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        } catch {}
         setSession(s);
-        return { ok: true, name: s.name };
+        return { ok: true, name: res.name };
       }
       return { ok: false, message: res.error ?? "Registration failed" };
     },
@@ -235,9 +310,10 @@ export function SessionProvider({
   );
 
   const signOut = useCallback(async () => {
-    if (isDemo) {
+    try {
       window.localStorage.removeItem(DEMO_KEY);
-    } else {
+    } catch {}
+    if (!isDemo) {
       await createClient().auth.signOut();
     }
     // Clear the signed server-side cookie too, or the browser would keep
