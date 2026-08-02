@@ -7,7 +7,7 @@ import { useCart } from "@/lib/store/CartProvider";
 import { useWishlist } from "@/lib/store/WishlistProvider";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { inr, MILESTONE_META } from "@/lib/constants";
-import { Art, Badge, Btn, Stars, Toast } from "@/components/ui";
+import { Badge, Btn, ProductImageSlider, Stars, Toast } from "@/components/ui";
 import { ShareButton } from "@/components/storefront/ShareButton";
 import { trackAddToCart, trackViewContent } from "@/lib/analytics";
 import { BoughtTogether } from "@/components/storefront/BoughtTogether";
@@ -30,9 +30,15 @@ export function PdpClient({ product: p, reviews }: { product: Product; reviews: 
 
   return (
     <div className="rounded-card border-3 border-ink bg-paper p-4 shadow-hard-4">
-      {/* Product Image Tile with Floating Wishlist Heart Button */}
-      <div className="relative overflow-hidden rounded-card">
-        <Art emoji={p.emoji} bg={p.tile_color} ratio="banner" image={p.images[0]} alt={p.name_en} />
+      {/* Product Image Carousel with Floating Wishlist Heart Button */}
+      <div className="relative">
+        <ProductImageSlider
+          images={p.images}
+          emoji={p.emoji}
+          bg={p.tile_color}
+          ratio="banner"
+          alt={lang === "ta" ? p.name_ta : p.name_en}
+        />
         <button
           type="button"
           onClick={() => {
@@ -40,7 +46,7 @@ export function PdpClient({ product: p, reviews }: { product: Product; reviews: 
             setToast(wishlist.has(p.id) ? "Removed from Wishlist" : "Saved to Wishlist ❤️");
             window.setTimeout(() => setToast(null), 2000);
           }}
-          className={`btn-press absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border-2.5 border-ink transition-all duration-200 cursor-pointer ${
+          className={`btn-press absolute top-3 right-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border-2.5 border-ink transition-all duration-200 cursor-pointer ${
             wishlist.has(p.id)
               ? "bg-[#FF5A78] text-white shadow-hard-3 scale-110 rotate-6"
               : "bg-white/95 text-ink shadow-hard-2 hover:bg-[#FFCBD9] hover:scale-110"

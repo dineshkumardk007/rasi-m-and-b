@@ -185,17 +185,21 @@ describe("renderRenditions", () => {
     // Half red, half blue. Unrotated that split runs left/right; rotated 90°
     // clockwise it runs top/bottom. Covering the box preserves the split's
     // direction either way, so sampling two corners says which one happened.
+    //
+    // Sized so the *rotated* (displayed) dimensions still clear the no-upscale
+    // floor in both axes: raw 1400 tall becomes the rotated width (>=1200),
+    // raw 2000 becomes the rotated height (>=400).
     const half = async (color: string) =>
-      sharp({ create: { width: 700, height: 1000, channels: 3, background: color } })
+      sharp({ create: { width: 1400, height: 2000, channels: 3, background: color } })
         .png()
         .toBuffer();
 
     const sideways = await sharp({
-      create: { width: 1400, height: 1000, channels: 3, background: "#FFFFFF" },
+      create: { width: 2800, height: 2000, channels: 3, background: "#FFFFFF" },
     })
       .composite([
         { input: await half("#FF0000"), left: 0, top: 0 },
-        { input: await half("#0000FF"), left: 700, top: 0 },
+        { input: await half("#0000FF"), left: 1400, top: 0 },
       ])
       .withMetadata({ orientation: 6 }) // "rotate 90° clockwise"
       .jpeg()

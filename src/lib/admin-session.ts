@@ -2,6 +2,7 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { verifyPasswordHash } from "./admin-password";
 import { isDemo } from "./data/mode";
+import { demoDB } from "./data/demo-store";
 import { createAdminClient } from "./supabase/admin";
 
 /**
@@ -44,48 +45,105 @@ function sessionSecret(): string | null {
   return secret && secret.length >= 32 ? secret : null;
 }
 
+import type { StaffAccount, StaffRole } from "./types";
+import { cookies } from "next/headers";
+
 export type CredentialResult =
-  | { ok: true }
-  | { ok: false; reason: "not_configured" | "bad_credentials" };
+  | { ok: true; id: string; username: string; role: StaffRole }
+  | { ok: false; reason: "not_configured" | "bad_credentials" | "disabled" };
+
+export interface AdminSessionClaims {
+  sub: string;
+  username: string;
+  role: StaffRole;
+}
 
 /**
- * Check a username/password pair against the configured admin credentials.
- *
- * ADMIN_PASSWORD_HASH is the only accepted form. An earlier version fell back to
- * a plaintext ADMIN_PASSWORD when no hash was set, which meant a deploy that
- * merely forgot to run `pnpm admin:password` kept working — on the shop owner's
- * real password, sitting in cleartext in the Vercel dashboard. Refusing to log
- * anyone in is the safer failure.
+ * Check a username/password pair against the configured admin credentials or staff accounts.
  */
-export function verifyAdminCredentials(username: string, password: string): CredentialResult {
-  const validUser = process.env.ADMIN_USERNAME?.trim().toLowerCase();
-  const passwordHash = process.env.ADMIN_PASSWORD_HASH?.trim();
-
-  if (!validUser || !passwordHash || !sessionSecret()) {
+export async function verifyAdminCredentials(
+  username: string,
+  password: string,
+): Promise<CredentialResult> {
+  const secret = sessionSecret();
+  if (!secret) {
     return { ok: false, reason: "not_configured" };
   }
 
-  const userOk = safeEqual(username.trim().toLowerCase(), validUser);
-  // Always run the password check so a wrong username is not measurably faster.
-  const passOk = verifyPasswordHash(password, passwordHash);
+  const validUser = process.env.ADMIN_USERNAME?.trim().toLowerCase();
+  const passwordHash = process.env.ADMIN_PASSWORD_HASH?.trim();
 
-  return userOk && passOk ? { ok: true } : { ok: false, reason: "bad_credentials" };
+  const cleanUser = username.trim().toLowerCase();
+
+  // 1. Master Owner Check
+  if (validUser && passwordHash && safeEqual(cleanUser, validUser)) {
+    const passOk = verifyPasswordHash(password, passwordHash);
+    if (passOk) {
+      return { ok: true, id: "admin-owner", username: process.env.ADMIN_USERNAME || "Owner", role: "owner" };
+    }
+  }
+
+  // 2. Staff Account Check (DB or Demo)
+  if (isDemo()) {
+    const acc = demoDB().staffAccounts.find(
+      (s: StaffAccount) => s.username.toLowerCase() === cleanUser || s.phone === cleanUser,
+    );
+    if (!acc) return { ok: false, reason: "bad_credentials" };
+    if (acc.status === "disabled") return { ok: false, reason: "disabled" };
+    // Demo mode: accept password if password_hash matches or if fallback
+    const passOk = verifyPasswordHash(password, acc.password_hash) || password === "StaffPass123" || password === "demo";
+    if (!passOk) return { ok: false, reason: "bad_credentials" };
+    acc.last_login_at = new Date().toISOString();
+    return { ok: true, id: acc.id, username: acc.username, role: acc.role };
+  }
+
+  const supabase = createAdminClient();
+  const { data: acc } = await supabase
+    .from("staff_accounts")
+    .select("*")
+    .or(`username.ilike.${cleanUser},phone.eq.${cleanUser}`)
+    .maybeSingle();
+
+  if (!acc) return { ok: false, reason: "bad_credentials" };
+  if (acc.status === "disabled") return { ok: false, reason: "disabled" };
+
+  const passOk = verifyPasswordHash(password, acc.password_hash);
+  if (!passOk) return { ok: false, reason: "bad_credentials" };
+
+  await supabase
+    .from("staff_accounts")
+    .update({ last_login_at: new Date().toISOString() })
+    .eq("id", acc.id);
+
+  return { ok: true, id: acc.id, username: acc.username, role: acc.role as StaffRole };
 }
 
 /** Issue a signed session token, or null when ADMIN_SESSION_SECRET is unset/too short. */
-export function createSessionToken(subject = "admin-owner"): string | null {
+export function createSessionToken(
+  subject = "admin-owner",
+  username = "Owner",
+  role: StaffRole = "owner",
+): string | null {
   const secret = sessionSecret();
   if (!secret) return null;
   const now = Math.floor(Date.now() / 1000);
   const payload = b64url(
-    Buffer.from(JSON.stringify({ sub: subject, iat: now, exp: now + SESSION_TTL_SECONDS })),
+    Buffer.from(
+      JSON.stringify({
+        sub: subject,
+        username,
+        role,
+        iat: now,
+        exp: now + SESSION_TTL_SECONDS,
+      }),
+    ),
   );
   const body = `v1.${payload}`;
   return `${body}.${sign(body, secret)}`;
 }
 
-/** Verify a session cookie value. Returns the subject, or null if invalid/expired. */
-export function verifySessionToken(token: string | undefined): string | null {
+/** Verify a session cookie value. Returns session claims, or null if invalid/expired. */
+export function verifySessionToken(token: string | undefined): AdminSessionClaims | null {
   const secret = sessionSecret();
   if (!secret || !token) return null;
 
@@ -97,14 +155,27 @@ export function verifySessionToken(token: string | undefined): string | null {
   try {
     const claims = JSON.parse(Buffer.from(payload, "base64url").toString()) as {
       sub?: string;
+      username?: string;
+      role?: StaffRole;
       exp?: number;
     };
     if (!claims.sub || typeof claims.exp !== "number") return null;
     if (claims.exp < Math.floor(Date.now() / 1000)) return null;
-    return claims.sub;
+    return {
+      sub: claims.sub,
+      username: claims.username || "Staff",
+      role: claims.role || "staff",
+    };
   } catch {
     return null;
   }
+}
+
+/** Helper to get current admin session claims from server components or actions */
+export async function getAdminSession(): Promise<AdminSessionClaims | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(ADMIN_COOKIE)?.value;
+  return verifySessionToken(token);
 }
 
 /**

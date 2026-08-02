@@ -9,6 +9,8 @@ import type {
   Order,
   Product,
   Review,
+  StaffAccount,
+  PendingApproval,
   StoreSettings,
   Subscription,
 } from "@/lib/types";
@@ -34,9 +36,11 @@ export interface DemoDB {
   customers: CustomerRecord[];
   registries: BabyRegistry[];
   subscriptions: Subscription[];
+  staffAccounts: StaffAccount[];
+  pendingApprovals: PendingApproval[];
   settings: StoreSettings;
   events: { type: string; payload: Record<string, unknown>; at: string }[];
-  staffLog: { action: string; entity: string; entity_id: string; at: string }[];
+  staffLog: { staff_name?: string; action: string; entity: string; entity_id: string; at: string }[];
   orderSeq: number;
 }
 
@@ -351,6 +355,27 @@ function buildInitial(): DemoDB {
     ],
     registries: [],
     subscriptions: [],
+    staffAccounts: [
+      {
+        id: "demo-staff-1",
+        username: "priya_manager",
+        phone: "9876543210",
+        password_hash: "scrypt:demo-salt:demo-hash",
+        role: "manager",
+        status: "active",
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: "demo-staff-2",
+        username: "rahul_sales",
+        phone: "9123456780",
+        password_hash: "scrypt:demo-salt:demo-hash",
+        role: "staff",
+        status: "active",
+        created_at: new Date().toISOString(),
+      },
+    ],
+    pendingApprovals: [],
     settings: {
       same_day_enabled: true,
       serviceable_pins: ["628001", "628002", "628003", "628004", "628005", "628008"],

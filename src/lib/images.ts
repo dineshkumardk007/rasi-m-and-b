@@ -37,18 +37,14 @@ export function slugify(s: string): string {
 
 /**
  * The two boxes the storefront actually renders a product in. Every upload is
- * rendered into both, so a photo shot at any aspect ratio lands correctly in
- * each without the admin touching it.
- *
- * `inset` is the share of the box the product itself occupies; the remainder is
- * the product's tile_color, which keeps loosely-framed and tightly-framed
- * photos reading at the same visual weight across a grid row.
+ * cropped to fill both edge-to-edge (see image-pipeline.ts), so a photo shot at
+ * any aspect ratio lands correctly in each without the admin touching it.
  */
 export const RENDITIONS = {
   /** Wide banner at the top of the product modal and the PDP hero. */
-  banner: { width: 1200, height: 400, inset: 0.7 },
+  banner: { width: 1200, height: 400 },
   /** Card tile on the home grid, Fresh Picks, carousels and related rows. */
-  tile: { width: 600, height: 360, inset: 0.7 },
+  tile: { width: 600, height: 360 },
 } as const;
 
 export type RenditionKind = keyof typeof RENDITIONS;
@@ -59,13 +55,18 @@ export const RENDITION_CONTENT_TYPE = "image/webp";
 export const RENDITION_QUALITY = 82;
 
 /**
- * Smallest source we accept. A photo below this can only be enlarged to fill
- * the 1200x400 banner, which reads as visibly soft on the storefront — so it is
- * rejected at upload with a message rather than silently blurred. The pipeline
- * additionally never enlarges, so anything that passes stays sharp.
+ * Smallest source we accept, in each axis. A cover-fit crop scales by
+ * max(boxWidth/srcWidth, boxHeight/srcHeight), so avoiding enlargement needs
+ * the source to already be at least as large as every box in BOTH width and
+ * height — not just on its longest side, since a portrait photo cover-cropped
+ * into a wide box scales on the axis that's short, whichever one that is.
+ * The banner happens to be the largest box on both axes, so it alone sets the
+ * floor. Below this a photo can only be enlarged to fill a box, which reads as
+ * visibly soft on the storefront — so it's rejected at upload with a message
+ * rather than silently blurred.
  */
-export const MIN_SOURCE_LONG_EDGE = 800;
-export const MIN_SOURCE_SHORT_EDGE = 400;
+export const MIN_SOURCE_WIDTH = Math.max(...Object.values(RENDITIONS).map((r) => r.width));
+export const MIN_SOURCE_HEIGHT = Math.max(...Object.values(RENDITIONS).map((r) => r.height));
 
 /**
  * Storage keys for one upload. The random stem keeps re-uploads of the same
@@ -148,18 +149,17 @@ export function validateImage(contentType: string, bytes: number): ImageValidati
 }
 
 /**
- * Reject photos too small to fill the banner sharply. Checked after decoding,
- * so the message can name the actual size the admin uploaded.
+ * Reject photos too small to cover every box sharply. Checked on the actual
+ * (not longest-edge) width and height — orientation matters for a cover-fit
+ * crop — after decoding, so the message can name the real size uploaded.
  */
 export function validateDimensions(width: number, height: number): ImageValidation {
-  const long = Math.max(width, height);
-  const short = Math.min(width, height);
-  if (long < MIN_SOURCE_LONG_EDGE || short < MIN_SOURCE_SHORT_EDGE) {
+  if (width < MIN_SOURCE_WIDTH || height < MIN_SOURCE_HEIGHT) {
     return {
       ok: false,
       error:
-        `That photo is ${width}×${height} — too small to fill the product banner sharply. ` +
-        `Please upload one at least ${MIN_SOURCE_LONG_EDGE}px on its longest side.`,
+        `That photo is ${width}×${height} — too small to fill the product banner sharply ` +
+        `without enlarging it. Please upload one at least ${MIN_SOURCE_WIDTH}×${MIN_SOURCE_HEIGHT}px.`,
     };
   }
   return { ok: true };

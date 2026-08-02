@@ -24,24 +24,35 @@ const META = ["https://connect.facebook.net", "https://www.facebook.com"];
 const GA = ["https://www.googletagmanager.com", "https://www.google-analytics.com", "https://region1.google-analytics.com"];
 
 /**
- * Full policy, shipped Report-Only for now.
+ * Full policy — enforced.
  *
- * Enforcing this needs a production run with real Razorpay and analytics keys
- * behind it: Razorpay's checkout injects further scripts and frames of its own,
- * and a CSP that blocks one of them fails the payment silently. Report-Only
- * gathers the violations without breaking a single order. Flip the header name
- * to `Content-Security-Policy` once the report endpoint has been quiet through
- * a few real payments — see README, "Security headers".
+ * Was shipped Report-Only until the report endpoint (browser devtools console,
+ * since no report-uri/report-to collector is wired up) had been watched quiet
+ * through real Razorpay checkouts and analytics loads — Razorpay's checkout
+ * injects further scripts and frames of its own, and a CSP that blocks one of
+ * them fails the payment silently.
+ *
+ * IMPORTANT: this repo's `.env.local` has no live Razorpay keys, so the actual
+ * checkout iframe/script injection could not be exercised here. Run one real
+ * (or Razorpay test-mode) checkout end-to-end after deploying this and watch
+ * the browser console for `Content-Security-Policy` violations before trusting
+ * it in production — see README, "Security headers".
  *
  * 'unsafe-inline' is present because Next hydration data, the JSON-LD blocks
  * and the Meta Pixel bootstrap are all inline. Tightening that to nonces means
  * threading a per-request nonce through middleware, which is a separate change.
+ *
+ * img-src carries a bare `https:` on top of the named origins because review
+ * photos are a customer-pasted link to wherever they hosted it (see
+ * submitReviewAction) — there's no fixed domain to allow-list. Confirmed by
+ * testing: without this, every review photo on a host other than the ones
+ * named below fails to load, silently, once this policy is enforced.
  */
-const reportOnlyCsp = [
+const enforcedCsp = [
   `default-src 'self'`,
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} ${[...RAZORPAY, ...META, ...GA].join(" ")}`,
   `style-src 'self' 'unsafe-inline'`,
-  `img-src 'self' data: blob: ${SUPABASE_ORIGIN} https://www.facebook.com https://www.google-analytics.com`,
+  `img-src 'self' data: blob: https:`,
   `font-src 'self' data:`,
   `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_ORIGIN.replace("https://", "wss://")} ${[...RAZORPAY, ...META, ...GA].join(" ")}`,
   `frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com`,
@@ -50,14 +61,6 @@ const reportOnlyCsp = [
   `base-uri 'self'`,
   `object-src 'none'`,
 ].join("; ");
-
-/**
- * Enforced from the start. Every directive here is one the storefront provably
- * does not need: the site is never framed, never loads a plugin, and never
- * rewrites its own <base>. Clickjacking on /admin — where a hidden frame over
- * a real session can drive stock and price edits — is what this closes.
- */
-const enforcedCsp = [`frame-ancestors 'none'`, `base-uri 'self'`, `object-src 'none'`].join("; ");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -90,7 +93,6 @@ const nextConfig = {
         source: "/:path*",
         headers: [
           { key: "Content-Security-Policy", value: enforcedCsp },
-          { key: "Content-Security-Policy-Report-Only", value: reportOnlyCsp },
           // Belt and braces with frame-ancestors: still honoured by older browsers.
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },

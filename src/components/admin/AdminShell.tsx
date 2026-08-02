@@ -10,8 +10,11 @@ import type {
   CustomerRecord,
   Order,
   OrderStatus,
+  PendingApproval,
   Product,
   Review,
+  StaffAccount,
+  StaffRole,
   StoreSettings,
 } from "@/lib/types";
 import { BUSINESS, inr } from "@/lib/constants";
@@ -27,6 +30,8 @@ import {
   SettingsTab,
 } from "./tabs";
 import { BannersTab, BrandsTab } from "./merch-tabs";
+import { StaffTab } from "./StaffTab";
+import { ApprovalsTab } from "./ApprovalsTab";
 
 export interface AdminProps {
   orders: Order[];
@@ -37,6 +42,9 @@ export interface AdminProps {
   settings: StoreSettings;
   banners: Banner[];
   brands: Brand[];
+  staffAccounts?: StaffAccount[];
+  pendingApprovals?: PendingApproval[];
+  currentStaff?: { userId: string; username: string; role: StaffRole };
   isDemo: boolean;
 }
 
@@ -45,6 +53,8 @@ const TABS = [
   ["analytics", "📈 Analytics"],
   ["orders", "🚚 Orders"],
   ["products", "📦 Products"],
+  ["approvals", "🔔 Approvals"],
+  ["staff", "👥 Staff & Roles"],
   ["banners", "🖼️ Banners"],
   ["brands", "🏭 Brands"],
   ["customers", "👥 Customers"],
@@ -59,6 +69,8 @@ const TAB_COLORS: Record<(typeof TABS)[number][0], { bg: string; activeBg: strin
   analytics: { bg: "#D6E8B0", activeBg: "#A7E052" },
   orders: { bg: "#C7E9FF", activeBg: "#70C2FF" },
   products: { bg: "#FFCBD9", activeBg: "#FF8DA9" },
+  approvals: { bg: "#FFE1A8", activeBg: "#FFC857" },
+  staff: { bg: "#B9EBDD", activeBg: "#52D1AF" },
   banners: { bg: "#E2D4F9", activeBg: "#B892F7" },
   brands: { bg: "#FFD6A5", activeBg: "#FFAB52" },
   customers: { bg: "#B9EBDD", activeBg: "#52D1AF" },
@@ -162,6 +174,8 @@ export function AdminShell(props: AdminProps) {
         {tab === "analytics" && <AnalyticsTab orders={props.orders} products={props.products} customers={props.customers} />}
         {tab === "orders" && <OrdersBoard orders={props.orders} />}
         {tab === "products" && <ProductsTab products={props.products} settings={props.settings} />}
+        {tab === "approvals" && <ApprovalsTab pendingApprovals={props.pendingApprovals ?? []} />}
+        {tab === "staff" && <StaffTab staffAccounts={props.staffAccounts ?? []} />}
         {tab === "banners" && <BannersTab banners={props.banners} />}
         {tab === "brands" && <BrandsTab brands={props.brands} />}
         {tab === "customers" && <CustomersTab customers={props.customers} orders={props.orders} />}
@@ -518,6 +532,14 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
             <Pill bg="#E4D6FF" onClick={() => setSlip(o)}>
               🖨️ Slip
             </Pill>
+            <a
+              href={`/admin/print/${o.order_no}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-press rounded-pill border-2 border-ink bg-[#8CE0CE] px-3 py-1 text-[13px] font-extrabold text-ink shadow-hard-1 hover:bg-[#6FD4BD]"
+            >
+              🏷️ 4x6 Label
+            </a>
             <Pill bg="#FFE1A8" onClick={() => setLabel(o)}>
               🏷️ Label
             </Pill>

@@ -11,13 +11,13 @@
  *      centred on itself rather than on the photographer's framing. Without
  *      this a tightly-cropped photo and a loosely-cropped one sit side by side
  *      on the grid at wildly different sizes.
- *   3. Scale the product to `inset` of each box and centre it on a canvas of
- *      the product's own tile_color, which fills the leftover space that the
- *      aspect-ratio difference leaves behind.
+ *   3. Cover-crop to each box's exact pixel size, filling it edge-to-edge with
+ *      no padding.
  *
- * Step 3 never enlarges. A photo that passed validateDimensions has the pixels
- * to fill its box; one that somehow doesn't is left at its true size and padded
- * further, which reads as a slightly small product rather than a blurry one.
+ * Step 3 never enlarges: validateDimensions (in images.ts) rejects any photo
+ * whose width or height is too small to cover every box at 1:1 or sharper, so
+ * everything that reaches renderOne already has the pixels to fill its box
+ * without upscaling.
  *
  * No "server-only" here: scripts/import-images.ts and scripts/reprocess-images.ts
  * run the identical pipeline from plain Node, so a bulk import and an admin
@@ -166,9 +166,10 @@ async function renderOne(
 /**
  * Render every rendition from one source photo.
  *
- * `tileColor` is the product's own swatch, so the padding reads as part of the
- * tile rather than as a letterbox. Errors come back as values — the admin needs
- * to see "that photo is too small", not a stack trace.
+ * `tileColor` is threaded through for callers that still pass it, but the
+ * current cover-crop pipeline (see renderOne) doesn't composite onto a canvas
+ * and so never reads it. Errors come back as values — the admin needs to see
+ * "that photo is too small", not a stack trace.
  */
 export async function renderRenditions(
   source: Buffer,

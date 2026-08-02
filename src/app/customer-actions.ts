@@ -117,6 +117,30 @@ export async function notifyRestockAction(productId: string): Promise<boolean> {
   return true;
 }
 
+/** Register a 30-day (or custom days) auto-restock reminder for a product. */
+export async function registerRestockReminderAction(
+  productId: string,
+  phone: string,
+  days: number = 30,
+): Promise<{ ok: boolean; message: string }> {
+  const cleanPhone = phone.replace(/\D/g, "").slice(-10);
+  if (cleanPhone.length !== 10) {
+    return { ok: false, message: "Please enter a valid 10-digit mobile number." };
+  }
+
+  await logEvent("product.restock_reminder", {
+    product_id: productId,
+    phone: cleanPhone,
+    days,
+    requested_at: new Date().toISOString(),
+  });
+
+  return {
+    ok: true,
+    message: `Restock reminder set! We'll remind you in ${days} days on WhatsApp (${cleanPhone}). 🔔`,
+  };
+}
+
 /**
  * Record that a signed-in customer reached checkout.
  *

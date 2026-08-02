@@ -52,6 +52,11 @@ export const metadata: Metadata = {
     images: [{ url: "/logo.png", width: 512, height: 512, alt: BUSINESS.name }],
   },
   twitter: { card: "summary_large_image" },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Rasi Mom & Baby",
+  },
 };
 
 export const viewport: Viewport = {

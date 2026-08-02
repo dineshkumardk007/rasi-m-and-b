@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   bannerUrlFor,
   isManagedTileUrl,
-  MIN_SOURCE_LONG_EDGE,
+  MIN_SOURCE_HEIGHT,
+  MIN_SOURCE_WIDTH,
   objectPathFromUrl,
   originalObjectPath,
   publicUrlFor,
@@ -116,7 +117,7 @@ describe("validateDimensions", () => {
   });
 
   it("accepts a photo exactly at the floor", () => {
-    expect(validateDimensions(MIN_SOURCE_LONG_EDGE, 400).ok).toBe(true);
+    expect(validateDimensions(MIN_SOURCE_WIDTH, MIN_SOURCE_HEIGHT).ok).toBe(true);
   });
 
   it("rejects a thumbnail, naming the size that was sent", () => {
@@ -127,5 +128,11 @@ describe("validateDimensions", () => {
 
   it("rejects a long thin strip that has no height to work with", () => {
     expect(validateDimensions(2000, 120).ok).toBe(false);
+  });
+
+  it("rejects a tall portrait photo too narrow to cover the wide banner", () => {
+    // Long edge alone used to pass this (900 >= the old 800px floor); the
+    // banner is 1200 wide, so cover-cropping it would upscale 1.33x and blur.
+    expect(validateDimensions(700, 900).ok).toBe(false);
   });
 });

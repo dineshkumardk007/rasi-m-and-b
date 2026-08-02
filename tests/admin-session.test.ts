@@ -29,7 +29,7 @@ describe("session tokens", () => {
     const { createSessionToken, verifySessionToken } = await loadSession();
     const token = createSessionToken("admin-owner");
     expect(token).toBeTruthy();
-    expect(verifySessionToken(token as string)).toBe("admin-owner");
+    expect(verifySessionToken(token as string)?.sub).toBe("admin-owner");
   });
 
   it("rejects a token whose payload was edited", async () => {
@@ -96,7 +96,7 @@ describe("credential checks", () => {
     delete process.env.ADMIN_SESSION_SECRET;
     const { verifyAdminCredentials } = await loadSession();
 
-    const result = verifyAdminCredentials("rasiadmin", "anything");
+    const result = await verifyAdminCredentials("rasiadmin", "anything");
     expect(result).toEqual({ ok: false, reason: "not_configured" });
   });
 
@@ -105,9 +105,9 @@ describe("credential checks", () => {
     process.env.ADMIN_PASSWORD_HASH = hashPassword("correct-horse");
     const { verifyAdminCredentials } = await loadSession();
 
-    expect(verifyAdminCredentials("rasiadmin", "correct-horse").ok).toBe(true);
-    expect(verifyAdminCredentials("rasiadmin", "wrong").ok).toBe(false);
-    expect(verifyAdminCredentials("someone-else", "correct-horse").ok).toBe(false);
+    expect((await verifyAdminCredentials("rasiadmin", "correct-horse")).ok).toBe(true);
+    expect((await verifyAdminCredentials("rasiadmin", "wrong")).ok).toBe(false);
+    expect((await verifyAdminCredentials("someone-else", "correct-horse")).ok).toBe(false);
   });
 
   it("matches the username case-insensitively but the password exactly", async () => {
@@ -115,7 +115,7 @@ describe("credential checks", () => {
     process.env.ADMIN_PASSWORD_HASH = hashPassword("CaseSensitive");
     const { verifyAdminCredentials } = await loadSession();
 
-    expect(verifyAdminCredentials("RasiAdmin", "CaseSensitive").ok).toBe(true);
-    expect(verifyAdminCredentials("rasiadmin", "casesensitive").ok).toBe(false);
+    expect((await verifyAdminCredentials("RasiAdmin", "CaseSensitive")).ok).toBe(true);
+    expect((await verifyAdminCredentials("rasiadmin", "casesensitive")).ok).toBe(false);
   });
 });

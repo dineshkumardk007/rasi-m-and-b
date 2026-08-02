@@ -23,8 +23,7 @@ import {
   type Category,
   type Milestone,
 } from "@/lib/constants";
-import { Art, Badge, Btn, Card, Field, Modal, Pill, Stars } from "@/components/ui";
-import { bannerUrlFor, MIN_SOURCE_LONG_EDGE, RENDITIONS } from "@/lib/images";
+import { Art, Badge, Btn, Card, Field, Modal, Pill, ProductImageSlider, Stars } from "@/components/ui";
 import { formatPinSummary, isPinServiceable, parsePinInput } from "@/lib/pin";
 import {
   addAdminReviewAction,
@@ -821,7 +820,6 @@ function ProductImages({
     if (!files?.length) return;
     setBusy(true);
     setError(null);
-
     const uploaded: string[] = [];
     for (const file of Array.from(files)) {
       const fd = new FormData();
@@ -832,7 +830,6 @@ function ProductImages({
       if (res.ok) uploaded.push(res.url);
       else setError(res.error); // keep going; report the last failure
     }
-
     if (uploaded.length) onChange([...images, ...uploaded]);
     setBusy(false);
   };
@@ -844,70 +841,121 @@ function ProductImages({
 
   const makeMain = (url: string) => onChange([url, ...images.filter((u) => u !== url)]);
 
-  const main = images[0];
+  const moveLeft = (i: number) => {
+    if (i <= 0 || i >= images.length) return;
+    const next = [...images];
+    const curr = next[i];
+    const prev = next[i - 1];
+    if (curr !== undefined && prev !== undefined) {
+      next[i - 1] = curr;
+      next[i] = prev;
+      onChange(next);
+    }
+  };
+
+  const moveRight = (i: number) => {
+    if (i < 0 || i >= images.length - 1) return;
+    const next = [...images];
+    const curr = next[i];
+    const nxt = next[i + 1];
+    if (curr !== undefined && nxt !== undefined) {
+      next[i + 1] = curr;
+      next[i] = nxt;
+      onChange(next);
+    }
+  };
 
   return (
     <div className="mb-4">
-      <span className="font-display text-[12px] font-extrabold uppercase text-mute">
-        Product photos
-      </span>
+      <div className="flex items-center justify-between">
+        <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+          📷 Product Photos & Auto-Slideshow Gallery
+        </span>
+        {images.length > 0 && (
+          <span className="text-[11px] font-bold text-brand bg-[#FFE1A8] px-2 py-0.5 rounded-full border border-ink">
+            {images.length} Photo{images.length > 1 ? "s" : ""} Uploaded
+          </span>
+        )}
+      </div>
 
-      {main && (
-        <>
-          {/* The main photo drives both storefront boxes, so show both exactly
-              as the shopper will see them rather than a neutral square crop. */}
-          <p className="mt-2 text-[11px] font-extrabold uppercase tracking-wide text-mute">
-            Product modal banner · {RENDITIONS.banner.width}×{RENDITIONS.banner.height}
+      {images.length > 1 && (
+        <div className="mt-2.5 rounded-tile border-2 border-ink bg-cream p-3">
+          <p className="text-[12px] font-extrabold text-ink mb-1.5 flex items-center gap-1.5">
+            <span>✨ Customer Auto-Slideshow Live Preview</span>
+            <span className="text-[10px] bg-brand text-white px-2 py-0.2 rounded-full font-bold">Auto-Slides every 3.5s</span>
           </p>
-          <div className="mt-1 aspect-[3/1] w-full overflow-hidden rounded-tile border-2.5 border-ink">
-            {/* eslint-disable-next-line @next/next/no-img-element -- admin-only preview of a just-uploaded object */}
-            <img
-              src={bannerUrlFor(main)}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          </div>
+          <ProductImageSlider images={images} emoji="🧸" bg={tileColor} ratio="banner" />
+        </div>
+      )}
 
-          <p className="mt-3 text-[11px] font-extrabold uppercase tracking-wide text-mute">
-            Card tiles · {RENDITIONS.tile.width}×{RENDITIONS.tile.height}
+      {images.length > 0 && (
+        <div className="mt-3">
+          <p className="text-[11px] font-extrabold uppercase tracking-wide text-mute mb-1">
+            Uploaded Photos (Photo #1 is MAIN static photo, #2+ auto-slide on click)
           </p>
-          <div className="mt-1 flex flex-wrap gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {images.map((url, i) => (
-              <div key={url} className="w-[220px] sm:w-[260px]">
-                <div className="relative aspect-[5/3] w-full overflow-hidden rounded-tile border-2.5 border-ink shadow-hard-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- admin-only preview of a just-uploaded object */}
+              <div key={url} className="rounded-tile border-2.5 border-ink bg-white p-2 shadow-hard-2">
+                <div className="relative aspect-[5/3] w-full overflow-hidden rounded-md border border-ink/40">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={url} alt="" className="h-full w-full object-cover" />
                   <button
                     type="button"
                     onClick={() => remove(url)}
                     aria-label="Remove photo"
-                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-ink bg-white text-[12px] font-extrabold shadow-hard-2"
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-ink bg-white text-[11px] font-extrabold shadow-sm hover:bg-[#FFCBD9]"
                   >
                     ✕
                   </button>
-                  {i === 0 && (
-                    <span className="absolute bottom-1 left-1 rounded-xl border-2 border-ink bg-brand px-1.5 text-[9px] font-extrabold text-white">
-                      MAIN
-                    </span>
+                  <span
+                    className={`absolute bottom-1 left-1 rounded-xl border border-ink px-1.5 py-[1px] text-[9px] font-extrabold ${
+                      i === 0 ? "bg-brand text-white" : "bg-[#FFE1A8] text-ink"
+                    }`}
+                  >
+                    {i === 0 ? "1. MAIN (STATIC)" : `${i + 1}. SLIDE`}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-1 text-[11px]">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={i === 0}
+                      onClick={() => moveLeft(i)}
+                      className="px-1.5 py-0.5 rounded border border-ink bg-paper font-bold hover:bg-[#D6E8B0] disabled:opacity-30 cursor-pointer"
+                      title="Move left"
+                    >
+                      ◀
+                    </button>
+                    <button
+                      type="button"
+                      disabled={i === images.length - 1}
+                      onClick={() => moveRight(i)}
+                      className="px-1.5 py-0.5 rounded border border-ink bg-paper font-bold hover:bg-[#D6E8B0] disabled:opacity-30 cursor-pointer"
+                      title="Move right"
+                    >
+                      ▶
+                    </button>
+                  </div>
+                  {i !== 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => makeMain(url)}
+                      className="font-extrabold text-brand underline text-[10px]"
+                    >
+                      Make Main
+                    </button>
+                  ) : (
+                    <span className="text-[10px] font-extrabold text-mute">Main Photo</span>
                   )}
                 </div>
-                {i !== 0 && (
-                  <button
-                    type="button"
-                    onClick={() => makeMain(url)}
-                    className="mt-1 w-full text-[11px] font-extrabold text-mute underline"
-                  >
-                    Make main
-                  </button>
-                )}
               </div>
             ))}
           </div>
-        </>
+        </div>
       )}
 
-      <label className="mt-2.5 flex cursor-pointer items-center justify-center gap-2 rounded-tile border-2.5 border-dashed border-ink bg-paper px-4 py-3 font-display text-[13px] font-extrabold">
-        {busy ? "Fitting to the storefront boxes…" : "📷 Add photos — fitted automatically"}
+      <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-tile border-2.5 border-dashed border-ink bg-paper px-4 py-3 font-display text-[13px] font-extrabold hover:bg-cream transition-colors">
+        {busy ? "Uploading and fitting photos…" : "📷 Upload Photos (Select multiple files)"}
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp,image/avif"
@@ -923,13 +971,11 @@ function ProductImages({
 
       {error && <p className="mt-1.5 text-[12px] font-bold text-[#E24B4A]">{error}</p>}
       {!error && (
-        <p className="mt-1.5 text-[12px] text-mute">
+        <p className="mt-1.5 text-[12px] text-mute leading-relaxed">
           {images.length === 0
-            ? "No photo yet — the storefront shows the emoji tile until you add one. "
+            ? "No photo uploaded yet — storefront shows the emoji tile. "
             : ""}
-          Any shape works: each photo is trimmed, centred and padded with the tile colour to
-          fit both boxes. JPG, PNG, WebP or AVIF · at least {MIN_SOURCE_LONG_EDGE}px on the
-          longest side · max 5 MB.
+          Upload multiple feature photos. The <b>1st photo</b> is fixed as the static main tile on store cards, and <b>all remaining photos</b> auto-slide with navigation arrows when customers click the product preview box or visit the details page.
         </p>
       )}
     </div>

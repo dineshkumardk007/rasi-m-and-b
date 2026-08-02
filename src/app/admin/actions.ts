@@ -274,6 +274,15 @@ async function clientKey() {
   return (h.get("x-forwarded-for") ?? "").split(",")[0]?.trim() || "unknown";
 }
 
+import { hashPassword } from "@/lib/admin-password";
+import {
+  createStaffAccount,
+  resetStaffPassword,
+  resolvePendingApproval,
+  toggleStaffStatus,
+} from "@/lib/data/admin";
+import type { StaffRole } from "@/lib/types";
+
 /** Admin Username & Password login — issues an HMAC-signed session cookie. */
 export async function loginAdminAction(
   username: string,
@@ -285,7 +294,7 @@ export async function loginAdminAction(
     return { ok: false, error: "Too many failed attempts. Try again in 15 minutes." };
   }
 
-  const result = verifyAdminCredentials(username, passcode);
+  const result = await verifyAdminCredentials(username, passcode);
 
   if (!result.ok) {
     await recordFailedAttempt(key);
@@ -294,11 +303,13 @@ export async function loginAdminAction(
       error:
         result.reason === "not_configured"
           ? "Admin login is not configured on this deployment. Set ADMIN_USERNAME, ADMIN_PASSWORD_HASH and ADMIN_SESSION_SECRET."
+          : result.reason === "disabled"
+          ? "This staff account has been disabled by the shop owner."
           : "Incorrect Admin Username or Password.",
     };
   }
 
-  const token = createSessionToken();
+  const token = createSessionToken(result.id, result.username, result.role);
   if (!token) {
     return { ok: false, error: "Admin session secret is missing or too short (32+ characters)." };
   }
@@ -321,4 +332,60 @@ export async function logoutAdminAction() {
   const cookieStore = await cookies();
   cookieStore.delete(ADMIN_COOKIE);
   revalidatePath("/admin");
+}
+
+/* ── Staff Management Actions (Owner only) ────────────────────────────────── */
+
+export async function createStaffAccountAction(
+  username: string,
+  phone: string,
+  role: StaffRole,
+  password: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const staff = await gate();
+  if (!username.trim() || !password.trim()) {
+    return { ok: false, error: "Username and password are required" };
+  }
+  const passHash = hashPassword(password);
+  const res = await createStaffAccount(username.trim(), phone.trim(), role, passHash);
+  if (res.ok) revalidatePath("/admin");
+  return res;
+}
+
+export async function resetStaffPasswordAction(
+  staffId: string,
+  newPassword: string,
+): Promise<{ ok: boolean; error?: string }> {
+  await gate();
+  if (!newPassword.trim()) {
+    return { ok: false, error: "Password cannot be empty" };
+  }
+  const passHash = hashPassword(newPassword);
+  await resetStaffPassword(staffId, passHash);
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+export async function toggleStaffStatusAction(
+  staffId: string,
+  status: "active" | "disabled",
+): Promise<{ ok: boolean }> {
+  await gate();
+  await toggleStaffStatus(staffId, status);
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+export async function approveActionRequestAction(approvalId: string): Promise<{ ok: boolean }> {
+  const staff = await gate();
+  await resolvePendingApproval(approvalId, staff, "approved");
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+export async function rejectActionRequestAction(approvalId: string): Promise<{ ok: boolean }> {
+  const staff = await gate();
+  await resolvePendingApproval(approvalId, staff, "rejected");
+  revalidatePath("/admin");
+  return { ok: true };
 }

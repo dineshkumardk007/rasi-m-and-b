@@ -3,23 +3,19 @@ import {
   listAllProducts,
   listCoupons,
   listCustomers,
+  listPendingApprovals,
   listReviews,
+  listStaffAccounts,
   requireStaff,
 } from "@/lib/data/admin";
 import { getAllBanners, getAllBrands, getSettings } from "@/lib/data/catalog";
 import { isDemo } from "@/lib/data/mode";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { AdminLoginForm } from "@/components/admin/AdminLoginForm";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Admin" };
-
-/**
- * /admin — role-gated back office in the same playful skin.
- * Live mode: requires a signed-in user present in staff_roles (RLS-enforced
- * on top of this gate). Demo mode: open, with a banner.
- */
-import { AdminLoginForm } from "@/components/admin/AdminLoginForm";
 
 export default async function AdminPage() {
   const staff = await requireStaff();
@@ -28,7 +24,7 @@ export default async function AdminPage() {
     return <AdminLoginForm />;
   }
 
-  const [orders, products, customers, coupons, reviews, settings, banners, brands] =
+  const [orders, products, customers, coupons, reviews, settings, banners, brands, staffAccounts, pendingApprovals] =
     await Promise.all([
       listAllOrders(),
       listAllProducts(),
@@ -38,6 +34,8 @@ export default async function AdminPage() {
       getSettings(),
       getAllBanners(),
       getAllBrands(),
+      listStaffAccounts(),
+      listPendingApprovals(),
     ]);
 
   return (
@@ -50,6 +48,9 @@ export default async function AdminPage() {
       settings={settings}
       banners={banners}
       brands={brands}
+      staffAccounts={staffAccounts}
+      pendingApprovals={pendingApprovals}
+      currentStaff={staff}
       isDemo={isDemo()}
     />
   );

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import type { CustomerAddress, Order, Product, Review, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { useSession } from "@/lib/store/SessionProvider";
 import { useWishlist } from "@/lib/store/WishlistProvider";
 import { MILESTONE_META, calculateDeliveryFee, inr } from "@/lib/constants";
-import { Art, Badge, Btn, Field, Modal, Stars } from "@/components/ui";
+import { Art, Badge, Btn, Field, Modal, ProductImageSlider, Stars } from "@/components/ui";
 import {
   checkCouponAction,
   checkPinAction,
@@ -14,7 +15,7 @@ import {
   submitReviewAction,
   trackOrderAction,
 } from "@/app/actions";
-import { createSubscriptionAction, myAddressesAction, notifyRestockAction, saveCustomerAddressAction, updateMyPasswordAction } from "@/app/customer-actions";
+import { createSubscriptionAction, myAddressesAction, notifyRestockAction, registerRestockReminderAction, saveCustomerAddressAction, updateMyPasswordAction } from "@/app/customer-actions";
 import { ShareButton } from "./ShareButton";
 import { BoughtTogether } from "./BoughtTogether";
 import { GIFT_MESSAGE_MAX } from "@/lib/gift";
@@ -98,6 +99,9 @@ export function ProductModal({
   const [pinResult, setPinResult] = useState<
     "same-day" | "tomorrow" | "courier" | "unserviceable" | null
   >(null);
+  const [showRestockForm, setShowRestockForm] = useState(false);
+  const [restockPhone, setRestockPhone] = useState(session?.phone ?? "");
+  const [restockDays, setRestockDays] = useState(30);
   const meta = MILESTONE_META[p.milestone];
   const name = lang === "ta" ? p.name_ta : p.name_en;
   const desc = lang === "ta" ? p.description_ta : p.description_en;
@@ -110,16 +114,22 @@ export function ProductModal({
 
   return (
     <Modal onClose={onClose} wide>
-      {/* Product Image Preview with Floating Wishlist Heart Button */}
-      <div className="relative overflow-hidden rounded-card">
-        <Art emoji={p.emoji} bg={p.tile_color} ratio="banner" image={p.images[0]} alt={p.name_en} />
+      {/* Product Image Preview Carousel with Floating Wishlist Heart Button */}
+      <div className="relative">
+        <ProductImageSlider
+          images={p.images}
+          emoji={p.emoji}
+          bg={p.tile_color}
+          ratio="banner"
+          alt={name}
+        />
         <button
           type="button"
           onClick={() => {
             wishlist.toggle(p.id);
             notify(wishlist.has(p.id) ? "Removed from Wishlist" : "Saved to Wishlist ❤️");
           }}
-          className={`btn-press absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border-2.5 border-ink transition-all duration-200 cursor-pointer ${wishlist.has(p.id)
+          className={`btn-press absolute top-3 right-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border-2.5 border-ink transition-all duration-200 cursor-pointer ${wishlist.has(p.id)
               ? "bg-[#FF5A78] text-white shadow-hard-3 scale-110 rotate-6"
               : "bg-white/95 text-ink shadow-hard-2 hover:bg-[#FFCBD9] hover:scale-110"
             }`}
@@ -247,6 +257,64 @@ export function ProductModal({
             <span>🔄 Subscribe & Save 10% ({inr(Math.round(p.price * 0.9))}) · Auto-delivers every 30 days</span>
           </button>
         )}
+
+        {/* 30-Day Auto-Restock WhatsApp Reminder Button */}
+        <button
+          type="button"
+          onClick={() => setShowRestockForm(!showRestockForm)}
+          className="btn-press w-full flex items-center justify-center gap-2 rounded-pill border-2.5 border-ink bg-[#FFE1A8] px-4 py-2 font-display text-[13px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] cursor-pointer"
+        >
+          <span>🔔 Remind Me in 30 Days (WhatsApp Reorder)</span>
+        </button>
+
+        {showRestockForm && (
+          <div className="rounded-card border-2.5 border-ink bg-[#FFF6ED] p-3.5 shadow-sm mt-1">
+            <div className="font-display text-[14px] font-extrabold text-ink mb-1 flex items-center justify-between">
+              <span>🔔 Set Restock Reminder</span>
+              <button
+                type="button"
+                onClick={() => setShowRestockForm(false)}
+                className="text-[12px] font-extrabold text-mute hover:text-ink cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-[12px] text-mute mb-2.5">
+              We&apos;ll send a WhatsApp reminder to reorder before your baby supply runs out!
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="tel"
+                placeholder="10-digit mobile number"
+                value={restockPhone}
+                onChange={(e) => setRestockPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                className="min-w-[140px] flex-1 rounded-pill border-2 border-ink bg-white px-3 py-1.5 font-body text-[13px] font-bold outline-none"
+              />
+              <select
+                value={restockDays}
+                onChange={(e) => setRestockDays(Number(e.target.value))}
+                className="rounded-pill border-2 border-ink bg-white px-2.5 py-1.5 font-body text-[13px] font-bold outline-none"
+              >
+                <option value={15}>In 15 days</option>
+                <option value={30}>In 30 days</option>
+                <option value={45}>In 45 days</option>
+                <option value={60}>In 60 days</option>
+              </select>
+              <Btn
+                small
+                bg="#D6E8B0"
+                color="#2B2140"
+                onClick={async () => {
+                  const res = await registerRestockReminderAction(p.id, restockPhone, restockDays);
+                  notify(res.message);
+                  if (res.ok) setShowRestockForm(false);
+                }}
+              >
+                Set Reminder
+              </Btn>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Share + permanent link to the product's own page */}
@@ -285,11 +353,20 @@ export function ProductModal({
             </div>
             <p className="mt-1 text-mute">{r.text}</p>
             {r.photo_url && (
-              <img
-                src={r.photo_url}
-                alt="Review photo"
-                className="mt-2 max-h-36 rounded-tile border-2 border-ink object-cover"
-              />
+              <div className="relative mt-2 h-36 w-36 overflow-hidden rounded-tile border-2 border-ink">
+                {/* Customers paste an arbitrary external link, so this can't go
+                    through Next's image optimizer (no fixed domain to allow-list) —
+                    unoptimized keeps it a real <Image> for lazy-loading and layout
+                    stability without a server-side fetch of an untrusted URL. */}
+                <Image
+                  src={r.photo_url}
+                  alt="Review photo"
+                  fill
+                  unoptimized
+                  sizes="144px"
+                  className="object-cover"
+                />
+              </div>
             )}
           </div>
         ))}

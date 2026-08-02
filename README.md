@@ -135,16 +135,27 @@ token.
 
 ## Security headers
 
-Set in `next.config.mjs`. Enforced from the start: `frame-ancestors 'none'`
-(plus `X-Frame-Options` for older browsers), `base-uri`, `object-src`, HSTS,
-`nosniff`, `Referrer-Policy`, and `no-store` on `/admin`.
+Set in `next.config.mjs`: `frame-ancestors 'none'` (plus `X-Frame-Options` for
+older browsers), `base-uri`, `object-src`, HSTS, `nosniff`, `Referrer-Policy`,
+and `no-store` on `/admin`.
 
-The full content policy — script, style, image and connect sources — ships as
-`Content-Security-Policy-Report-Only`. Enforcing it needs a production run with
-real Razorpay keys behind it, because checkout injects further scripts and
-frames of its own and a blocked one fails the payment silently. Watch the
-browser console through a few real payments; once it is quiet, rename the
-header to `Content-Security-Policy`.
+The full content policy — script, style, image and connect sources — is now
+enforced as `Content-Security-Policy` (previously shipped as
+`Content-Security-Policy-Report-Only` until watched quiet). It was never
+exercised against a real Razorpay checkout in this environment (no live keys in
+`.env.local`), because checkout injects further scripts and frames of its own
+and a blocked one fails the payment silently. **Run one real (or Razorpay
+test-mode) checkout end-to-end after deploying this and watch the browser
+console for CSP violations** before trusting it fully in production.
+
+`img-src` is deliberately a bare `https:` rather than a named allow-list:
+review photos are a customer-pasted link (see "Add Image/Photo Link" on a
+review) to whatever host they used, so there's no fixed domain to allow-list.
+This was caught by testing — a named-origins-only `img-src` silently drops
+every review photo hosted outside those origins once the policy is enforced.
+
+If something else is blocked, add the specific origin to the relevant directive in
+`next.config.mjs` rather than loosening it broadly.
 
 ## Analytics
 

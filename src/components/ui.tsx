@@ -5,7 +5,7 @@
  * cards 3px/r18/shadow4, pills 2.5px/r22/shadow2, buttons 3px/r22/shadow3,
  * modals 4px/r24/shadow6 (bottom sheet on phones), inputs 2.5px/r14.
  */
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
 import { bannerUrlFor } from "@/lib/images";
 
@@ -170,6 +170,7 @@ export function Art({
   priority,
   sizes = "(max-width: 640px) 45vw, 260px",
   fit = "cover",
+  photoCount,
 }: {
   emoji: string;
   bg: string;
@@ -185,6 +186,7 @@ export function Art({
   /** Widths this tile occupies, so Next serves an appropriately sized file. */
   sizes?: string;
   fit?: "cover" | "contain";
+  photoCount?: number;
 }) {
   const src = image && ratio === "banner" ? bannerUrlFor(image) : image;
   const aspect = ratio === "banner" ? "aspect-[3/1]" : ratio === "tile" ? "aspect-[5/3]" : "";
@@ -218,6 +220,11 @@ export function Art({
           BUNDLE
         </span>
       )}
+      {photoCount && photoCount > 1 && (
+        <span className="absolute right-1.5 top-1.5 rounded-xl border-2 border-ink bg-white/95 px-1.5 py-[1px] text-[9px] font-extrabold text-ink shadow-sm">
+          📷 {photoCount}
+        </span>
+      )}
     </div>
   );
 
@@ -234,6 +241,182 @@ export function Art({
   return (
     <div style={{ containerType: "inline-size" }} className="w-full">
       {box}
+    </div>
+  );
+}
+
+/**
+ * Interactive product image slider/carousel.
+ * Shows fixed main image first, then auto-slides through remaining images with
+ * navigation arrows (◀/▶), touch swipe support, and indicator dots / thumbnails.
+ */
+export function ProductImageSlider({
+  images,
+  emoji,
+  bg,
+  alt,
+  ratio = "banner",
+  autoPlayInterval = 3500,
+  showThumbnails = true,
+}: {
+  images?: string[];
+  emoji: string;
+  bg: string;
+  alt?: string;
+  ratio?: "banner" | "tile";
+  autoPlayInterval?: number;
+  showThumbnails?: boolean;
+}) {
+  const list = images && images.length > 0 ? images : [];
+  const [index, setIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+
+  // Keep index within bounds if list changes
+  useEffect(() => {
+    if (index >= list.length) {
+      setIndex(0);
+    }
+  }, [list.length, index]);
+
+  // Auto slide timer
+  useEffect(() => {
+    if (list.length <= 1 || isPaused) return;
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % list.length);
+    }, autoPlayInterval);
+    return () => clearInterval(timer);
+  }, [list.length, isPaused, autoPlayInterval]);
+
+  const goPrev = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (list.length <= 1) return;
+    setIndex((prev) => (prev - 1 + list.length) % list.length);
+  };
+
+  const goNext = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (list.length <= 1) return;
+    setIndex((prev) => (prev + 1) % list.length);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const clientX = e.touches[0]?.clientX;
+    if (clientX !== undefined) {
+      setTouchStart(clientX);
+      setIsPaused(true);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStart === null) return;
+    const clientX = e.changedTouches[0]?.clientX;
+    if (clientX !== undefined) {
+      const diff = touchStart - clientX;
+      if (diff > 40) {
+        goNext();
+      } else if (diff < -40) {
+        goPrev();
+      }
+    }
+    setTouchStart(null);
+    setIsPaused(false);
+  };
+
+  const currentImage = list[index];
+
+  return (
+    <div className="w-full select-none">
+      <div
+        className="group relative w-full overflow-hidden rounded-card"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <Art
+          emoji={emoji}
+          bg={bg}
+          ratio={ratio}
+          image={currentImage}
+          alt={alt}
+        />
+
+        {/* Navigation Arrows for multi-images */}
+        {list.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={goPrev}
+              aria-label="Previous photo"
+              className="btn-press absolute left-2 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2.5 border-ink bg-white/95 font-display text-[14px] sm:text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer opacity-90 sm:opacity-0 sm:group-hover:opacity-100"
+            >
+              ◀
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label="Next photo"
+              className="btn-press absolute right-2 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2.5 border-ink bg-white/95 font-display text-[14px] sm:text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer opacity-90 sm:opacity-0 sm:group-hover:opacity-100"
+            >
+              ▶
+            </button>
+
+            {/* Photo Counter Badge */}
+            <div className="absolute top-2 left-2 z-20 flex items-center gap-1">
+              <span className="rounded-full border-2 border-ink bg-white/95 px-2 py-0.5 font-display text-[10px] font-extrabold text-ink shadow-sm">
+                📷 {index + 1}/{list.length} {index === 0 ? "· MAIN" : ""}
+              </span>
+            </div>
+
+            {/* Auto slide indicator progress dots */}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full border border-ink/40 bg-black/40 px-2 py-1 backdrop-blur-xs">
+              {list.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIndex(i);
+                  }}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    i === index
+                      ? "w-5 bg-brand"
+                      : "w-2 bg-white/70 hover:bg-white"
+                  }`}
+                  aria-label={`Go to slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Thumbnail Bar (if showThumbnails & >1 images) */}
+      {showThumbnails && list.length > 1 && (
+        <div className="mt-2.5 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {list.map((imgUrl, i) => (
+            <button
+              key={imgUrl + i}
+              type="button"
+              onClick={() => setIndex(i)}
+              className={`relative h-12 w-16 sm:h-14 sm:w-20 shrink-0 overflow-hidden rounded-tile border-2 transition-all cursor-pointer ${
+                i === index
+                  ? "border-brand scale-105 shadow-hard-2 ring-2 ring-brand/30"
+                  : "border-ink/40 opacity-70 hover:opacity-100"
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imgUrl} alt="" className="h-full w-full object-cover" />
+              {i === 0 && (
+                <span className="absolute left-0.5 top-0.5 rounded bg-brand px-1 text-[8px] font-extrabold text-white">
+                  MAIN
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

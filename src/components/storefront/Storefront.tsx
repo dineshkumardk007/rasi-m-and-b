@@ -20,7 +20,7 @@ import { useCart } from "@/lib/store/CartProvider";
 import { useWishlist } from "@/lib/store/WishlistProvider";
 import { useSession } from "@/lib/store/SessionProvider";
 import { inr } from "@/lib/constants";
-import { Badge, Card, Modal, Toast, Btn } from "@/components/ui";
+import { Art, Badge, Card, Modal, Toast, Btn } from "@/components/ui";
 import { getBabyRegistryBySlugAction, myOrdersAction, recordCartAbandonedAction } from "@/app/customer-actions";
 import {
   trackAddToCart,
@@ -58,6 +58,7 @@ import {
 import { Ribbon } from "./Ribbon";
 import { BabyClub } from "./BabyClub";
 import { WhatsAppFab } from "./WhatsAppFab";
+import { PwaInstallBanner } from "./PwaInstallBanner";
 import { RecentlyViewed } from "./RecentlyViewed";
 import { recordView } from "@/lib/store/recently-viewed";
 import { BUSINESS } from "@/lib/constants";
@@ -379,37 +380,66 @@ export default function Storefront(props: StorefrontProps) {
             </button>
           </form>
 
-          {/* Predictive Search Suggestions Dropdown */}
+          {/* Predictive Instant Live Search Suggestions Panel */}
           {query.trim().length >= 2 && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-card border-2.5 border-ink bg-white p-2 shadow-hard-3">
-              <div className="text-[11px] font-extrabold text-mute uppercase px-2 py-1">
-                ⚡ Suggested Products ({suggestions.length})
+            <div className="absolute top-full left-0 right-0 z-50 mt-1.5 rounded-card border-3 border-ink bg-white p-2.5 shadow-hard-4 animate-fadeIn">
+              <div className="flex items-center justify-between text-[11px] font-extrabold text-mute uppercase px-2 pb-1.5 border-b border-ink/10">
+                <span>⚡ Instant Live Results ({suggestions.length})</span>
+                <span className="text-[10px] text-brand font-extrabold bg-[#D6E8B0] px-2 py-0.2 rounded-full border border-ink">
+                  Click item for preview
+                </span>
               </div>
-              {suggestions.map((p) => {
-                const pName = lang === "ta" ? p.name_ta : p.name_en;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      openProduct(p);
-                      setQuery("");
-                    }}
-                    className="flex w-full items-center justify-between rounded-tile p-2 text-left hover:bg-[#FFE1A8] transition-all cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-[20px] shrink-0">{p.emoji}</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13px] font-extrabold text-ink">{pName}</div>
-                        <div className="text-[11px] text-mute">{p.brand}</div>
+              <div className="mt-1 space-y-1.5 max-h-[320px] overflow-y-auto">
+                {suggestions.map((p) => {
+                  const pName = lang === "ta" ? p.name_ta : p.name_en;
+                  const isOut = p.stock === 0;
+                  const isLow = p.stock > 0 && p.stock <= p.low_stock_threshold;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        openProduct(p);
+                        setQuery("");
+                      }}
+                      className="flex w-full items-center justify-between gap-3 rounded-tile border-2 border-transparent p-2 text-left hover:border-ink hover:bg-[#FFF6ED] transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-[52px] h-[38px] shrink-0 overflow-hidden rounded-tile border border-ink/40">
+                          <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt="" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[13px] font-extrabold text-ink group-hover:text-brand transition-colors">
+                            {pName}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[11px] text-mute mt-0.5">
+                            {p.brand && <span className="font-bold text-ink">{p.brand}</span>}
+                            {p.brand && <span>·</span>}
+                            {isOut ? (
+                              <span className="text-[#E24B4A] font-extrabold">Out of Stock</span>
+                            ) : isLow ? (
+                              <span className="text-[#946800] font-extrabold">Only {p.stock} left</span>
+                            ) : (
+                              <span className="text-[#386B00] font-bold">In Stock</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="font-display text-[13px] font-extrabold text-brand shrink-0 ml-2">
-                      {inr(p.price)}
-                    </div>
-                  </button>
-                );
-              })}
+
+                      <div className="text-right shrink-0">
+                        <div className="font-display text-[14px] font-extrabold text-brand">
+                          {inr(p.price)}
+                        </div>
+                        {p.mrp > p.price && (
+                          <div className="text-[10px] text-mute line-through">
+                            {inr(p.mrp)}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -754,7 +784,7 @@ export default function Storefront(props: StorefrontProps) {
           onClose={() => setModal(null)}
           onCreated={(slug) => {
             setModal(null);
-            notify(`🎁 Registry created! Link: /?registry=${slug}`);
+            notify(`🎁 Registry created! Link: /registry/${slug}`);
           }}
         />
       )}
@@ -771,6 +801,7 @@ export default function Storefront(props: StorefrontProps) {
       )}
 
       <WhatsAppFab />
+      <PwaInstallBanner />
 
       {toast && <Toast message={toast} />}
 

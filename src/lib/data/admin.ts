@@ -28,31 +28,21 @@ import { logEvent } from "./events";
 import { cookies } from "next/headers";
 import { ADMIN_COOKIE, verifySessionToken } from "@/lib/admin-session";
 import { hashPassword } from "@/lib/admin-password";
+import type { PendingApproval, StaffAccount, StaffRole } from "@/lib/types";
 
-export async function requireStaff(): Promise<{ userId: string } | null> {
+export async function requireStaff(): Promise<{ userId: string; username: string; role: StaffRole } | null> {
   try {
     const cookieStore = await cookies();
-    const subject = verifySessionToken(cookieStore.get(ADMIN_COOKIE)?.value);
-    if (subject) return { userId: subject };
+    const claims = verifySessionToken(cookieStore.get(ADMIN_COOKIE)?.value);
+    if (claims) {
+      return { userId: claims.sub, username: claims.username, role: claims.role };
+    }
   } catch {
     /* ignore */
   }
 
-  if (!isDemo()) {
-    try {
-      const supabase = await createServerClient();
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) {
-        const { data: role } = await supabase
-          .from("staff_roles")
-          .select("role")
-          .eq("user_id", data.user.id)
-          .maybeSingle();
-        if (role) return { userId: data.user.id };
-      }
-    } catch {
-      /* ignore */
-    }
+  if (isDemo()) {
+    return { userId: "admin-owner", username: "Owner", role: "owner" };
   }
 
   return null;
@@ -103,6 +93,51 @@ export async function listAllOrders(): Promise<Order[]> {
     is_gift: row.is_gift ?? false,
     gift_message: row.gift_message ?? null,
   }));
+}
+
+export async function getOrderByOrderNo(orderNo: string): Promise<Order | null> {
+  if (isDemo()) {
+    return (
+      demoDB().orders.find(
+        (o) => o.order_no.toLowerCase() === orderNo.toLowerCase(),
+      ) ?? null
+    );
+  }
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("orders")
+    .select("*, order_items(*)")
+    .eq("order_no", orderNo)
+    .single();
+
+  if (!data) return null;
+
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  return {
+    id: data.id,
+    order_no: data.order_no,
+    customer_id: data.customer_id,
+    status: data.status,
+    payment_method: data.payment_method,
+    payment_status: data.payment_status,
+    subtotal: data.subtotal,
+    delivery_fee: data.delivery_fee,
+    discount: data.discount,
+    coupon_code: data.coupon_code,
+    total: data.total,
+    address_snapshot: data.address_snapshot,
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    items: (data.order_items ?? []).map((i: any) => ({
+      product_id: i.product_id,
+      name_snapshot: i.name_snapshot,
+      price_snapshot: i.price_snapshot,
+      qty: i.qty,
+    })),
+    placed_at: data.placed_at,
+    language: "en" as const,
+    is_gift: data.is_gift ?? false,
+    gift_message: data.gift_message ?? null,
+  };
 }
 
 export async function setOrderStatus(
@@ -719,4 +754,136 @@ export async function quickRestockProduct(staffId: string, productId: string, ad
   }
   await logStaff(staffId, "restock", "product", `${productId}:${addedStock}`);
   return true;
+}
+
+/* ── Staff Accounts & Approvals ────────────────────────────────────────────── */
+
+export async function listStaffAccounts(): Promise<StaffAccount[]> {
+  if (isDemo()) return demoDB().staffAccounts;
+  const supabase = createAdminClient();
+  const { data } = await supabase.from("staff_accounts").select("*").order("created_at", { ascending: false });
+  return (data ?? []) as StaffAccount[];
+}
+
+export async function createStaffAccount(
+  username: string,
+  phone: string,
+  role: StaffRole,
+  passwordHash: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (isDemo()) {
+    const existing = demoDB().staffAccounts.find((s) => s.username.toLowerCase() === username.toLowerCase());
+    if (existing) return { ok: false, error: "Username already exists" };
+    const acc: StaffAccount = {
+      id: `demo-staff-${Date.now()}`,
+      username,
+      phone,
+      password_hash: passwordHash,
+      role,
+      status: "active",
+      created_at: new Date().toISOString(),
+    };
+    demoDB().staffAccounts.unshift(acc);
+    return { ok: true };
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("staff_accounts").insert({
+    username,
+    phone,
+    role,
+    password_hash: passwordHash,
+    status: "active",
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function resetStaffPassword(staffId: string, newPasswordHash: string): Promise<boolean> {
+  if (isDemo()) {
+    const acc = demoDB().staffAccounts.find((s) => s.id === staffId);
+    if (acc) acc.password_hash = newPasswordHash;
+    return true;
+  }
+  const supabase = createAdminClient();
+  await supabase.from("staff_accounts").update({ password_hash: newPasswordHash }).eq("id", staffId);
+  return true;
+}
+
+export async function toggleStaffStatus(staffId: string, status: "active" | "disabled"): Promise<boolean> {
+  if (isDemo()) {
+    const acc = demoDB().staffAccounts.find((s) => s.id === staffId);
+    if (acc) acc.status = status;
+    return true;
+  }
+  const supabase = createAdminClient();
+  await supabase.from("staff_accounts").update({ status }).eq("id", staffId);
+  return true;
+}
+
+export async function listPendingApprovals(): Promise<PendingApproval[]> {
+  if (isDemo()) return demoDB().pendingApprovals.filter((a) => a.status === "pending");
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("pending_approvals")
+    .select("*")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+  return (data ?? []) as PendingApproval[];
+}
+
+export async function requestApproval(
+  requestedBy: string,
+  staffName: string,
+  actionType: string,
+  description: string,
+  payloadJson: Record<string, unknown>,
+): Promise<boolean> {
+  if (isDemo()) {
+    demoDB().pendingApprovals.unshift({
+      id: `demo-app-${Date.now()}`,
+      requested_by: requestedBy,
+      staff_name: staffName,
+      action_type: actionType,
+      description,
+      payload_json: payloadJson,
+      status: "pending",
+      created_at: new Date().toISOString(),
+    });
+    return true;
+  }
+  const supabase = createAdminClient();
+  await supabase.from("pending_approvals").insert({
+    requested_by: requestedBy,
+    staff_name: staffName,
+    action_type: actionType,
+    description,
+    payload_json: payloadJson,
+    status: "pending",
+  });
+  return true;
+}
+
+export async function resolvePendingApproval(
+  approvalId: string,
+  resolvedBy: string,
+  status: "approved" | "rejected",
+): Promise<PendingApproval | null> {
+  if (isDemo()) {
+    const item = demoDB().pendingApprovals.find((a) => a.id === approvalId);
+    if (!item) return null;
+    item.status = status;
+    item.resolved_at = new Date().toISOString();
+    item.resolved_by = resolvedBy;
+    return item;
+  }
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("pending_approvals")
+    .update({ status, resolved_at: new Date().toISOString(), resolved_by: resolvedBy })
+    .eq("id", approvalId)
+    .select("*")
+    .single();
+  return (data as PendingApproval) ?? null;
 }

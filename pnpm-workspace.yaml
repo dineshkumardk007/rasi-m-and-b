@@ -1,0 +1,12 @@
+packages:
+  - "."
+
+overrides:
+  # Both are dependencies Next.js/tailwind vendor internally at versions with
+  # known CVEs (nested postcss, nested sharp used by next/image's built-in
+  # optimizer). Our own top-level pins are already patched; this forces the
+  # same floor on every nested copy. Re-check `pnpm audit --prod` after any
+  # `next` upgrade — a newer Next release may vendor patched copies itself,
+  # at which point these can be dropped.
+  postcss: "^8.5.19"
+  sharp: "^0.35.3"

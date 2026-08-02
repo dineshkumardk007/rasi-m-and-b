@@ -260,3 +260,29 @@ export interface AnalyticsData {
   topProducts: Array<{ id: string; name: string; qtySold: number; revenue: number }>;
   categorySales: Array<{ category: string; amount: number }>;
 }
+
+export type StaffRole = "owner" | "manager" | "staff";
+
+export interface StaffAccount {
+  id: string;
+  username: string;
+  phone: string;
+  password_hash: string;
+  role: StaffRole;
+  status: "active" | "disabled";
+  created_at: string;
+  last_login_at?: string | null;
+}
+
+export interface PendingApproval {
+  id: string;
+  requested_by: string;
+  staff_name: string;
+  action_type: string;
+  description: string;
+  payload_json: Record<string, unknown>;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
+}

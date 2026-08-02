@@ -200,7 +200,7 @@ export function ViewRegistryModal({
     product: products.find((p) => p.id === i.product_id),
   })).filter((x) => x.product !== undefined);
 
-  const shareUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/?registry=${registry.slug}`;
+  const shareUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/registry/${registry.slug}`;
 
   return (
     <Modal onClose={onClose} wide>
