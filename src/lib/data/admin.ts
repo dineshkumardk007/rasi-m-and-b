@@ -190,6 +190,7 @@ export interface ProductInput {
   categories: Category[];
   price: number;
   mrp: number;
+  gst_rate?: number;
   stock: number;
   tile_color: string;
   emoji: string;
@@ -243,7 +244,7 @@ export async function upsertProduct(staffId: string, input: ProductInput): Promi
     if (input.id) {
       const p = db.products.find((x) => x.id === input.id);
       if (!p) return null;
-      Object.assign(p, { ...input, slug: p.slug });
+      Object.assign(p, { ...input, slug: p.slug, gst_rate: input.gst_rate ?? p.gst_rate ?? 12 });
       await logStaff(staffId, "update", "product", p.id);
       return p.id;
     }
@@ -258,7 +259,7 @@ export async function upsertProduct(staffId: string, input: ProductInput): Promi
       categories: input.categories,
       price: input.price,
       mrp: input.mrp || input.price,
-      gst_rate: 12,
+      gst_rate: input.gst_rate ?? 12,
       stock: input.stock,
       low_stock_threshold: 5,
       status: "active",
@@ -283,6 +284,7 @@ export async function upsertProduct(staffId: string, input: ProductInput): Promi
     milestone: input.milestone,
     price: input.price,
     mrp: input.mrp || input.price,
+    gst_rate: input.gst_rate ?? 12,
     stock: input.stock,
     tile_color: input.tile_color,
     emoji: input.emoji,

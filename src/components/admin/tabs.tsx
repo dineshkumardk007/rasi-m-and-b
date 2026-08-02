@@ -487,6 +487,7 @@ function ProductForm({
     brand: product?.brand ?? "",
     price: product?.price?.toString() ?? "",
     mrp: product?.mrp?.toString() ?? "",
+    gst_rate: product?.gst_rate?.toString() ?? "12",
     stock: product?.stock?.toString() ?? "10",
     milestone: (product?.milestone ?? "newborn") as Milestone,
     categories: (product?.categories ?? []) as Category[],
@@ -521,6 +522,7 @@ function ProductForm({
       categories: f.categories,
       price: Number(f.price),
       mrp: Number(f.mrp) || Number(f.price),
+      gst_rate: Number(f.gst_rate) || 12,
       stock: Number(f.stock) || 0,
       tile_color: f.tile_color,
       emoji: f.emoji,
@@ -559,10 +561,24 @@ function ProductForm({
         placeholder="Organic Cotton Onesie"
       />
       <Field label="Product name (Tamil)" value={f.name_ta} onChange={(v) => setF({ ...f, name_ta: v })} placeholder="ஆர்கானிக் பருத்தி உடை" />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Field label="Brand" value={f.brand} onChange={(v) => setF({ ...f, brand: v })} placeholder="Sebamed" />
         <Field label="Price (₹)" type="number" inputMode="numeric" value={f.price} onChange={(v) => setF({ ...f, price: v })} />
         <Field label="MRP (₹)" type="number" inputMode="numeric" value={f.mrp} onChange={(v) => setF({ ...f, mrp: v })} />
+        <div>
+          <label className="block text-[12px] font-extrabold uppercase text-mute mb-1">GST Tax Rate</label>
+          <select
+            value={f.gst_rate}
+            onChange={(e) => setF({ ...f, gst_rate: e.target.value })}
+            className="w-full rounded-tile border-2.5 border-ink bg-paper px-3 py-2 text-[14px] font-bold outline-none"
+          >
+            <option value="5">5% (Clothing, Swaddles)</option>
+            <option value="12">12% (Diapers, Bottles, Toys)</option>
+            <option value="18">18% (Skincare, Lotions)</option>
+            <option value="0">0% (Books / Exempt)</option>
+            <option value="28">28% (Luxury items)</option>
+          </select>
+        </div>
         <Field label="Stock" type="number" inputMode="numeric" value={f.stock} onChange={(v) => setF({ ...f, stock: v })} />
       </div>
       <label className="mb-3 block">
