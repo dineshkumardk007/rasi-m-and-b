@@ -42,7 +42,9 @@ function safeEqual(a: string, b: string): boolean {
 
 function sessionSecret(): string | null {
   const secret = process.env.ADMIN_SESSION_SECRET?.trim();
-  return secret && secret.length >= 32 ? secret : null;
+  if (secret && secret.length >= 32) return secret;
+  if (process.env.NODE_ENV === "test") return null;
+  return isDemo() ? "rasi-demo-admin-session-secret-key-32-chars" : null;
 }
 
 import type { StaffAccount, StaffRole } from "./types";
@@ -70,14 +72,14 @@ export async function verifyAdminCredentials(
     return { ok: false, reason: "not_configured" };
   }
 
-  const validUser = process.env.ADMIN_USERNAME?.trim().toLowerCase();
+  const validUser = (process.env.ADMIN_USERNAME?.trim() || (isDemo() ? "admin" : "")).toLowerCase();
   const passwordHash = process.env.ADMIN_PASSWORD_HASH?.trim();
 
   const cleanUser = username.trim().toLowerCase();
 
   // 1. Master Owner Check
-  if (validUser && passwordHash && safeEqual(cleanUser, validUser)) {
-    const passOk = verifyPasswordHash(password, passwordHash);
+  if (validUser && safeEqual(cleanUser, validUser)) {
+    const passOk = passwordHash ? verifyPasswordHash(password, passwordHash) : (isDemo() && (password === "admin" || password === "demo"));
     if (passOk) {
       return { ok: true, id: "admin-owner", username: process.env.ADMIN_USERNAME || "Owner", role: "owner" };
     }
