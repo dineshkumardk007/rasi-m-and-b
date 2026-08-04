@@ -16,10 +16,15 @@ const STORAGE_KEY = "rasi.cart";
 interface CartContextValue {
   lines: CartLine[];
   count: number;
-  add: (itemId: string) => void;
-  setQty: (itemId: string, qty: number) => void;
+  /** (itemId, variantId) together identify a line — two variants of the same
+   *  product are separate lines, each with their own quantity. */
+  add: (itemId: string, variantId?: string) => void;
+  setQty: (itemId: string, qty: number, variantId?: string) => void;
   clear: () => void;
 }
+
+const sameLine = (l: CartLine, itemId: string, variantId?: string) =>
+  l.itemId === itemId && (l.variantId ?? null) === (variantId ?? null);
 
 const CartContext = createContext<CartContextValue | null>(null);
 
@@ -45,21 +50,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const add = useCallback(
-    (itemId: string) =>
+    (itemId: string, variantId?: string) =>
       update((prev) =>
-        prev.some((l) => l.itemId === itemId)
-          ? prev.map((l) => (l.itemId === itemId ? { ...l, qty: l.qty + 1 } : l))
-          : [...prev, { itemId, qty: 1 }],
+        prev.some((l) => sameLine(l, itemId, variantId))
+          ? prev.map((l) => (sameLine(l, itemId, variantId) ? { ...l, qty: l.qty + 1 } : l))
+          : [...prev, { itemId, variantId, qty: 1 }],
       ),
     [update],
   );
 
   const setQty = useCallback(
-    (itemId: string, qty: number) =>
+    (itemId: string, qty: number, variantId?: string) =>
       update((prev) =>
         qty <= 0
-          ? prev.filter((l) => l.itemId !== itemId)
-          : prev.map((l) => (l.itemId === itemId ? { ...l, qty } : l)),
+          ? prev.filter((l) => !sameLine(l, itemId, variantId))
+          : prev.map((l) => (sameLine(l, itemId, variantId) ? { ...l, qty } : l)),
       ),
     [update],
   );

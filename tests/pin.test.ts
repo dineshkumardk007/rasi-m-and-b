@@ -9,6 +9,8 @@ describe("isPinMatch()", () => {
 
   it("matches PIN ranges", () => {
     expect(isPinMatch("628005", "628001-628010")).toBe(true);
+    expect(isPinMatch("628005", "628001 – 628010")).toBe(true);
+    expect(isPinMatch("628005", "628001—628010")).toBe(true);
     expect(isPinMatch("628001", "628001-628010")).toBe(true);
     expect(isPinMatch("628010", "628001-628010")).toBe(true);
     expect(isPinMatch("628011", "628001-628010")).toBe(false);

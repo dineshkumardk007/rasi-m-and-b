@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getApprovedReviews, getProductBySlug } from "@/lib/data/catalog";
+import { getApprovedReviewsForProduct, getProductBySlug } from "@/lib/data/catalog";
 import { getLanguage } from "@/lib/i18n/server";
-import { BUSINESS, MILESTONE_META, inr } from "@/lib/constants";
+import { BUSINESS, CATEGORY_META, MILESTONE_META, inr, siteUrl } from "@/lib/constants";
+import { Breadcrumbs } from "@/components/ui";
 import { PdpClient } from "./pdp-client";
 
 /**
@@ -30,6 +31,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
    * the card; the product photo is the image when there is one, falling back
    * to the shop logo so the card is never blank.
    */
+  const ogUrl = `/og?title=${encodeURIComponent(name)}&price=${encodeURIComponent(inr(product.price))}&emoji=${encodeURIComponent(product.emoji || "👶")}`;
+  const imageUrl = product.images[0] || ogUrl;
+
   return {
     title: name,
     description,
@@ -42,15 +46,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: `/p/${slug}`,
       images: [
         {
-          url: product.images[0] ?? "/logo.png",
+          url: imageUrl,
           alt: name,
         },
       ],
     },
     twitter: {
-      card: product.images[0] ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title: `${name} — ${inr(product.price)}`,
       description,
+      images: [imageUrl],
     },
   };
 }
@@ -60,7 +65,7 @@ export default async function ProductPage({ params }: Props) {
   const product = await getProductBySlug(slug);
   if (!product || product.status !== "active") notFound();
 
-  const reviews = (await getApprovedReviews()).filter((r) => r.product_id === product.id);
+  const reviews = await getApprovedReviewsForProduct(product.id);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -99,12 +104,53 @@ export default async function ProductPage({ params }: Props) {
   };
 
   const meta = MILESTONE_META[product.milestone];
+  const category = product.categories[0];
+  const categoryMeta = category ? CATEGORY_META[category] : undefined;
+
+  const base = siteUrl();
+  const breadcrumbItems = [
+    { name: BUSINESS.name, href: "/" },
+    ...(categoryMeta ? [{ name: categoryMeta.en, href: `/c/${category}` }] : []),
+    { name: product.name_en, href: `/p/${product.slug}` },
+  ];
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      item: `${base}${item.href === "/" ? "/" : item.href}`,
+    })),
+  };
+  const breadcrumbJsonLdHtml = JSON.stringify(breadcrumbJsonLd)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+
+  // jsonLd embeds moderator-approved review author names and text — free-form
+  // user input. JSON.stringify does NOT escape "<", so a review containing
+  // "</script>" would break out of this tag and run as HTML. Escape the markup-
+  // significant characters (and the JS line separators) so the payload stays
+  // inert data. Standard mitigation for JSON embedded in a <script> block.
+  const jsonLdHtml = JSON.stringify(jsonLd)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
 
   return (
     <main className="mx-auto min-h-screen max-w-[720px] px-5 py-6 text-ink">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: breadcrumbJsonLdHtml }}
       />
       <Link
         href="/"
@@ -112,6 +158,7 @@ export default async function ProductPage({ params }: Props) {
       >
         ← {BUSINESS.name}
       </Link>
+      <Breadcrumbs items={breadcrumbItems} />
       <PdpClient product={product} reviews={reviews} />
       <p className="mt-6 text-center text-[12px] text-mute">
         {meta.emoji} {meta.en} · {inr(product.price)} · {BUSINESS.addressShort}

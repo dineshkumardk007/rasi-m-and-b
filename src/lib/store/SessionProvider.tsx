@@ -11,6 +11,8 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
+  changePasswordAndSignInAction,
+  changePasswordAndSignInWithEmailAction,
   ensureCustomerProfileByEmailAction,
   getCurrentCustomerAction,
   recordCustomerActivityAction,
@@ -37,10 +39,26 @@ interface SessionContextValue {
   isDemo: boolean;
   sendOtp: (phone: string) => Promise<{ ok: boolean; message?: string }>;
   verifyOtp: (phone: string, otp: string, name: string) => Promise<{ ok: boolean; message?: string }>;
-  signInWithPassword: (phone: string, password: string) => Promise<{ ok: boolean; name?: string; message?: string }>;
+  signInWithPassword: (
+    phone: string,
+    password: string,
+  ) => Promise<{ ok: boolean; name?: string; message?: string; mustChangePassword?: boolean; phone?: string }>;
   registerWithPassword: (name: string, phone: string, password: string) => Promise<{ ok: boolean; name?: string; message?: string }>;
-  signInWithEmail: (email: string, password: string) => Promise<{ ok: boolean; name?: string; message?: string }>;
+  signInWithEmail: (
+    email: string,
+    password: string,
+  ) => Promise<{ ok: boolean; name?: string; message?: string; mustChangePassword?: boolean; email?: string }>;
   registerWithEmail: (name: string, email: string, password: string) => Promise<{ ok: boolean; name?: string; message?: string }>;
+  changePasswordAndSignIn: (
+    phone: string,
+    tempPassword: string,
+    newPassword: string,
+  ) => Promise<{ ok: boolean; name?: string; message?: string }>;
+  changePasswordAndSignInWithEmail: (
+    email: string,
+    tempPassword: string,
+    newPassword: string,
+  ) => Promise<{ ok: boolean; name?: string; message?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -196,6 +214,9 @@ export function SessionProvider({
         setSession(s);
         return { ok: true, name: res.name };
       }
+      if (res.mustChangePassword) {
+        return { ok: false, mustChangePassword: true, phone: res.phone, name: res.name };
+      }
       return { ok: false, message: res.error ?? "Login failed" };
     },
     [],
@@ -238,6 +259,9 @@ export function SessionProvider({
             setSession(s);
             return { ok: true, name: dbRes.name };
           }
+          if (dbRes.mustChangePassword) {
+            return { ok: false, mustChangePassword: true, email: dbRes.email, name: dbRes.name };
+          }
           return { ok: false, message: error.message };
         }
         // Supabase Auth said yes — that settles it. Don't re-check the password
@@ -261,9 +285,44 @@ export function SessionProvider({
         setSession(s);
         return { ok: true, name: res.name };
       }
+      if (res.mustChangePassword) {
+        return { ok: false, mustChangePassword: true, email: res.email, name: res.name };
+      }
       return { ok: false, message: res.error ?? "Login failed" };
     },
     [isDemo],
+  );
+
+  const changePasswordAndSignIn = useCallback(
+    async (phone: string, tempPassword: string, newPassword: string) => {
+      const res = await changePasswordAndSignInAction(phone, tempPassword, newPassword);
+      if (res.ok && res.name && res.phone) {
+        const s = { name: res.name, phone: res.phone };
+        try {
+          window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        } catch {}
+        setSession(s);
+        return { ok: true, name: res.name };
+      }
+      return { ok: false, message: res.error ?? "Could not update password" };
+    },
+    [],
+  );
+
+  const changePasswordAndSignInWithEmail = useCallback(
+    async (email: string, tempPassword: string, newPassword: string) => {
+      const res = await changePasswordAndSignInWithEmailAction(email, tempPassword, newPassword);
+      if (res.ok && res.name) {
+        const s = { name: res.name, phone: "", email: res.email ?? email.trim().toLowerCase() };
+        try {
+          window.localStorage.setItem(DEMO_KEY, JSON.stringify(s));
+        } catch {}
+        setSession(s);
+        return { ok: true, name: res.name };
+      }
+      return { ok: false, message: res.error ?? "Could not update password" };
+    },
+    [],
   );
 
   const registerWithEmail = useCallback(
@@ -332,6 +391,8 @@ export function SessionProvider({
       registerWithPassword,
       signInWithEmail,
       registerWithEmail,
+      changePasswordAndSignIn,
+      changePasswordAndSignInWithEmail,
       signOut,
     }),
     [
@@ -343,6 +404,8 @@ export function SessionProvider({
       registerWithPassword,
       signInWithEmail,
       registerWithEmail,
+      changePasswordAndSignIn,
+      changePasswordAndSignInWithEmail,
       signOut,
     ],
   );

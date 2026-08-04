@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { Product, Review } from "@/lib/types";
 import { useCart } from "@/lib/store/CartProvider";
 import { useWishlist } from "@/lib/store/WishlistProvider";
@@ -18,7 +17,6 @@ export function PdpClient({ product: p, reviews }: { product: Product; reviews: 
   const { t, lang } = useT();
   const cart = useCart();
   const wishlist = useWishlist();
-  const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const meta = MILESTONE_META[p.milestone];
 
@@ -92,11 +90,11 @@ export function PdpClient({ product: p, reviews }: { product: Product; reviews: 
           onClick={() => {
             cart.add(p.id);
             trackAddToCart({ id: p.id, name: p.name_en, price: p.price });
+            // Stay on the page (many visitors arrive here from a shared link and
+            // want to keep reading / add more) rather than bouncing to the
+            // homepage. The header cart button reflects the added item.
             setToast(t("toast.addedToCart"));
-            window.setTimeout(() => {
-              setToast(null);
-              router.push("/");
-            }, 900);
+            window.setTimeout(() => setToast(null), 1800);
           }}
         >
           {p.stock === 0 ? t("shop.soldOut") : `${t("shop.addToCart")} — ${inr(p.price)}`}
@@ -124,7 +122,7 @@ export function PdpClient({ product: p, reviews }: { product: Product; reviews: 
 
       {reviews.length > 0 && (
         <div className="mt-5">
-          <h2 className="mb-2 font-display font-extrabold">
+          <h2 className="mb-2 font-display text-[15px] font-extrabold text-ink">
             {t("product.reviews")} ({reviews.length}) ⭐
           </h2>
           {reviews.map((r) => (

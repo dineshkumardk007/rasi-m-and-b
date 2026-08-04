@@ -1,6 +1,7 @@
 import "server-only";
+import * as Sentry from "@sentry/nextjs";
+import { logQueryError } from "@/lib/log-query-error";
 import type {
-  AnalyticsData,
   Banner,
   BannerSlot,
   Brand,
@@ -13,22 +14,26 @@ import type {
   StoreSettings,
 } from "@/lib/types";
 import type { Category, Milestone } from "@/lib/constants";
+import { mapOrder } from "./orders";
 import { demoDB } from "./demo-store";
 import { isDemo } from "./mode";
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logEvent } from "./events";
 
 /**
- * Staff-gated data access for /admin. In live mode every mutation goes through
- * the caller's OWN session client so RLS enforces the staff boundary, and each
- * action is written to staff_log. Demo mode is open (banner shown in UI).
+ * Staff-gated data access for /admin. Staff sessions are a custom HMAC-signed
+ * cookie, not real Supabase Auth, so auth.uid() is never set for them and RLS
+ * cannot enforce the staff boundary here — every read/write goes through the
+ * service-role client instead, and the staff/owner boundary is enforced in
+ * src/app/admin/actions.ts (gate()/gateOwner()) before any of these functions
+ * run. Each mutation is written to staff_log for an audit trail. Demo mode is
+ * open (banner shown in UI).
  */
 
 import { cookies } from "next/headers";
 import { ADMIN_COOKIE, verifySessionToken } from "@/lib/admin-session";
 import { hashPassword } from "@/lib/admin-password";
-import type { PendingApproval, StaffAccount, StaffRole } from "@/lib/types";
+import type { PendingApproval, StaffAccount, StaffAccountPublic, StaffRole } from "@/lib/types";
 
 export async function requireStaff(): Promise<{ userId: string; username: string; role: StaffRole } | null> {
   try {
@@ -42,6 +47,20 @@ export async function requireStaff(): Promise<{ userId: string; username: string
   }
 
   if (isDemo()) {
+    // Demo mode grants an open owner session by design (showcase deploys with no
+    // Supabase keys). But if we reach here in a PRODUCTION build, it almost
+    // certainly means NEXT_PUBLIC_SUPABASE_URL is missing/typo'd in this
+    // environment — which silently leaves /admin fully unauthenticated. Fail
+    // loud in the logs so a misconfigured prod deploy is caught immediately
+    // rather than sitting open until someone notices.
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        "[SECURITY] requireStaff() hit the demo owner fallback in a production " +
+        "build — /admin is UNAUTHENTICATED. Supabase env vars are likely " +
+        "missing for this deployment. Fix NEXT_PUBLIC_SUPABASE_URL / service " +
+        "role key immediately.",
+      );
+    }
     return { userId: "admin-owner", username: "Owner", role: "owner" };
   }
 
@@ -53,8 +72,63 @@ async function logStaff(userId: string, action: string, entity: string, entityId
     demoDB().staffLog.unshift({ action, entity, entity_id: entityId, at: new Date().toISOString() });
     return;
   }
-  const supabase = await createServerClient();
-  await supabase.from("staff_log").insert({ user_id: userId, action, entity, entity_id: entityId });
+  // Service-role, not the caller's session client: staff auth is a custom
+  // HMAC-cookie scheme, never real Supabase Auth, so auth.uid() is always
+  // null here and the old RLS-gated insert could never succeed (see the
+  // staff_log_fixes migration). The staff/owner boundary is already
+  // enforced upstream by gate()/gateOwner() before this is ever called.
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("staff_log")
+    .insert({ user_id: userId, action, entity, entity_id: entityId });
+  logQueryError("admin", "logStaff", error);
+}
+
+export interface StaffLogEntry {
+  id?: string;
+  user_id?: string;
+  action: string;
+  entity: string;
+  entity_id: string;
+  at: string;
+}
+
+export async function getStaffLogs(query?: string, entityFilter?: string): Promise<StaffLogEntry[]> {
+  let logs: StaffLogEntry[] = [];
+  if (isDemo()) {
+    logs = demoDB().staffLog;
+  } else {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("staff_log")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    logQueryError("admin", "getStaffLogs", error);
+
+    logs = (data ?? []).map((row: Record<string, unknown>) => ({
+      id: String(row.id ?? ""),
+      user_id: String(row.user_id ?? ""),
+      action: String(row.action ?? ""),
+      entity: String(row.entity ?? ""),
+      entity_id: String(row.entity_id ?? ""),
+      at: String(row.created_at || row.at || new Date().toISOString()),
+    }));
+  }
+
+  const q = (query ?? "").trim().toLowerCase();
+  const e = (entityFilter ?? "").trim().toLowerCase();
+
+  return logs.filter((l) => {
+    if (e && e !== "all" && l.entity.toLowerCase() !== e) return false;
+    if (!q) return true;
+    return (
+      l.action.toLowerCase().includes(q) ||
+      l.entity.toLowerCase().includes(q) ||
+      l.entity_id.toLowerCase().includes(q) ||
+      (l.user_id && l.user_id.toLowerCase().includes(q))
+    );
+  });
 }
 
 /* ── Orders ──────────────────────────────────────────────────────────────── */
@@ -62,37 +136,13 @@ async function logStaff(userId: string, action: string, entity: string, entityId
 export async function listAllOrders(): Promise<Order[]> {
   if (isDemo()) return demoDB().orders;
   const supabase = createAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("orders")
     .select("*, order_items(*)")
     .order("placed_at", { ascending: false })
     .limit(200);
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  return (data ?? []).map((row: any) => ({
-    id: row.id,
-    order_no: row.order_no,
-    customer_id: row.customer_id,
-    status: row.status,
-    payment_method: row.payment_method,
-    payment_status: row.payment_status,
-    subtotal: row.subtotal,
-    delivery_fee: row.delivery_fee,
-    discount: row.discount,
-    coupon_code: row.coupon_code,
-    total: row.total,
-    address_snapshot: row.address_snapshot,
-    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-    items: (row.order_items ?? []).map((i: any) => ({
-      product_id: i.product_id,
-      name_snapshot: i.name_snapshot,
-      price_snapshot: i.price_snapshot,
-      qty: i.qty,
-    })),
-    placed_at: row.placed_at,
-    language: "en" as const,
-    is_gift: row.is_gift ?? false,
-    gift_message: row.gift_message ?? null,
-  }));
+  logQueryError("admin", "listAllOrders", error);
+  return (data ?? []).map(mapOrder);
 }
 
 export async function getOrderByOrderNo(orderNo: string): Promise<Order | null> {
@@ -104,40 +154,16 @@ export async function getOrderByOrderNo(orderNo: string): Promise<Order | null> 
     );
   }
   const supabase = createAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("orders")
     .select("*, order_items(*)")
     .eq("order_no", orderNo)
     .single();
+  // PGRST116 ("0 rows") is .single()'s normal way of saying "not found" for a
+  // typo'd or nonexistent order number — not a failure worth reporting.
+  if (error?.code !== "PGRST116") logQueryError("admin", "getOrderByOrderNo", error);
 
-  if (!data) return null;
-
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  return {
-    id: data.id,
-    order_no: data.order_no,
-    customer_id: data.customer_id,
-    status: data.status,
-    payment_method: data.payment_method,
-    payment_status: data.payment_status,
-    subtotal: data.subtotal,
-    delivery_fee: data.delivery_fee,
-    discount: data.discount,
-    coupon_code: data.coupon_code,
-    total: data.total,
-    address_snapshot: data.address_snapshot,
-    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-    items: (data.order_items ?? []).map((i: any) => ({
-      product_id: i.product_id,
-      name_snapshot: i.name_snapshot,
-      price_snapshot: i.price_snapshot,
-      qty: i.qty,
-    })),
-    placed_at: data.placed_at,
-    language: "en" as const,
-    is_gift: data.is_gift ?? false,
-    gift_message: data.gift_message ?? null,
-  };
+  return data ? mapOrder(data) : null;
 }
 
 export async function setOrderStatus(
@@ -158,10 +184,16 @@ export async function setOrderStatus(
   const supabase = createAdminClient();
   if (status === "cancelled") {
     const { error } = await supabase.rpc("cancel_order", { p_order_id: orderId });
-    if (error) return false;
+    if (error) {
+      logQueryError("admin", "setOrderStatus:cancel_order", error);
+      return false;
+    }
   } else {
     const { error } = await supabase.from("orders").update({ status }).eq("id", orderId);
-    if (error) return false;
+    if (error) {
+      logQueryError("admin", "setOrderStatus:update", error);
+      return false;
+    }
     if (status === "delivered")
       await supabase
         .from("orders")
@@ -176,6 +208,54 @@ export async function setOrderStatus(
     phone: row?.address_snapshot?.phone,
   });
   return true;
+}
+
+export async function refundOrder(
+  staffId: string,
+  orderId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (isDemo()) {
+    const order = demoDB().orders.find((o) => o.id === orderId);
+    if (!order) return { ok: false, error: "Order not found" };
+    order.payment_status = "refunded";
+    await logStaff(staffId, "refund", "order", order.order_no);
+    await logEvent("order.refunded", { order_no: order.order_no, payment_id: "demo_payment" });
+    return { ok: true };
+  }
+
+  const supabase = createAdminClient();
+  const { data: order, error: fetchErr } = await supabase
+    .from("orders")
+    .select("order_no, payment_method, payment_status, razorpay_payment_id")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (fetchErr || !order) return { ok: false, error: fetchErr?.message ?? "Order not found" };
+
+  // An order paid through Razorpay MUST actually be refunded through Razorpay
+  // — marking it "refunded" in our own DB without that call previously looked
+  // identical to a real refund in the admin UI while no money moved. COD (or
+  // an order that was never actually captured) has nothing to call Razorpay
+  // about, so those just update the status directly.
+  const wasPaidOnline = order.payment_method === "razorpay" && order.payment_status === "paid";
+  if (wasPaidOnline) {
+    const { razorpayConfigured, refundPayment } = await import("@/lib/razorpay");
+    if (!razorpayConfigured()) return { ok: false, error: "Razorpay is not configured" };
+    if (!order.razorpay_payment_id)
+      return { ok: false, error: "No Razorpay payment id on file for this order — cannot refund automatically" };
+    const refunded = await refundPayment(order.razorpay_payment_id, order.order_no);
+    if (!refunded) return { ok: false, error: "Razorpay refund request failed" };
+  }
+
+  const { error } = await supabase
+    .from("orders")
+    .update({ payment_status: "refunded" })
+    .eq("id", orderId);
+
+  if (error) return { ok: false, error: error.message };
+
+  await logStaff(staffId, "refund", "order", order.order_no);
+  await logEvent("order.refunded", { order_no: order.order_no, payment_id: order.razorpay_payment_id });
+  return { ok: true };
 }
 
 /* ── Products ────────────────────────────────────────────────────────────── */
@@ -229,15 +309,27 @@ async function uniqueSlug(
 export async function listAllProducts(): Promise<Product[]> {
   if (isDemo()) return demoDB().products;
   const supabase = createAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("products")
     .select("*, product_categories(category)")
     .order("created_at", { ascending: true });
+  logQueryError("admin", "listAllProducts", error);
   const { mapProductRow } = await import("./map");
   return (data ?? []).map(mapProductRow);
 }
 
 export async function upsertProduct(staffId: string, input: ProductInput): Promise<string | null> {
+  // Server-side validation. The admin form checks these, but the action is a
+  // plain POST endpoint — a direct call could persist a negative price/stock or
+  // a garbage GST rate. Reject rather than store bad data.
+  if (!input.name_en?.trim()) return null;
+  if (!input.categories || input.categories.length === 0) return null;
+  if (!Number.isFinite(input.price) || input.price < 0) return null;
+  if (input.mrp != null && (!Number.isFinite(input.mrp) || input.mrp < 0)) return null;
+  if (!Number.isFinite(input.stock) || input.stock < 0) return null;
+  if (input.gst_rate != null && (!Number.isFinite(input.gst_rate) || input.gst_rate < 0 || input.gst_rate > 28))
+    return null;
+
   const slug = input.slug || slugify(input.name_en);
   if (isDemo()) {
     const db = demoDB();
@@ -297,14 +389,20 @@ export async function upsertProduct(staffId: string, input: ProductInput): Promi
   let productId = input.id ?? null;
   if (productId) {
     const { error } = await supabase.from("products").update(row).eq("id", productId);
-    if (error) return null;
+    if (error) {
+      logQueryError("admin", "upsertProduct:update", error);
+      return null;
+    }
   } else {
     const { data, error } = await supabase
       .from("products")
       .insert({ ...row, slug: await uniqueSlug(supabase, slug) })
       .select("id")
       .single();
-    if (error || !data) return null;
+    if (error || !data) {
+      logQueryError("admin", "upsertProduct:insert", error);
+      return null;
+    }
     productId = data.id;
   }
   await supabase.from("product_categories").delete().eq("product_id", productId);
@@ -324,11 +422,16 @@ export async function updateProductStock(staffId: string, productId: string, sto
     return true;
   }
   const supabase = createAdminClient();
-  const { data: p } = await supabase.from("products").select("stock").eq("id", productId).single();
-  if (!p) return false;
-  const newStock = Math.max(0, (p.stock || 0) + stockDelta);
-  const { error } = await supabase.from("products").update({ stock: newStock }).eq("id", productId);
-  if (error) return false;
+  // Atomic: does the add inside one locked UPDATE rather than read-then-write,
+  // so a concurrent order confirmation (also atomic) can't stomp this change.
+  const { data: newStock, error } = await supabase.rpc("adjust_product_stock", {
+    p_id: productId,
+    p_delta: stockDelta,
+  });
+  if (error || newStock === null) {
+    logQueryError("admin", "updateProductStock", error);
+    return false;
+  }
   await logStaff(staffId, `stock_update:${newStock}`, "product", productId);
   return true;
 }
@@ -350,7 +453,8 @@ export async function archiveProduct(staffId: string, id: string): Promise<void>
 export async function listCoupons(): Promise<Coupon[]> {
   if (isDemo()) return demoDB().coupons;
   const supabase = createAdminClient();
-  const { data } = await supabase.from("coupons").select("*").order("code");
+  const { data, error } = await supabase.from("coupons").select("*").order("code");
+  logQueryError("admin", "listCoupons", error);
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   return (data ?? []).map((c: any) => ({
     code: c.code,
@@ -366,6 +470,10 @@ export async function listCoupons(): Promise<Coupon[]> {
 export async function addCoupon(staffId: string, coupon: Omit<Coupon, "used_count">): Promise<boolean> {
   const code = coupon.code.trim().toUpperCase();
   if (!code || coupon.value <= 0) return false;
+  // A percent coupon over 100 makes no sense and would try to discount more than
+  // the order is worth. Reject at creation so a typo (150 meaning ₹150 entered
+  // under the "percent" type) can never reach checkout.
+  if (coupon.type === "percent" && coupon.value > 100) return false;
   if (isDemo()) {
     const db = demoDB();
     if (db.coupons.some((c) => c.code === code)) return false;
@@ -380,7 +488,10 @@ export async function addCoupon(staffId: string, coupon: Omit<Coupon, "used_coun
       valid_until: coupon.valid_until,
       usage_limit: coupon.usage_limit,
     });
-    if (error) return false;
+    if (error) {
+      logQueryError("admin", "addCoupon", error);
+      return false;
+    }
   }
   await logStaff(staffId, "create", "coupon", code);
   return true;
@@ -461,32 +572,35 @@ export async function upsertBanner(
       ? await supabase.from("banners").update(payload).eq("id", input.id).select("id").maybeSingle()
       : await supabase.from("banners").insert(payload).select("id").maybeSingle();
 
-    if (!error && data) {
-      await logStaff(staffId, input.id ? "update" : "create", "banner", data.id);
-      return data.id;
+    if (error || !data) {
+      // Live mode: a failed write must report failure. Silently writing to the
+      // in-memory demo store (which vanishes on the next cold start and is
+      // invisible to other serverless instances) reported success for a banner
+      // that was never persisted. Return null so the admin UI shows the error.
+      logQueryError("admin", "upsertBanner", error);
+      return null;
     }
+    await logStaff(staffId, input.id ? "update" : "create", "banner", data.id);
+    return data.id;
   } catch (e) {
-    console.warn("Supabase error in upsertBanner:", e);
+    logQueryError("admin", "upsertBanner", e);
+    return null;
   }
-
-  // Resilient Fallback: update in-memory catalog
-  const db = demoDB();
-  const id = input.id ?? `bn-${Date.now()}`;
-  const row: Banner = { ...input, id };
-  const at = db.banners.findIndex((b) => b.id === id);
-  if (at === -1) db.banners.push(row);
-  else db.banners[at] = row;
-  return id;
 }
 
-export async function deleteBanner(staffId: string, id: string): Promise<void> {
+export async function deleteBanner(staffId: string, id: string): Promise<{ ok: boolean; error?: string }> {
   if (isDemo()) {
     const db = demoDB();
     db.banners = db.banners.filter((b) => b.id !== id);
   } else {
-    await createAdminClient().from("banners").delete().eq("id", id);
+    const { error } = await createAdminClient().from("banners").delete().eq("id", id);
+    if (error) {
+      logQueryError("admin", "deleteBanner", error);
+      return { ok: false, error: error.message };
+    }
   }
   await logStaff(staffId, "delete", "banner", id);
+  return { ok: true };
 }
 
 /* ── Brands ──────────────────────────────────────────────────────────────── */
@@ -531,7 +645,10 @@ export async function upsertBrand(staffId: string, input: BrandInput): Promise<s
     ? await supabase.from("brands").update(payload).eq("id", input.id).select("id").maybeSingle()
     : await supabase.from("brands").insert(payload).select("id").maybeSingle();
 
-  if (error || !data) return null;
+  if (error || !data) {
+    logQueryError("admin", "upsertBrand", error);
+    return null;
+  }
   await logStaff(staffId, input.id ? "update" : "create", "brand", data.id);
   return data.id;
 }
@@ -541,7 +658,7 @@ export async function upsertBrand(staffId: string, input: BrandInput): Promise<s
  * link, which is why the column is ON DELETE SET NULL rather than a cascade —
  * deleting a logo must never delete stock.
  */
-export async function deleteBrand(staffId: string, id: string): Promise<void> {
+export async function deleteBrand(staffId: string, id: string): Promise<{ ok: boolean; error?: string }> {
   if (isDemo()) {
     const db = demoDB();
     db.brands = db.brands.filter((b) => b.id !== id);
@@ -549,9 +666,14 @@ export async function deleteBrand(staffId: string, id: string): Promise<void> {
       if (product.brand_id === id) product.brand_id = null;
     }
   } else {
-    await createAdminClient().from("brands").delete().eq("id", id);
+    const { error } = await createAdminClient().from("brands").delete().eq("id", id);
+    if (error) {
+      logQueryError("admin", "deleteBrand", error);
+      return { ok: false, error: error.message };
+    }
   }
   await logStaff(staffId, "delete", "brand", id);
+  return { ok: true };
 }
 
 /* ── Reviews ─────────────────────────────────────────────────────────────── */
@@ -564,7 +686,8 @@ export async function listReviews(status?: Review["status"]): Promise<Review[]> 
   const supabase = createAdminClient();
   let query = supabase.from("reviews").select("*").order("created_at", { ascending: false });
   if (status) query = query.eq("status", status);
-  const { data } = await query;
+  const { data, error } = await query;
+  logQueryError("admin", "listReviews", error);
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   return (data ?? []).map((row: any) => ({
     id: row.id,
@@ -581,44 +704,63 @@ export async function moderateReview(
   staffId: string,
   reviewId: string,
   status: "approved" | "rejected",
-): Promise<void> {
+): Promise<{ ok: boolean; error?: string }> {
   if (isDemo()) {
     const r = demoDB().reviews.find((x) => x.id === reviewId);
     if (r) r.status = status;
   } else {
     const supabase = createAdminClient();
-    await supabase.from("reviews").update({ status }).eq("id", reviewId);
+    const { error } = await supabase.from("reviews").update({ status }).eq("id", reviewId);
+    if (error) {
+      logQueryError("admin", "moderateReview", error);
+      return { ok: false, error: error.message };
+    }
   }
   await logStaff(staffId, `review:${status}`, "review", reviewId);
+  return { ok: true };
 }
 
 export async function addAdminReview(
   staffId: string,
   input: { author_name: string; rating: number; text: string; product_id: string },
-): Promise<void> {
+): Promise<{ ok: boolean; error?: string }> {
+  // Normalise: the action accepts arbitrary numbers/strings, so clamp the rating
+  // to 1–5 and cap the text rather than trusting the caller. An out-of-range
+  // rating would break the aggregate rating and star display.
+  if (!input.product_id) return { ok: false, error: "No product selected" };
+  const rating = Math.max(1, Math.min(5, Math.round(input.rating)));
+  const text = (input.text ?? "").trim().slice(0, 1000);
+  const author_name = (input.author_name ?? "").trim().slice(0, 80) || "Customer";
+  if (!text) return { ok: false, error: "Review text is required" };
+
   const id = isDemo() ? `r-${Date.now()}` : crypto.randomUUID();
   if (isDemo()) {
     demoDB().reviews.unshift({
       id,
       product_id: input.product_id,
-      author_name: input.author_name,
-      rating: input.rating,
-      text: input.text,
+      author_name,
+      rating,
+      text,
       status: "approved",
       created_at: new Date().toISOString(),
     });
   } else {
     const supabase = createAdminClient();
-    await supabase.from("reviews").insert({
+    const { error } = await supabase.from("reviews").insert({
       id,
       product_id: input.product_id,
-      author_name: input.author_name,
-      rating: input.rating,
-      text: input.text,
+      author_name,
+      rating,
+      text,
       status: "approved",
     });
+    if (error) {
+      logQueryError("admin", "addAdminReview", error);
+      return { ok: false, error: error.message };
+    }
   }
   await logStaff(staffId, "review:create", "review", id);
+  return { ok: true };
 }
 
 /* ── Customers ───────────────────────────────────────────────────────────── */
@@ -626,19 +768,34 @@ export async function addAdminReview(
 export async function listCustomers(): Promise<CustomerRecord[]> {
   if (isDemo()) return demoDB().customers;
   const supabase = createAdminClient();
-  const { data } = await supabase.from("customers").select("*").order("created_at", { ascending: false }).limit(500);
+  const { data, error } = await supabase
+    .from("customers")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  logQueryError("admin", "listCustomers", error);
   return (data ?? []) as CustomerRecord[];
 }
 
-export async function saveCustomerNote(staffId: string, customerId: string, notes: string): Promise<void> {
+export async function saveCustomerNote(
+  staffId: string,
+  customerId: string,
+  notes: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const cleanNotes = (notes ?? "").trim().slice(0, 1000);
   if (isDemo()) {
     const c = demoDB().customers.find((x) => x.id === customerId);
-    if (c) c.notes = notes;
+    if (c) c.notes = cleanNotes;
   } else {
     const supabase = createAdminClient();
-    await supabase.from("customers").update({ notes }).eq("id", customerId);
+    const { error } = await supabase.from("customers").update({ notes: cleanNotes }).eq("id", customerId);
+    if (error) {
+      logQueryError("admin", "saveCustomerNote", error);
+      return { ok: false, error: error.message };
+    }
   }
   await logStaff(staffId, "note", "customer", customerId);
+  return { ok: true };
 }
 
 export async function resetCustomerPassword(
@@ -649,17 +806,25 @@ export async function resetCustomerPassword(
   const hashed = hashPassword(newPassword);
   if (isDemo()) {
     const c = demoDB().customers.find((x) => x.id === customerId);
-    if (c) c.password = hashed;
+    if (c) {
+      c.password = hashed;
+      // An admin-issued temp password gets handed to the customer over
+      // WhatsApp in plaintext — force a real password before the session
+      // it unlocks can be used for anything.
+      c.must_change_password = true;
+    }
   } else {
     const supabase = createAdminClient();
     const { error } = await supabase
       .from("customers")
-      .update({ password_hash: hashed })
+      .update({ password: hashed, must_change_password: true })
       .eq("id", customerId);
     if (error) {
-      console.warn("Supabase customer password reset error:", error);
-      const c = demoDB().customers.find((x) => x.id === customerId);
-      if (c) c.password = hashed;
+      // Do NOT fall back to writing the demo store here: it made the reset look
+      // like it succeeded while the real customer row was untouched, so the
+      // customer could never log in with the new password. Report the failure.
+      logQueryError("admin", "resetCustomerPassword", error);
+      return false;
     }
   }
   await logStaff(staffId, "reset_password", "customer", customerId);
@@ -668,81 +833,62 @@ export async function resetCustomerPassword(
 
 /* ── Settings ────────────────────────────────────────────────────────────── */
 
-export async function updateSettings(staffId: string, patch: Partial<StoreSettings>): Promise<void> {
+const BOX_MEDIA_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const BOX_MEDIA_MAX_BYTES = 1_500_000; // 1.5 MB — matches BoxMediaTab's client check
+
+/**
+ * box_media is inlined straight into the settings row, which every
+ * storefront page reads — an oversized or non-image value bloats every page
+ * for every visitor. BoxMediaTab already checks this client-side, but that's
+ * only a UX nicety: this is the actual gate, since updateSettingsAction can
+ * be called directly with any payload regardless of what the form allows.
+ * Only data: URLs are checked — a plain hosted image URL has no size to
+ * bound here and isn't what this field is inlined for.
+ */
+function validateBoxMedia(boxMedia: Record<string, string>): string | null {
+  for (const [key, value] of Object.entries(boxMedia)) {
+    if (!value || !value.startsWith("data:")) continue;
+    const match = /^data:([^;]+);base64,(.*)$/s.exec(value);
+    if (!match || !match[1] || match[2] === undefined) return `Invalid image data for "${key}".`;
+    const [, mimeType, base64] = match;
+    if (!BOX_MEDIA_ALLOWED_TYPES.includes(mimeType)) {
+      return `"${key}": unsupported image type ${mimeType} (use JPEG, PNG or WebP).`;
+    }
+    const approxBytes = (base64.length * 3) / 4;
+    if (approxBytes > BOX_MEDIA_MAX_BYTES) {
+      return `"${key}": image is too large (max 1.5 MB).`;
+    }
+  }
+  return null;
+}
+
+export async function updateSettings(
+  staffId: string,
+  patch: Partial<StoreSettings>,
+): Promise<{ ok: boolean; error?: string }> {
+  if (patch.box_media) {
+    const err = validateBoxMedia(patch.box_media);
+    if (err) return { ok: false, error: err };
+  }
   if (isDemo()) {
     Object.assign(demoDB().settings, patch);
   } else {
     const supabase = createAdminClient();
-    for (const [key, value] of Object.entries(patch))
-      await supabase.from("settings").upsert({ key, value, updated_at: new Date().toISOString() });
+    for (const [key, value] of Object.entries(patch)) {
+      const { error } = await supabase
+        .from("settings")
+        .upsert({ key, value, updated_at: new Date().toISOString() });
+      if (error) {
+        logQueryError("admin", `updateSettings:${key}`, error);
+        return { ok: false, error: error.message };
+      }
+    }
   }
   await logStaff(staffId, "update", "settings", Object.keys(patch).join(","));
+  return { ok: true };
 }
 
-/* ── Analytics & Low Stock Helpers ───────────────────────────────────────── */
-
-export async function getAnalyticsData(orders: Order[], products: Product[], customers: CustomerRecord[]): Promise<AnalyticsData> {
-  const validOrders = orders.filter((o) => o.status !== "cancelled");
-  const totalRevenue = validOrders.reduce((sum, o) => sum + o.total, 0);
-  const totalOrders = validOrders.length;
-  const averageOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
-  const totalCustomers = customers.length;
-
-  // Daily Sales aggregation (last 30 days)
-  const salesByDate: Record<string, { amount: number; count: number }> = {};
-  for (const o of validOrders) {
-    const date = o.placed_at.slice(0, 10);
-    if (!salesByDate[date]) salesByDate[date] = { amount: 0, count: 0 };
-    salesByDate[date].amount += o.total;
-    salesByDate[date].count += 1;
-  }
-  const dailySales = Object.entries(salesByDate)
-    .map(([date, data]) => ({ date, amount: data.amount, count: data.count }))
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-14); // last 14 days
-
-  // Top Products leaderboard
-  const productStats: Record<string, { name: string; qtySold: number; revenue: number }> = {};
-  for (const o of validOrders) {
-    for (const item of o.items) {
-      const pid = item.product_id;
-      if (!productStats[pid]) {
-        productStats[pid] = { name: item.name_snapshot, qtySold: 0, revenue: 0 };
-      }
-      productStats[pid].qtySold += item.qty;
-      productStats[pid].revenue += item.price_snapshot * item.qty;
-    }
-  }
-  const topProducts = Object.entries(productStats)
-    .map(([id, stat]) => ({ id, ...stat }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5);
-
-  // Category sales breakdown
-  const catSales: Record<string, number> = {};
-  for (const o of validOrders) {
-    for (const item of o.items) {
-      const prod = products.find((p) => p.id === item.product_id);
-      const cat = prod?.categories[0] ?? "general";
-      catSales[cat] = (catSales[cat] ?? 0) + item.price_snapshot * item.qty;
-    }
-  }
-  const categorySales = Object.entries(catSales).map(([category, amount]) => ({ category, amount }));
-
-  return {
-    totalRevenue,
-    totalOrders,
-    averageOrderValue,
-    totalCustomers,
-    dailySales,
-    topProducts,
-    categorySales,
-  };
-}
-
-export async function getLowStockProducts(products: Product[]): Promise<Product[]> {
-  return products.filter((p) => p.status === "active" && p.stock <= p.low_stock_threshold);
-}
+/* ── Low Stock Helpers ───────────────────────────────────────── */
 
 export async function quickRestockProduct(staffId: string, productId: string, addedStock: number): Promise<boolean> {
   if (isDemo()) {
@@ -750,9 +896,15 @@ export async function quickRestockProduct(staffId: string, productId: string, ad
     if (p) p.stock += addedStock;
   } else {
     const supabase = createAdminClient();
-    const { data: current } = await supabase.from("products").select("stock").eq("id", productId).single();
-    const newStock = (current?.stock ?? 0) + addedStock;
-    await supabase.from("products").update({ stock: newStock }).eq("id", productId);
+    // Atomic add (see adjust_product_stock migration) instead of read-then-write.
+    const { error } = await supabase.rpc("adjust_product_stock", {
+      p_id: productId,
+      p_delta: addedStock,
+    });
+    if (error) {
+      logQueryError("admin", "quickRestockProduct", error);
+      return false;
+    }
   }
   await logStaff(staffId, "restock", "product", `${productId}:${addedStock}`);
   return true;
@@ -760,11 +912,16 @@ export async function quickRestockProduct(staffId: string, productId: string, ad
 
 /* ── Staff Accounts & Approvals ────────────────────────────────────────────── */
 
-export async function listStaffAccounts(): Promise<StaffAccount[]> {
-  if (isDemo()) return demoDB().staffAccounts;
+export async function listStaffAccounts(): Promise<StaffAccountPublic[]> {
+  if (isDemo())
+    return demoDB().staffAccounts.map(({ password_hash: _password_hash, ...rest }) => rest);
   const supabase = createAdminClient();
-  const { data } = await supabase.from("staff_accounts").select("*").order("created_at", { ascending: false });
-  return (data ?? []) as StaffAccount[];
+  const { data, error } = await supabase
+    .from("staff_accounts")
+    .select("id, username, phone, role, status, created_at, last_login_at")
+    .order("created_at", { ascending: false });
+  logQueryError("admin", "listStaffAccounts", error);
+  return (data ?? []) as StaffAccountPublic[];
 }
 
 export async function createStaffAccount(
@@ -798,7 +955,10 @@ export async function createStaffAccount(
     status: "active",
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    logQueryError("admin", "createStaffAccount", error);
+    return { ok: false, error: error.message };
+  }
   return { ok: true };
 }
 
@@ -809,7 +969,17 @@ export async function resetStaffPassword(staffId: string, newPasswordHash: strin
     return true;
   }
   const supabase = createAdminClient();
-  await supabase.from("staff_accounts").update({ password_hash: newPasswordHash }).eq("id", staffId);
+  const { error } = await supabase
+    .from("staff_accounts")
+    .update({ password_hash: newPasswordHash })
+    .eq("id", staffId);
+  if (error) {
+    // A silent no-op here means the owner believes a staff password was
+    // rotated when it wasn't — the old (possibly compromised) one still works.
+    console.error("resetStaffPassword failed:", staffId, error);
+    Sentry.captureException(error, { tags: { area: "staff_reset_password" } });
+    return false;
+  }
   return true;
 }
 
@@ -820,18 +990,26 @@ export async function toggleStaffStatus(staffId: string, status: "active" | "dis
     return true;
   }
   const supabase = createAdminClient();
-  await supabase.from("staff_accounts").update({ status }).eq("id", staffId);
+  const { error } = await supabase.from("staff_accounts").update({ status }).eq("id", staffId);
+  if (error) {
+    // Disabling a departing/compromised staff account can silently no-op,
+    // leaving it live and usable while the admin UI shows it as disabled.
+    console.error("toggleStaffStatus failed:", staffId, status, error);
+    Sentry.captureException(error, { tags: { area: "staff_toggle_status" } });
+    return false;
+  }
   return true;
 }
 
 export async function listPendingApprovals(): Promise<PendingApproval[]> {
   if (isDemo()) return demoDB().pendingApprovals.filter((a) => a.status === "pending");
   const supabase = createAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("pending_approvals")
     .select("*")
     .eq("status", "pending")
     .order("created_at", { ascending: false });
+  logQueryError("admin", "listPendingApprovals", error);
   return (data ?? []) as PendingApproval[];
 }
 
@@ -856,7 +1034,7 @@ export async function requestApproval(
     return true;
   }
   const supabase = createAdminClient();
-  await supabase.from("pending_approvals").insert({
+  const { error } = await supabase.from("pending_approvals").insert({
     requested_by: requestedBy,
     staff_name: staffName,
     action_type: actionType,
@@ -864,7 +1042,56 @@ export async function requestApproval(
     payload_json: payloadJson,
     status: "pending",
   });
+  if (error) {
+    // If this insert fails, the staff member's action is gone entirely — not
+    // executed (correctly, they're not the owner) and not queued either. The
+    // caller (ownerOrQueue) must know this failed rather than telling them
+    // "queued for approval" when nothing was recorded.
+    logQueryError("admin", "requestApproval", error);
+    return false;
+  }
   return true;
+}
+
+export async function getPendingApproval(id: string): Promise<PendingApproval | null> {
+  if (isDemo()) return demoDB().pendingApprovals.find((a) => a.id === id) ?? null;
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("pending_approvals").select("*").eq("id", id).maybeSingle();
+  logQueryError("admin", "getPendingApproval", error);
+  return (data as PendingApproval) ?? null;
+}
+
+/**
+ * Runs the real mutation behind an approved pending action. Called only after an
+ * owner approves the request (see approveActionRequestAction). Maps the stored
+ * action_type + payload back to the underlying data-layer function. Keep the
+ * cases in sync with APPROVAL_ACTIONS in src/lib/approvals.ts.
+ */
+export async function executeApprovedAction(
+  approval: PendingApproval,
+  resolverId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const p = approval.payload_json as Record<string, any>;
+  switch (approval.action_type) {
+    case "coupon.add":
+      return { ok: await addCoupon(resolverId, p.coupon) };
+    case "coupon.delete":
+      await deleteCoupon(resolverId, p.code);
+      return { ok: true };
+    case "product.archive":
+      await archiveProduct(resolverId, p.id);
+      return { ok: true };
+    case "brand.delete":
+      return deleteBrand(resolverId, p.id);
+    case "banner.delete":
+      return deleteBanner(resolverId, p.id);
+    case "order.refund":
+      return refundOrder(resolverId, p.orderId);
+    default:
+      console.error("executeApprovedAction: unknown action_type", approval.action_type);
+      return { ok: false, error: `Unknown action type: ${approval.action_type}` };
+  }
 }
 
 export async function resolvePendingApproval(
@@ -881,11 +1108,12 @@ export async function resolvePendingApproval(
     return item;
   }
   const supabase = createAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("pending_approvals")
     .update({ status, resolved_at: new Date().toISOString(), resolved_by: resolvedBy })
     .eq("id", approvalId)
     .select("*")
     .single();
+  logQueryError("admin", "resolvePendingApproval", error);
   return (data as PendingApproval) ?? null;
 }

@@ -90,7 +90,7 @@ export function CreateRegistryModal({
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 font-display text-[15px] font-extrabold outline-none"
+            className="w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 font-display text-[15px] font-extrabold outline-none focus:border-brand"
           />
         </div>
 
@@ -104,7 +104,7 @@ export function CreateRegistryModal({
               required
               value={parentName}
               onChange={(e) => setParentName(e.target.value)}
-              className="w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 text-[14px] font-bold outline-none"
+              className="w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 text-[14px] font-bold outline-none focus:border-brand"
             />
           </div>
           <div>
@@ -116,7 +116,7 @@ export function CreateRegistryModal({
               required
               value={babyName}
               onChange={(e) => setBabyName(e.target.value)}
-              className="w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 text-[14px] font-bold outline-none"
+              className="w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 text-[14px] font-bold outline-none focus:border-brand"
             />
           </div>
           <div>
@@ -128,7 +128,7 @@ export function CreateRegistryModal({
               required
               value={eventDate}
               onChange={(e) => setEventDate(e.target.value)}
-              className="w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 text-[14px] font-bold outline-none"
+              className="w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 text-[14px] font-bold outline-none focus:border-brand"
             />
           </div>
         </div>
@@ -233,8 +233,9 @@ export function ViewRegistryModal({
       </h4>
 
       <div className="space-y-2 max-h-[300px] overflow-y-auto">
-        {regProducts.map(({ product }) => {
+        {regProducts.map(({ item, product }) => {
           if (!product) return null;
+          const fulfilled = item.purchased_qty >= item.desired_qty;
           return (
             <div
               key={product.id}
@@ -247,19 +248,23 @@ export function ViewRegistryModal({
                 <div>
                   <div className="font-display text-[15px] font-extrabold text-ink">{product.name_en}</div>
                   <div className="text-[13px] font-extrabold text-brand">{inr(product.price)}</div>
+                  <div className="text-[11px] font-bold text-mute">
+                    Got {item.purchased_qty} of {item.desired_qty}
+                  </div>
                 </div>
               </div>
 
               <Btn
                 small
-                bg="#D6E8B0"
+                bg={fulfilled ? "#E4E0EC" : "#D6E8B0"}
                 color="#2B2140"
+                disabled={fulfilled}
                 onClick={() => {
                   onAddToCart(product);
                   onClose();
                 }}
               >
-                🎁 Gift This Item
+                {fulfilled ? "Fulfilled 🎁" : "🎁 Gift This Item"}
               </Btn>
             </div>
           );

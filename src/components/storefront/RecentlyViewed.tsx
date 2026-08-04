@@ -85,7 +85,7 @@ export function RecentlyViewed({
           type="button"
           onClick={() => scroll("left")}
           className="btn-press absolute -left-2.5 sm:-left-4 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 sm:border-2.5 border-ink bg-white text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer font-extrabold text-[16px]"
-          aria-label="Previous products"
+          aria-label={t("a11y.prevProducts")}
         >
           ‹
         </button>
@@ -95,7 +95,7 @@ export function RecentlyViewed({
           type="button"
           onClick={() => scroll("right")}
           className="btn-press absolute -right-2.5 sm:-right-4 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 sm:border-2.5 border-ink bg-white text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer font-extrabold text-[16px]"
-          aria-label="Next products"
+          aria-label={t("a11y.nextProducts")}
         >
           ›
         </button>

@@ -6,7 +6,6 @@ import {
   getActiveBundles,
   getActiveProducts,
   getApprovedReviews,
-  getFeaturedCoupons,
   getLiveBanners,
   getSettings,
 } from "@/lib/data/catalog";
@@ -14,14 +13,12 @@ import { isDemo } from "@/lib/data/mode";
 import { getLanguage } from "@/lib/i18n/server";
 import {
   BUSINESS,
-  CATEGORIES,
-  CATEGORY_META,
   MILESTONES,
+  getAllCategories,
   siteUrl,
-  type Category,
   type Milestone,
 } from "@/lib/constants";
-import { storeJsonLd } from "@/lib/seo/jsonld";
+import { computeReviewAggregate, storeJsonLd } from "@/lib/seo/jsonld";
 
 /**
  * Category landing page — the storefront, opened on one category.
@@ -39,14 +36,16 @@ interface Props {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-const isCategory = (value: string): value is Category =>
-  (CATEGORIES as readonly string[]).includes(value);
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category } = await params;
-  if (!isCategory(category)) return {};
+  // Custom categories (admin → Settings → Categories) live in settings, not the
+  // static CATEGORIES constant — a category an owner adds needs to resolve here
+  // too, or it silently 404s despite being fully configured in the admin.
+  const settings = await getSettings();
+  const { meta: categoryMeta } = getAllCategories(settings.custom_categories);
+  const meta = categoryMeta[category];
+  if (!meta) return {};
 
-  const meta = CATEGORY_META[category];
   const lang = await getLanguage();
   const name = lang === "ta" ? meta.ta : meta.en;
 
@@ -63,14 +62,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CategoryPage({ params, searchParams }: Props) {
   const { category } = await params;
-  if (!isCategory(category)) notFound();
 
   const sp = await searchParams;
   const age = typeof sp.age === "string" ? sp.age : undefined;
   const query = typeof sp.q === "string" ? sp.q : undefined;
   const brand = typeof sp.brand === "string" ? sp.brand : undefined;
 
-  const [products, bundles, reviews, settings, banners, brands, featuredCoupons] =
+  const [products, bundles, reviews, settings, banners, brands] =
     await Promise.all([
       getActiveProducts(),
       getActiveBundles(),
@@ -78,8 +76,11 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       getSettings(),
       getLiveBanners(),
       getActiveBrands(),
-      getFeaturedCoupons(),
     ]);
+
+  const { meta: categoryMeta } = getAllCategories(settings.custom_categories);
+  const catInfo = categoryMeta[category];
+  if (!catInfo) notFound();
 
   const base = siteUrl();
   const breadcrumbJsonLd = {
@@ -90,11 +91,18 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       {
         "@type": "ListItem",
         position: 2,
-        name: CATEGORY_META[category].en,
+        name: catInfo.en,
         item: `${base}/c/${category}`,
       },
     ],
   };
+
+  const breadcrumbItems = breadcrumbJsonLd.itemListElement.map((li) => ({
+    name: li.name,
+    href: li.item.replace(base, "") || "/",
+  }));
+
+  const aggregate = computeReviewAggregate(reviews);
 
   return (
     <>
@@ -103,7 +111,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
         dangerouslySetInnerHTML={{
           // Category pages are the main organic landing pages, so they carry
           // the shop node too — not just the breadcrumb trail.
-          __html: JSON.stringify([breadcrumbJsonLd, storeJsonLd()]),
+          __html: JSON.stringify([breadcrumbJsonLd, storeJsonLd(aggregate)]),
         }}
       />
       <Storefront
@@ -113,8 +121,8 @@ export default async function CategoryPage({ params, searchParams }: Props) {
         settings={settings}
         banners={banners}
         brands={brands}
-        featuredCoupons={featuredCoupons}
         isDemo={isDemo()}
+        breadcrumb={breadcrumbItems}
         initialCategory={category}
         initialMilestone={
           age && (MILESTONES as readonly string[]).includes(age)

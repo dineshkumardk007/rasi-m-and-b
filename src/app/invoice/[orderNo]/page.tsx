@@ -46,7 +46,7 @@ export default async function InvoicePage({ params, searchParams }: Props) {
   const prices = showPrices(order);
 
   return (
-    <main className="mx-auto max-w-[720px] bg-white p-8 font-body text-ink print:p-0">
+    <main className="mx-auto max-w-[720px] bg-white p-8 font-body text-ink print:p-0 printable-invoice">
       <style>{`@media print { .no-print { display: none } body { background: #fff } }`}</style>
 
       <header className="mb-6 flex items-start justify-between border-b-4 border-ink pb-4">

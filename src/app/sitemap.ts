@@ -1,20 +1,34 @@
 import type { MetadataRoute } from "next";
-import { getActiveProducts } from "@/lib/data/catalog";
-import { CATEGORIES, siteUrl } from "@/lib/constants";
+import { getActiveBrands, getActiveProducts, getSettings } from "@/lib/data/catalog";
+import { getAllCategories, siteUrl } from "@/lib/constants";
 import { LEGAL_DOCS, LEGAL_LAST_UPDATED } from "@/lib/legal/content";
 
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
-  const products = await getActiveProducts();
+  const [products, brands, settings] = await Promise.all([
+    getActiveProducts(),
+    getActiveBrands(),
+    getSettings(),
+  ]);
+  // Built-in + any admin-added custom categories — both are real, indexable
+  // /c/[category] pages now (see c/[category]/page.tsx).
+  const { slugs: categorySlugs } = getAllCategories(settings.custom_categories);
   return [
     { url: base, changeFrequency: "daily", priority: 1 },
     // One indexable landing page per category
-    ...CATEGORIES.map((c) => ({
+    ...categorySlugs.map((c) => ({
       url: `${base}/c/${c}`,
       changeFrequency: "daily" as const,
       priority: 0.9,
+    })),
+    // Brand landing pages — fully indexable (canonical + BreadcrumbList) but were
+    // previously discoverable only via internal links.
+    ...brands.map((b) => ({
+      url: `${base}/brand/${b.slug}`,
+      changeFrequency: "daily" as const,
+      priority: 0.7,
     })),
     ...products.map((p) => ({
       url: `${base}/p/${p.slug}`,

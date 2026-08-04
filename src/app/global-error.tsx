@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Last-resort boundary: this one catches failures in the root layout itself,
@@ -16,7 +17,7 @@ import { useEffect } from "react";
 
 const INK = "#2B2140";
 const CREAM = "#FFF9F0";
-const BRAND = "#EC5D8A";
+const BRAND = "#BE3466"; // AA-contrast pink (white text on it clears 4.5:1)
 
 export default function GlobalError({
   error,
@@ -27,6 +28,7 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error("Fatal error:", error.digest ?? error.message);
+    Sentry.captureException(error);
   }, [error]);
 
   return (

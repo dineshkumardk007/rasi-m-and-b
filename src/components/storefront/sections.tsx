@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import type { Brand, Bundle, Product } from "@/lib/types";
+import type { Brand, Bundle, Product, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import {
   BUSINESS,
-  CATEGORIES,
   CATEGORY_META,
   MILESTONES,
   MILESTONE_META,
+  getAllCategories,
   glowStyle,
   inr,
   type Category,
@@ -20,107 +20,151 @@ import { discountPercent } from "@/lib/merchandising";
 
 const nameOf = (p: Product, lang: string) => (lang === "ta" ? p.name_ta : p.name_en);
 
-/* ── Hero — upgraded wallpaper background + flagship store graphic ────────── */
-export function Hero() {
-  const { t } = useT();
-  const scrollTo = (id: string) =>
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+/* ── Hero — Interactive Product Wall (Left) + Flagship Store Showcase (Right) ────────── */
+export function Hero({
+  setCategory,
+  settings,
+  reviewCount,
+}: {
+  setCategory?: (cat: string) => void;
+  settings?: StoreSettings;
+  reviewCount?: number;
+}) {
+  const displayReviewCount = (reviewCount ?? BUSINESS.reviewCount).toLocaleString("en-IN");
+  const scrollToCategory = (cat?: string) => {
+    if (cat && setCategory) {
+      setCategory(cat);
+    }
+    const target = document.getElementById("shop") || document.getElementById("category-grid");
+    target?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const collageProducts = [
+    {
+      id: "baby-care",
+      key: "hero-collage-bath",
+      category: "bath",
+      title: "Baby Care",
+      subtitle: "Sebamed & Skincare",
+      tag: "Gentle & Pure",
+      emoji: "🧴",
+      bg: "#C7E9FF",
+      rot: "-2.5deg",
+      price: "From ₹299",
+    },
+    {
+      id: "toys-games",
+      key: "hero-collage-toys",
+      category: "toys",
+      title: "Toys & Play",
+      subtitle: "Stacking & Rattles",
+      tag: "Brain & Fun",
+      emoji: "🧸",
+      bg: "#FFCBD9",
+      rot: "1.8deg",
+      price: "From ₹399",
+    },
+    {
+      id: "baby-clothing",
+      key: "hero-collage-clothing",
+      category: "clothing",
+      title: "Baby Clothing",
+      subtitle: "Swaddles & Frocks",
+      tag: "100% Cotton",
+      emoji: "👕",
+      bg: "#D6E8B0",
+      rot: "-1.5deg",
+      price: "From ₹199",
+    },
+    {
+      id: "feeding",
+      key: "hero-collage-feeding",
+      category: "feeding",
+      title: "Feeding",
+      subtitle: "Bottles & Sippers",
+      tag: "Anti-Colic",
+      emoji: "🍼",
+      bg: "#FFE1A8",
+      rot: "2.2deg",
+      price: "From ₹249",
+    },
+    {
+      id: "maternity",
+      key: "hero-collage-mom",
+      category: "mom",
+      title: "Maternity & Mom",
+      subtitle: "Nursing & Care",
+      tag: "Mom Comfort",
+      emoji: "🤱",
+      bg: "#FBD0EA",
+      rot: "-2deg",
+      price: "From ₹349",
+    },
+    {
+      id: "diapers",
+      key: "hero-collage-diapering",
+      category: "diapering",
+      title: "Diapers & Essentials",
+      subtitle: "Pants & Wipes",
+      tag: "12-Hr Dry",
+      emoji: "🧷",
+      bg: "#E4D6FF",
+      rot: "1.5deg",
+      price: "From ₹499",
+    },
+  ];
 
   return (
-    <div className="relative mx-auto max-w-[1240px] px-4 sm:px-5 pb-2 pt-4 sm:pt-6">
-      {/* Background wallpaper ambient gradient & pattern */}
-      <div className="blob absolute -top-5 right-2.5 h-[240px] w-[240px] rounded-full bg-[#FFCBD9] opacity-70 blur-2xl pointer-events-none" />
-      <div className="blob absolute -left-8 bottom-0 h-[180px] w-[180px] rounded-full bg-[#C7E9FF] opacity-70 blur-2xl pointer-events-none" />
+    <div className="relative mx-auto max-w-[1240px] px-4 sm:px-5 pb-2 pt-4 sm:pt-6 group/hero">
 
-      <div className="relative z-[1] rounded-modal border-3 border-ink bg-gradient-to-br from-[#FFFDF8] via-[#FFF8EF] to-[#FFCBD9]/25 p-4 sm:p-6 md:p-7 shadow-hard-6 backdrop-blur-sm overflow-hidden">
-        {/* Subtle wallpaper dot texture overlay */}
+      {/* ── INTERACTIVE COLORFUL FLOATING UI STICKERS & BADGES ── */}
+      {/* Bottom-Left Interactive Sticker: Happy Moms */}
+      <div className="absolute -bottom-3 left-6 z-20 hidden md:inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#D6E8B0] px-3 py-1 font-display text-[11px] font-extrabold text-ink -rotate-3 shadow-hard-2 transition-all duration-300 hover:rotate-0 hover:scale-110 hover:shadow-hard-4 hover:bg-[#B9EBDD] cursor-pointer select-none">
+        <span>⭐</span>
+        <span>{displayReviewCount}+ Happy Families</span>
+      </div>
+
+      {/* Bottom-Right Interactive Sticker: COD Available */}
+      <div className="absolute -bottom-3 right-8 z-20 hidden md:inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#E4D6FF] px-3 py-1 font-display text-[11px] font-extrabold text-ink rotate-3 shadow-hard-2 transition-all duration-300 hover:rotate-0 hover:scale-110 hover:shadow-hard-4 hover:bg-[#C7E9FF] cursor-pointer select-none">
+        <span>💳</span>
+        <span>COD / UPI Available</span>
+      </div>
+
+      {/* Main Hero Container with Rich Neo-Brutalist Gradient & Dynamic Interactive Pattern */}
+      <div className="relative z-[1] rounded-modal border-3 border-ink bg-gradient-to-br from-[#FFFDF8] via-[#FFE1A8]/30 via-[#FFCBD9]/25 to-[#C7E9FF]/35 p-3.5 sm:p-5 md:p-6 shadow-hard-6 backdrop-blur-sm overflow-visible transition-all duration-500 group-hover/hero:shadow-[10px_10px_0px_#2B2140]">
+
+        {/* Top-Left Interactive Sticker: 100% Baby-Safe (Extreme outer left corner) */}
+        <div className="absolute -top-3.5 -left-1 sm:-left-2 z-10 hidden sm:inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FFE66D] px-3 py-1 font-display text-[11px] font-extrabold text-ink -rotate-3 shadow-hard-2 transition-all duration-300 hover:rotate-0 hover:scale-110 hover:shadow-hard-4 hover:bg-[#FFE1A8] cursor-pointer select-none">
+          <span className="text-[14px] animate-bounce">🛡️</span>
+          <span>100% Baby-Safe</span>
+        </div>
+
+        {/* Top-Right Interactive Sticker: Express Delivery (Extreme outer right corner) */}
+        <div className="absolute -top-3.5 -right-1 sm:-right-2 z-10 hidden sm:inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FFCBD9] px-3 py-1 font-display text-[11px] font-extrabold text-ink rotate-3 shadow-hard-2 transition-all duration-300 hover:rotate-0 hover:scale-110 hover:shadow-hard-4 hover:bg-[#FE91E8] cursor-pointer select-none">
+          <span className="text-[14px] animate-pulse">⚡</span>
+          <span>Express Delivery</span>
+        </div>
+
+        {/* Dynamic Colorful Polka Dot & Grid Pattern Overlay */}
         <div
-          className="absolute inset-0 opacity-[0.07] pointer-events-none"
+          className="absolute inset-0 opacity-[0.12] pointer-events-none select-none transition-opacity duration-500 group-hover/hero:opacity-[0.22]"
           style={{
-            backgroundImage: `radial-gradient(#2B2140 1.5px, transparent 1.5px)`,
-            backgroundSize: `18px 18px`
+            backgroundImage: `
+              radial-gradient(#EC5D8A 2.2px, transparent 2.2px),
+              radial-gradient(#3B9EDB 2.2px, transparent 2.2px),
+              radial-gradient(#F59E0B 2.2px, transparent 2.2px)
+            `,
+            backgroundSize: `36px 36px, 36px 36px, 36px 36px`,
+            backgroundPosition: `0 0, 18px 18px, 9px 27px`
           }}
         />
 
-        <div className="relative z-10 grid grid-cols-1 gap-5 md:gap-6 items-center md:grid-cols-[0.82fr_1.18fr]">
-          <div>
-            <div className="mb-2.5 flex items-center gap-3 flex-wrap">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-tile border-3 border-ink bg-white p-1 shadow-hard-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo.png" alt="Rasi Mom & Baby" className="h-full w-full object-contain" />
-              </div>
-              <div className="relative group inline-block">
-                {/* Unstructured 3D shadow accent layer */}
-                <div className="absolute inset-0 rounded-[22px_8px_24px_12px] border-2.5 border-ink bg-[#FFCBD9] translate-x-1.5 translate-y-1.5 transition-transform duration-200 group-hover:translate-x-2 group-hover:translate-y-2" />
-
-                {/* Main unstructured highlight badge */}
-                <span className="relative z-10 inline-flex items-center gap-1.5 rounded-[22px_8px_24px_12px] border-3 border-ink bg-[#FFE66D] px-3.5 py-1.5 font-display text-[13px] sm:text-[14px] font-extrabold text-ink -rotate-1.5 shadow-hard-2 hover:rotate-0 hover:scale-105 transition-all duration-200 cursor-pointer">
-                  <span className="text-[14px] animate-pulse">⭐</span>
-                  <span>{BUSINESS.rating} · {BUSINESS.reviewCount.toLocaleString("en-IN")}+ {t("hero.badge")}</span>
-                </span>
-              </div>
-            </div>
-
-            <h1 className="my-2.5 font-display text-[28px] font-extrabold leading-[1.08] sm:text-[34px] md:text-[38px] text-ink">
-              {t("hero.headline1")}
-              <br />
-              <span className="text-brand">{t("hero.headline2")}</span> 🎈
-            </h1>
-
-            <p className="mb-4 max-w-[440px] text-[14px] sm:text-[15px] text-mute leading-relaxed font-medium">
-              {t("hero.sub")}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-x-7 gap-y-4.5 pt-1.5 pb-1">
-              {/* Start Shopping CTA with 3D Layered Accent */}
-              <div className="relative group inline-block mr-1">
-                <div className="absolute inset-0 rounded-[22px_10px_24px_12px] border-2.5 border-ink bg-[#FFCBD9] translate-x-1.5 translate-y-1.5 transition-transform duration-200 group-hover:translate-x-2.5 group-hover:translate-y-2.5" />
-                <button
-                  type="button"
-                  onClick={() => scrollTo("shop")}
-                  className="relative z-10 inline-flex items-center gap-2 rounded-[22px_10px_24px_12px] border-3 border-ink bg-brand px-5 py-2.5 sm:px-6 sm:py-3 font-display text-[14px] sm:text-[16px] font-extrabold text-white -rotate-1 shadow-hard-3 hover:rotate-0 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
-                >
-                  <span>{t("hero.ctaShop")}</span>
-                  <span className="text-[16px] transition-transform duration-200 group-hover:translate-x-1">→</span>
-                </button>
-              </div>
-
-              {/* See Bundles CTA with 3D Layered Accent */}
-              <div className="relative group inline-block">
-                <div className="absolute inset-0 rounded-[12px_24px_10px_22px] border-2.5 border-ink bg-[#C7E9FF] translate-x-1.5 translate-y-1.5 transition-transform duration-200 group-hover:translate-x-2.5 group-hover:translate-y-2.5" />
-                <button
-                  type="button"
-                  onClick={() => scrollTo("bundles")}
-                  className="relative z-10 inline-flex items-center gap-2 rounded-[12px_24px_10px_22px] border-3 border-ink bg-[#FFE1A8] px-5 py-2.5 sm:px-6 sm:py-3 font-display text-[14px] sm:text-[16px] font-extrabold text-ink rotate-1 shadow-hard-3 hover:rotate-0 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
-                >
-                  <span className="text-[16px]">🎁</span>
-                  <span>{t("hero.ctaBundles")}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Neo-Brutalist Soft Pastel Trust Badges - Guaranteed Single Line */}
-            <div className="mt-5 flex flex-nowrap items-center gap-2 pt-3.5 border-t-2 border-ink/10 overflow-x-auto no-scrollbar">
-              <div className="btn-press shrink-0 whitespace-nowrap flex items-center gap-1.5 bg-[#FFE1A8] text-ink px-2.5 py-1.5 rounded-pill border-2.5 border-ink shadow-hard-2 hover:-translate-y-0.5 hover:shadow-hard-3 transition-all duration-200 cursor-pointer font-display text-[12px] sm:text-[13px] font-extrabold">
-                <span>⚡</span> Express Delivery
-              </div>
-              <div className="btn-press shrink-0 whitespace-nowrap flex items-center gap-1.5 bg-[#C7E9FF] text-ink px-2.5 py-1.5 rounded-pill border-2.5 border-ink shadow-hard-2 hover:-translate-y-0.5 hover:shadow-hard-3 transition-all duration-200 cursor-pointer font-display text-[12px] sm:text-[13px] font-extrabold">
-                <span>🛡️</span> 100% Baby-Safe
-              </div>
-              <div className="btn-press shrink-0 whitespace-nowrap flex items-center gap-1.5 bg-[#FFCBD9] text-ink px-2.5 py-1.5 rounded-pill border-2.5 border-ink shadow-hard-2 hover:-translate-y-0.5 hover:shadow-hard-3 transition-all duration-200 cursor-pointer font-display text-[12px] sm:text-[13px] font-extrabold">
-                <span>💳</span> COD / UPI
-              </div>
-            </div>
-          </div>
-
-          {/* Large Featured Store Image Card */}
-          <div className="relative group w-full">
-            {/* 3D background accent layer */}
-            <div className="absolute inset-0 rounded-card border-2 sm:border-3 border-ink bg-[#FFE1A8] translate-x-2 translate-y-2 sm:translate-x-2.5 sm:translate-y-2.5 transition-transform duration-300 group-hover:translate-x-3 group-hover:translate-y-3" />
-
-            <div className="relative rounded-card border-2 sm:border-3 border-ink bg-[#FE91E8] p-2.5 sm:p-4 md:p-5 shadow-hard-4 sm:shadow-hard-6 transition-all duration-300 group-hover:-translate-x-1 group-hover:-translate-y-1 group-hover:shadow-[10px_10px_0px_#2B2140]">
+        <div className="relative z-10 grid grid-cols-1 gap-5 md:gap-6 items-center md:grid-cols-2">
+          {/* ── LEFT HERO: LARGE FEATURED STORE IMAGE CARD ── */}
+          <div className="relative w-full">
+            <div className="relative rounded-card border-2.5 sm:border-3 border-ink bg-[#FE91E8] p-2.5 sm:p-4 md:p-5 shadow-hard-4 transition-all duration-300">
               <Image
-                src="/hero-store.jpg"
+                src={settings?.box_media?.["hero-store-banner"] || "/hero-store.jpg"}
                 alt="Rasi Mom & Baby Store Front"
                 width={1024}
                 height={576}
@@ -155,6 +199,103 @@ export function Hero() {
                   </span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* ── RIGHT HERO: INTERACTIVE PRODUCT WALL COLLAGE ── */}
+          <div className="flex flex-col justify-between h-full py-0.5">
+            {/* Top Compact Section Header */}
+            <div className="mb-2.5 flex items-center justify-between">
+              <div className="inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FFE66D] px-3.5 py-1 font-display text-[12px] sm:text-[13px] font-extrabold tracking-wider uppercase text-ink shadow-hard-2">
+                <span className="text-[14px]">🛍️</span>
+                <span>SHOP FOR MOM & BABY</span>
+              </div>
+            </div>
+
+            {/* Playful Neo-Brutalist Product Collage Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 my-0.5">
+              {collageProducts.map((prod) => (
+                <div
+                  key={prod.id}
+                  onClick={() => scrollToCategory(prod.category)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Shop ${prod.title}`}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      scrollToCategory(prod.category);
+                    }
+                  }}
+                  className="group relative cursor-pointer rounded-[18px] border-2.5 border-ink p-2.5 sm:p-3 shadow-hard-3 transition-all duration-300 ease-out hover:rotate-0 hover:-translate-y-1.5 hover:scale-[1.04] hover:shadow-[6px_6px_0px_#2B2140] hover:z-20 overflow-hidden focus-visible:rotate-0 focus-visible:-translate-y-1.5 focus-visible:scale-[1.04] focus-visible:shadow-[6px_6px_0px_#2B2140] focus-visible:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                  style={{
+                    backgroundColor: prod.bg,
+                    transform: `rotate(${prod.rot})`,
+                  }}
+                >
+                  {/* Custom Uploaded Box Picture or Subtle Background Accent Pattern */}
+                  {settings?.box_media?.[prod.key] ? (
+                    <div className="absolute inset-0 z-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={settings.box_media[prod.key]}
+                        alt={prod.title}
+                        className="w-full h-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-105"
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      className="absolute -right-3 -bottom-3 text-[50px] opacity-10 pointer-events-none select-none transition-transform duration-300 group-hover:scale-125 group-hover:rotate-12"
+                    >
+                      {prod.emoji}
+                    </div>
+                  )}
+
+                  {/* Card Content */}
+                  <div className="relative z-10 flex flex-col justify-between h-full min-h-[92px] sm:min-h-[106px]">
+                    <div className="flex items-start justify-between gap-1">
+                      {/* Top Category Tag */}
+                      <span className="inline-block rounded-full border border-ink/40 bg-white/90 px-2 py-0.5 font-display text-[9px] sm:text-[10px] font-extrabold text-ink group-hover:bg-[#FFE66D] group-hover:border-ink transition-colors">
+                        {prod.title}
+                      </span>
+                      {/* Micro Float Emoji Icon */}
+                      <span className="text-[18px] sm:text-[22px] shrink-0 transition-transform duration-300 group-hover:scale-125 group-hover:rotate-12">
+                        {prod.emoji}
+                      </span>
+                    </div>
+
+                    <div className="mt-1.5">
+                      <h4 className="font-display text-[12px] sm:text-[13px] font-extrabold leading-tight text-ink group-hover:text-brand transition-colors">
+                        {prod.subtitle}
+                      </h4>
+                      <p className="mt-0.5 font-display text-[10px] sm:text-[11px] font-bold text-ink/75">
+                        {prod.price}
+                      </p>
+                    </div>
+
+                    {/* Bottom Action Pill (Appears Prominently on Hover) */}
+                    <div className="mt-1.5 flex items-center justify-between pt-1 border-t border-ink/15">
+                      <span className="font-display text-[9px] font-extrabold tracking-wide uppercase text-ink/60 group-hover:text-ink">
+                        {prod.tag}
+                      </span>
+                      <span className="font-display text-[11px] font-extrabold text-ink opacity-70 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-1 text-brand">
+                        Shop →
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bottom Compact CTA Button */}
+            <div className="mt-2.5 flex justify-center">
+              <button
+                type="button"
+                onClick={() => scrollToCategory("all")}
+                className="group relative inline-flex items-center gap-2 rounded-pill border-2.5 border-ink bg-[#FFE1A8] px-4 py-1.5 sm:px-5 sm:py-2 font-display text-[12px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE66D] hover:shadow-hard-3 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
+              >
+                <span>EXPLORE ALL →</span>
+              </button>
             </div>
           </div>
         </div>
@@ -258,7 +399,7 @@ export function Marquee({
             type="button"
             onClick={() => scroll("left")}
             className="btn-press flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border-2 border-ink bg-white text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] cursor-pointer"
-            aria-label="Scroll Left"
+            aria-label={t("a11y.scrollLeft")}
           >
             ‹
           </button>
@@ -266,7 +407,7 @@ export function Marquee({
             type="button"
             onClick={() => scroll("right")}
             className="btn-press flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border-2 border-ink bg-white text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] cursor-pointer"
-            aria-label="Scroll Right"
+            aria-label={t("a11y.scrollRight")}
           >
             ›
           </button>
@@ -329,7 +470,7 @@ export function FreshPicksSection({
   onViewAll?: () => void;
   onExploreBundles?: () => void;
 }) {
-  const { lang } = useT();
+  const { t, lang } = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: "left" | "right") => {
@@ -340,7 +481,11 @@ export function FreshPicksSection({
     }
   };
 
-  const freshProducts = products.slice(0, 10);
+  // Only feature in-stock items. Every other product surface (ShopGrid,
+  // BabyClub, RecentlyViewed, ProductModal) gates on stock; this carousel used
+  // to slice the raw list and let a sold-out item be added to cart with no
+  // "sold out" state anywhere on the tile.
+  const freshProducts = products.filter((p) => p.stock > 0).slice(0, 10);
 
   return (
     <div className="mx-auto max-w-[1240px] px-3 sm:px-5 my-5 sm:my-7">
@@ -367,7 +512,7 @@ export function FreshPicksSection({
               onClick={onViewAll}
               className="btn-press rounded-pill border-2 border-ink bg-[#FFE1A8] px-3 py-1 font-display text-[12px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] transition-all cursor-pointer flex items-center gap-1"
             >
-              <span>View all</span>
+              <span>{t("shop.viewAll")}</span>
               <span className="font-black">→</span>
             </button>
           </div>
@@ -379,7 +524,7 @@ export function FreshPicksSection({
               type="button"
               onClick={() => scroll("left")}
               className="btn-press absolute -left-2 sm:-left-3 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 sm:border-2.5 border-ink bg-white text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer font-extrabold text-[15px]"
-              aria-label="Previous products"
+              aria-label={t("a11y.prevProducts")}
             >
               ‹
             </button>
@@ -389,7 +534,7 @@ export function FreshPicksSection({
               type="button"
               onClick={() => scroll("right")}
               className="btn-press absolute -right-2 sm:-right-3 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 sm:border-2.5 border-ink bg-white text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer font-extrabold text-[15px]"
-              aria-label="Next products"
+              aria-label={t("a11y.nextProducts")}
             >
               ›
             </button>
@@ -403,6 +548,14 @@ export function FreshPicksSection({
                 <div
                   key={p.id}
                   onClick={() => openProduct(p)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openProduct(p);
+                    }
+                  }}
                   style={glowStyle(p.tile_color)}
                   className="glow-card w-[145px] sm:w-[165px] shrink-0 rounded-card border-2.5 sm:border-3 border-ink p-2.5 sm:p-3 text-left shadow-[5px_5px_0px_#2B2140] flex flex-col justify-between transition-all duration-200 hover:-translate-y-1.5 active:scale-95 cursor-pointer relative group"
                 >
@@ -430,10 +583,10 @@ export function FreshPicksSection({
                       e.stopPropagation();
                       addToCart(p.id);
                     }}
-                    className="btn-press mt-2.5 w-full flex items-center justify-center gap-1 rounded-pill border-2 border-ink bg-[#FF5A78] text-white py-1 sm:py-1.5 font-display text-[11px] sm:text-[12px] font-extrabold shadow-hard-2 hover:bg-[#E04866] cursor-pointer"
+                    className="btn-press mt-2.5 w-full flex items-center justify-center gap-1 rounded-pill border-2 border-ink bg-brand text-white py-1 sm:py-1.5 font-display text-[11px] sm:text-[12px] font-extrabold shadow-hard-2 hover:bg-[#A62B59] cursor-pointer"
                   >
                     <span>+</span>
-                    <span>Add to cart</span>
+                    <span>{t("shop.addToCart")}</span>
                   </button>
                 </div>
               ))}
@@ -465,7 +618,7 @@ export function FreshPicksSection({
                 onClick={onViewAll}
                 className="btn-press inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FF5A78] text-white px-3.5 py-1.5 font-display text-[12px] sm:text-[13px] font-extrabold shadow-hard-2 hover:scale-105 transition-all cursor-pointer"
               >
-                <span>Shop Now</span>
+                <span>{t("shop.shopNow")}</span>
                 <span>→</span>
               </button>
             </div>
@@ -501,7 +654,7 @@ export function FreshPicksSection({
                 onClick={onExploreBundles}
                 className="btn-press inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FF5A78] text-white px-3.5 py-1.5 font-display text-[12px] sm:text-[13px] font-extrabold shadow-hard-2 hover:scale-105 transition-all cursor-pointer"
               >
-                <span>Explore Bundles</span>
+                <span>{t("shop.exploreBundles")}</span>
                 <span>→</span>
               </button>
             </div>
@@ -530,12 +683,19 @@ export function FreshPicksSection({
 export function CategoryGrid({
   category,
   setCategory,
+  settings,
 }: {
   category: string;
   setCategory: (c: string) => void;
+  settings?: StoreSettings;
 }) {
   const { t, lang } = useT();
   const scrollShop = () => document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
+  // Admin-added custom categories were saveable but never reachable by
+  // customers: this grid only ever rendered the 8 built-ins. Merge them in so
+  // a category an owner adds actually shows up (and c/[category] recognizes it
+  // — see isKnownCategory() there).
+  const { slugs: allCategorySlugs, meta: allCategoryMeta } = getAllCategories(settings?.custom_categories);
   return (
     <div className="mx-auto max-w-[1080px] px-5 pb-2 pt-3.5">
       <div className="mb-3.5 flex items-center gap-2">
@@ -548,9 +708,12 @@ export function CategoryGrid({
         )}
       </div>
       <div className="grid grid-cols-4 gap-2.5 sm:gap-3.5 md:grid-cols-4">
-        {CATEGORIES.map((c) => {
-          const meta = CATEGORY_META[c];
+        {allCategorySlugs.map((c) => {
+          const meta = allCategoryMeta[c];
+          if (!meta) return null;
           const on = category === c;
+          const customImg = settings?.box_media?.[`cat-${c}`];
+
           return (
             <button
               key={c}
@@ -563,8 +726,13 @@ export function CategoryGrid({
               className={`pop glow-tile flex flex-col items-center gap-[5px] sm:gap-[7px] rounded-tile-lg border-2.5 sm:border-3 border-ink px-1.5 sm:px-2.5 py-2.5 sm:py-4 shadow-hard-3 sm:shadow-hard-5 cursor-pointer ${on ? "tile-pressed" : ""
                 }`}
             >
-              <div className="flex h-[42px] w-[42px] sm:h-[54px] sm:w-[54px] items-center justify-center rounded-full border-2.5 sm:border-3 border-ink bg-white text-[20px] sm:text-[27px]">
-                {meta.emoji}
+              <div className="flex h-[42px] w-[42px] sm:h-[54px] sm:w-[54px] items-center justify-center rounded-full border-2.5 sm:border-3 border-ink bg-white text-[20px] sm:text-[27px] overflow-hidden">
+                {customImg ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={customImg} alt={meta.en} className="w-full h-full object-cover" />
+                ) : (
+                  meta.emoji
+                )}
               </div>
               <span className="text-center font-display text-[12px] sm:text-[14px] font-extrabold leading-[1.1]">
                 {lang === "ta" ? meta.ta : meta.en}
@@ -675,6 +843,8 @@ export function ShopGrid({
   setMaxPrice,
   inStockOnly,
   setInStockOnly,
+  sortBy = "default",
+  setSortBy,
   addToCart,
   openProduct,
 }: {
@@ -692,11 +862,24 @@ export function ShopGrid({
   setMaxPrice?: (p: number | null) => void;
   inStockOnly?: boolean;
   setInStockOnly?: (v: boolean) => void;
+  sortBy?: "default" | "price_asc" | "price_desc" | "newest";
+  setSortBy?: (s: "default" | "price_asc" | "price_desc" | "newest") => void;
   addToCart: (id: string) => void;
   openProduct: (p: Product) => void;
 }) {
   const { t, lang } = useT();
   const catMeta = category !== "all" ? CATEGORY_META[category as Category] : null;
+
+  // "Load more" pagination: rendering every matching product at once doesn't
+  // scale past a couple hundred SKUs. Resets to the first page whenever a
+  // filter or sort changes, so switching category never leaves you scrolled
+  // past a smaller result set.
+  const PAGE_SIZE = 24;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [milestone, category, query, brand, maxPrice, inStockOnly, sortBy]);
+  const visible = filtered.slice(0, visibleCount);
   return (
     <div id="shop" className="mx-auto max-w-[1080px] px-5 pb-2 pt-6">
       <h2 className="mb-1 font-display text-[24px] font-extrabold">
@@ -769,9 +952,26 @@ export function ShopGrid({
           );
         })}
 
+        {/* Sort */}
+        {setSortBy && (
+          <label className="ml-auto flex items-center gap-1.5 pt-1 sm:pt-0 sm:ml-2">
+            <span className="text-[12px] font-bold text-mute uppercase">{t("shop.sortLabel")}</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="rounded-pill border border-ink bg-white px-2 py-0.5 text-[11px] font-bold text-ink outline-none focus:border-brand"
+            >
+              <option value="default">{t("shop.sortDefault")}</option>
+              <option value="price_asc">{t("shop.sortPriceAsc")}</option>
+              <option value="price_desc">{t("shop.sortPriceDesc")}</option>
+              <option value="newest">{t("shop.sortNewest")}</option>
+            </select>
+          </label>
+        )}
+
         {/* Faceted Price Range & In-Stock Filters */}
         {setMaxPrice && (
-          <div className="ml-auto flex flex-wrap items-center gap-1.5 pt-1 sm:pt-0">
+          <div className={`flex flex-wrap items-center gap-1.5 pt-1 sm:pt-0 ${setSortBy ? "" : "ml-auto"}`}>
             <span className="text-[12px] font-bold text-mute uppercase">Price:</span>
             <button
               type="button"
@@ -811,19 +1011,27 @@ export function ShopGrid({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={t("shop.search")}
-        className="mt-2.5 w-full max-w-[340px] rounded-pill border-2.5 border-ink bg-paper px-[18px] py-2.5 font-body text-[15px] outline-none"
+        className="mt-2.5 w-full max-w-[340px] rounded-pill border-2.5 border-ink bg-paper px-[18px] py-2.5 font-body text-[15px] outline-none focus:border-brand"
       />
 
       <div className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-4">
-        {filtered.map((p) => (
+        {visible.map((p, idx) => (
           <div
             key={p.id}
             style={glowStyle(p.tile_color)}
             className="pop glow-card relative flex flex-col rounded-card border-3 border-ink p-2.5 shadow-hard-4 hover:border-brand transition-colors cursor-pointer group"
             onClick={() => openProduct(p)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openProduct(p);
+              }
+            }}
           >
             <div className="flex flex-1 flex-col">
-              <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} photoCount={p.images?.length} />
+              <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} priority={idx < 4} photoCount={p.images?.length} />
               <div className="mt-2 flex-1">
                 <div className="text-[13px] font-bold leading-[1.2] group-hover:text-brand transition-colors">{nameOf(p, lang)}</div>
                 <div className="mt-1.5 flex items-baseline gap-1.5">
@@ -869,13 +1077,32 @@ export function ShopGrid({
           </button>
         </div>
       )}
+
+      {filtered.length > 0 && (
+        <div className="mt-4 flex flex-col items-center gap-2">
+          <span className="text-[12px] font-bold text-mute">
+            {t("shop.showingCount", { shown: visible.length, total: filtered.length })}
+          </span>
+          {visibleCount < filtered.length && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+              className="btn-press rounded-pill border-2.5 border-ink bg-white px-5 py-2 font-display text-[13px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] cursor-pointer"
+            >
+              {t("shop.loadMore")} ↓
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 /* ── Trust panel ─────────────────────────────────────────────────────────── */
-export function Trust() {
+export function Trust({ rating, reviewCount }: { rating?: number; reviewCount?: number }) {
   const { t } = useT();
+  const displayRating = rating ?? BUSINESS.rating;
+  const displayReviewCount = reviewCount ?? BUSINESS.reviewCount;
   return (
     <div className="mx-auto mb-10 mt-4 max-w-[1080px] px-5">
       <div className="grid items-center gap-5 rounded-card border-3 border-ink bg-[#FFE1A8] p-6 shadow-hard-6 md:grid-cols-[1.2fr_1fr]">
@@ -906,11 +1133,11 @@ export function Trust() {
         <div className="grid gap-2.5">
           <Card className="p-4">
             <div className="font-display text-[30px] font-extrabold text-brand">
-              {BUSINESS.rating}{" "}
+              {displayRating}{" "}
               <span className="text-[16px] text-[#F59E0B]">★★★★★</span>
             </div>
             <div className="text-[13px] text-mute">
-              {BUSINESS.reviewCount.toLocaleString("en-IN")}+ {t("trust.reviews")}
+              {displayReviewCount.toLocaleString("en-IN")}+ {t("trust.reviews")}
             </div>
           </Card>
           <Card className="p-3.5">

@@ -29,9 +29,16 @@ import type { Order } from "@/lib/types";
 
 export type SubmitOrderResult =
   | { ok: true; order: Order; invoiceToken: string | null }
+  | { ok: false; error: "too_many_attempts" }
   | Extract<PlaceOrderResult, { ok: false }>;
 
 export async function submitOrderAction(input: PlaceOrderInput): Promise<SubmitOrderResult> {
+  // Checkout is the highest-value action to abuse — mass fake orders can grief
+  // stock counts and exhaust a coupon's usage limit. Everything else public is
+  // throttled; this was the gap. 15 orders/hour per IP is generous for a real
+  // shopper and hard-caps a script. Fails open on a DB error, like the others.
+  if (!(await allowByCaller("checkout", 15, 60 * 60)))
+    return { ok: false, error: "too_many_attempts" };
   const result = await placeOrder(input);
   if (!result.ok) return result;
   revalidatePath("/");
@@ -83,42 +90,62 @@ export async function trackOrderAction(
   return trackOrder(orderNo, phone);
 }
 
+export type ReviewSubmitResult =
+  | { ok: true }
+  | { ok: false; error: "rate_limited" | "invalid_input" | "server" };
+
 export async function submitReviewAction(
   productId: string,
   authorName: string,
   rating: number,
   text: string,
   photoUrl?: string,
-): Promise<boolean> {
-  if (!text.trim() || rating < 1 || rating > 5) return false;
+): Promise<ReviewSubmitResult> {
+  const cleanText = text.trim();
+  const cleanAuthor = authorName.trim() || "Customer";
+
+  if (!cleanText || cleanText.length < 5 || cleanText.length > 1000 || rating < 1 || rating > 5) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  if (photoUrl && !/^https:\/\//i.test(photoUrl.trim())) {
+    return { ok: false, error: "invalid_input" };
+  }
+
   // Reviews land in a moderation queue, but an unthrottled endpoint still lets
   // one script bury the owner's queue under thousands of entries.
-  if (!(await allowByCaller("review", 5, 60 * 60))) return false;
+  if (!(await allowByCaller("review", 3, 3600))) {
+    return { ok: false, error: "rate_limited" };
+  }
+
   if (isDemo()) {
     demoDB().reviews.unshift({
       id: `demo-r-${Date.now()}`,
       product_id: productId,
-      author_name: authorName || "Customer",
+      author_name: cleanAuthor,
       rating,
-      text: text.trim(),
+      text: cleanText,
       status: "pending", // moderation queue — never straight to the wall
       created_at: new Date().toISOString(),
-      photo_url: photoUrl || null,
+      photo_url: photoUrl?.trim() || null,
       verified_buyer: true,
     });
-    return true;
+    return { ok: true };
   }
+
   const supabase = createAdminClient();
   const { error } = await supabase.from("reviews").insert({
     product_id: productId,
-    author_name: authorName || "Customer",
+    author_name: cleanAuthor,
     rating,
-    text: text.trim(),
+    text: cleanText,
     status: "pending",
-    photo_url: photoUrl || null,
+    photo_url: photoUrl?.trim() || null,
     verified_buyer: true,
   });
-  return !error;
+
+  if (error) return { ok: false, error: "server" };
+  return { ok: true };
 }
 
 /** Register or update customer record in database by unique phone number */
@@ -290,7 +317,7 @@ export async function registerCustomerWithPasswordAction(
 export async function signInWithPasswordAction(
   phone: string,
   password: string,
-): Promise<{ ok: boolean; name?: string; phone?: string; error?: string }> {
+): Promise<{ ok: boolean; name?: string; phone?: string; error?: string; mustChangePassword?: boolean }> {
   const clean = phone.replace(/\D/g, "").slice(-10);
   if (clean.length !== 10) return { ok: false, error: "Please enter a valid 10-digit phone number." };
   if (!password) return { ok: false, error: "Please enter your password." };
@@ -312,9 +339,14 @@ export async function signInWithPasswordAction(
       await recordFailedAttempt(throttle);
       return { ok: false, error: "Incorrect password. Please try again." };
     }
+    await clearAttempts(throttle);
+    // An admin-issued temp password is left un-upgraded to a real session
+    // until the customer sets one only they know.
+    if (c.must_change_password) {
+      return { ok: false, mustChangePassword: true, phone: clean, name: c.name || "Customer" };
+    }
     c.last_login_at = now;
     c.login_count = (c.login_count || 0) + 1;
-    await clearAttempts(throttle);
     await startCustomerSession(clean, c.name || "Customer");
     return { ok: true, name: c.name || "Customer", phone: clean };
   }
@@ -322,7 +354,7 @@ export async function signInWithPasswordAction(
   const supabase = createAdminClient();
   const { data: customer } = await supabase
     .from("customers")
-    .select("id, name, password, login_count")
+    .select("id, name, password, login_count, must_change_password")
     .eq("phone", clean)
     .maybeSingle();
 
@@ -338,6 +370,12 @@ export async function signInWithPasswordAction(
     return { ok: false, error: "Incorrect password. Please try again." };
   }
 
+  await clearAttempts(throttle);
+
+  if (customer.must_change_password) {
+    return { ok: false, mustChangePassword: true, phone: clean, name: customer.name || "Customer" };
+  }
+
   await supabase
     .from("customers")
     .update({
@@ -348,7 +386,80 @@ export async function signInWithPasswordAction(
     })
     .eq("id", customer.id);
 
+  await startCustomerSession(clean, customer.name || "Customer");
+  return { ok: true, name: customer.name || "Customer", phone: clean };
+}
+
+/**
+ * Completes an admin-issued password reset: re-verifies the temp password
+ * (same throttle bucket as normal login, since this is just as brute-
+ * forceable), rejects reusing it as the new password (the point of forcing
+ * a change is to rotate off a credential that traveled in plaintext over
+ * WhatsApp), then sets the real password and starts the session.
+ */
+export async function changePasswordAndSignInAction(
+  phone: string,
+  tempPassword: string,
+  newPassword: string,
+): Promise<{ ok: boolean; name?: string; phone?: string; error?: string }> {
+  const clean = phone.replace(/\D/g, "").slice(-10);
+  if (clean.length !== 10) return { ok: false, error: "Please enter a valid 10-digit phone number." };
+  if (!newPassword || newPassword.length < 6) return { ok: false, error: "New password must be at least 6 characters." };
+  if (newPassword === tempPassword) return { ok: false, error: "Please choose a password different from your temporary one." };
+  const now = new Date().toISOString();
+
+  const throttle = customerThrottleKey(clean);
+  if (await isLockedOut(throttle)) {
+    return { ok: false, error: "Too many failed attempts. Try again in 15 minutes." };
+  }
+
+  const hashed = hashPassword(newPassword);
+
+  if (isDemo()) {
+    const db = demoDB();
+    const c = db.customers.find((x) => x.phone === clean);
+    if (!c || !c.password) return { ok: false, error: "Account not found." };
+    if (!verifyCustomerPassword(tempPassword, c.password)) {
+      await recordFailedAttempt(throttle);
+      return { ok: false, error: "Incorrect password. Please try again." };
+    }
+    await clearAttempts(throttle);
+    c.password = hashed;
+    c.must_change_password = false;
+    c.last_login_at = now;
+    c.login_count = (c.login_count || 0) + 1;
+    await startCustomerSession(clean, c.name || "Customer");
+    return { ok: true, name: c.name || "Customer", phone: clean };
+  }
+
+  const supabase = createAdminClient();
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("id, name, password, login_count")
+    .eq("phone", clean)
+    .maybeSingle();
+  if (!customer || !customer.password) return { ok: false, error: "Account not found." };
+
+  if (!verifyCustomerPassword(tempPassword, customer.password)) {
+    await recordFailedAttempt(throttle);
+    return { ok: false, error: "Incorrect password. Please try again." };
+  }
   await clearAttempts(throttle);
+
+  const { error } = await supabase
+    .from("customers")
+    .update({
+      password: hashed,
+      must_change_password: false,
+      last_login_at: now,
+      login_count: (customer.login_count || 0) + 1,
+    })
+    .eq("id", customer.id);
+  if (error) {
+    console.error("changePasswordAndSignInAction: update failed:", error);
+    return { ok: false, error: "Failed to update password." };
+  }
+
   await startCustomerSession(clean, customer.name || "Customer");
   return { ok: true, name: customer.name || "Customer", phone: clean };
 }
@@ -568,7 +679,7 @@ export async function ensureCustomerProfileByEmailAction(
 export async function signInWithEmailAction(
   email: string,
   password: string,
-): Promise<{ ok: boolean; name?: string; email?: string; error?: string }> {
+): Promise<{ ok: boolean; name?: string; email?: string; error?: string; mustChangePassword?: boolean }> {
   const cleanEmail = email.trim().toLowerCase();
   if (!cleanEmail.includes("@")) return { ok: false, error: "Please enter a valid email address." };
   if (!password) return { ok: false, error: "Please enter your password." };
@@ -590,9 +701,15 @@ export async function signInWithEmailAction(
       await recordFailedAttempt(throttle);
       return { ok: false, error: "Incorrect password. Please try again." };
     }
+    await clearAttempts(throttle);
+    // Same admin-reset gate as the phone path: this column is shared between
+    // both login tabs, so a temp password issued for one must be rotated
+    // before either grants a real session.
+    if (c.must_change_password) {
+      return { ok: false, mustChangePassword: true, email: cleanEmail, name: c.name || "Customer" };
+    }
     c.last_login_at = now;
     c.login_count = (c.login_count || 0) + 1;
-    await clearAttempts(throttle);
     await startCustomerSession(cleanEmail, c.name || "Customer");
     return { ok: true, name: c.name || "Customer", email: cleanEmail };
   }
@@ -600,7 +717,7 @@ export async function signInWithEmailAction(
   const supabase = createAdminClient();
   const { data: customer } = await supabase
     .from("customers")
-    .select("id, name, password, login_count")
+    .select("id, name, password, login_count, must_change_password")
     .eq("email", cleanEmail)
     .maybeSingle();
 
@@ -616,6 +733,12 @@ export async function signInWithEmailAction(
     return { ok: false, error: "Incorrect password. Please try again." };
   }
 
+  await clearAttempts(throttle);
+
+  if (customer.must_change_password) {
+    return { ok: false, mustChangePassword: true, email: cleanEmail, name: customer.name || "Customer" };
+  }
+
   await supabase
     .from("customers")
     .update({
@@ -625,7 +748,75 @@ export async function signInWithEmailAction(
     })
     .eq("id", customer.id);
 
+  await startCustomerSession(cleanEmail, customer.name || "Customer");
+  return { ok: true, name: customer.name || "Customer", email: cleanEmail };
+}
+
+/** Email equivalent of changePasswordAndSignInAction — see that function for
+ * the re-verification/throttle/reuse-rejection rationale. */
+export async function changePasswordAndSignInWithEmailAction(
+  email: string,
+  tempPassword: string,
+  newPassword: string,
+): Promise<{ ok: boolean; name?: string; email?: string; error?: string }> {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail.includes("@")) return { ok: false, error: "Please enter a valid email address." };
+  if (!newPassword || newPassword.length < 6) return { ok: false, error: "New password must be at least 6 characters." };
+  if (newPassword === tempPassword) return { ok: false, error: "Please choose a password different from your temporary one." };
+  const now = new Date().toISOString();
+
+  const throttle = customerThrottleKey(cleanEmail);
+  if (await isLockedOut(throttle)) {
+    return { ok: false, error: "Too many failed attempts. Try again in 15 minutes." };
+  }
+
+  const hashed = hashPassword(newPassword);
+
+  if (isDemo()) {
+    const db = demoDB();
+    const c = db.customers.find((x) => x.email?.toLowerCase() === cleanEmail);
+    if (!c || !c.password) return { ok: false, error: "Account not found." };
+    if (!verifyCustomerPassword(tempPassword, c.password)) {
+      await recordFailedAttempt(throttle);
+      return { ok: false, error: "Incorrect password. Please try again." };
+    }
+    await clearAttempts(throttle);
+    c.password = hashed;
+    c.must_change_password = false;
+    c.last_login_at = now;
+    c.login_count = (c.login_count || 0) + 1;
+    await startCustomerSession(cleanEmail, c.name || "Customer");
+    return { ok: true, name: c.name || "Customer", email: cleanEmail };
+  }
+
+  const supabase = createAdminClient();
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("id, name, password, login_count")
+    .eq("email", cleanEmail)
+    .maybeSingle();
+  if (!customer || !customer.password) return { ok: false, error: "Account not found." };
+
+  if (!verifyCustomerPassword(tempPassword, customer.password)) {
+    await recordFailedAttempt(throttle);
+    return { ok: false, error: "Incorrect password. Please try again." };
+  }
   await clearAttempts(throttle);
+
+  const { error } = await supabase
+    .from("customers")
+    .update({
+      password: hashed,
+      must_change_password: false,
+      last_login_at: now,
+      login_count: (customer.login_count || 0) + 1,
+    })
+    .eq("id", customer.id);
+  if (error) {
+    console.error("changePasswordAndSignInWithEmailAction: update failed:", error);
+    return { ok: false, error: "Failed to update password." };
+  }
+
   await startCustomerSession(cleanEmail, customer.name || "Customer");
   return { ok: true, name: customer.name || "Customer", email: cleanEmail };
 }

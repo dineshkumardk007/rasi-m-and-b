@@ -74,6 +74,8 @@ export interface OrderItem {
   name_snapshot: string;
   price_snapshot: number;
   qty: number;
+  /** GST rate charged at sale time. Null on orders placed before this was tracked. */
+  gst_rate?: number | null;
 }
 
 export interface AddressSnapshot {
@@ -179,6 +181,7 @@ export interface CustomerRecord {
   baby_dob: string | null;
   notes: string;
   password?: string | null;
+  must_change_password?: boolean;
   last_login_at?: string | null;
   login_count?: number;
   created_at: string;
@@ -209,8 +212,16 @@ export interface StoreSettings {
   announcement_bg?: string;
   announcement_color?: string;
   announcement_link?: string;
+  /** Dedicated settings for OfferStrip running marquee ticker under the hero. */
+  offer_strip_enabled?: boolean;
+  offer_strip_text_en?: string;
+  offer_strip_text_ta?: string;
+  offer_strip_bg?: string;
+  offer_strip_color?: string;
   /** Admin-added categories beyond the 8 built-in ones. */
   custom_categories?: Array<{ slug: string; en: string; ta: string; emoji: string; bg: string; pop: string }>;
+  /** Custom box media images mapped by box key (e.g., hero-collage-bath, cat-toys, hero-store-banner) */
+  box_media?: Record<string, string>;
 }
 
 export interface CartLine {
@@ -273,6 +284,14 @@ export interface StaffAccount {
   created_at: string;
   last_login_at?: string | null;
 }
+
+/**
+ * What's safe to hand to a client component. Next.js serializes every prop
+ * of a client component into the payload sent to the browser, so a
+ * StaffAccount[] passed straight through would ship every account's scrypt
+ * hash — including the owner's — to any logged-in staff member's browser.
+ */
+export type StaffAccountPublic = Omit<StaffAccount, "password_hash">;
 
 export interface PendingApproval {
   id: string;

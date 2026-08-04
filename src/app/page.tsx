@@ -4,13 +4,12 @@ import {
   getActiveBundles,
   getActiveProducts,
   getApprovedReviews,
-  getFeaturedCoupons,
   getLiveBanners,
   getSettings,
 } from "@/lib/data/catalog";
 import { isDemo } from "@/lib/data/mode";
 import { MILESTONES } from "@/lib/constants";
-import { storeJsonLd, webSiteJsonLd } from "@/lib/seo/jsonld";
+import { computeReviewAggregate, storeJsonLd, webSiteJsonLd } from "@/lib/seo/jsonld";
 
 export const dynamic = "force-dynamic"; // live stock + settings on every view
 
@@ -25,7 +24,7 @@ export default async function HomePage({ searchParams }: Props) {
   const query = typeof sp.q === "string" ? sp.q : undefined;
   const brand = typeof sp.brand === "string" ? sp.brand : undefined;
 
-  const [products, bundles, reviews, settings, banners, brands, featuredCoupons] =
+  const [products, bundles, reviews, settings, banners, brands] =
     await Promise.all([
       getActiveProducts(),
       getActiveBundles(),
@@ -33,15 +32,16 @@ export default async function HomePage({ searchParams }: Props) {
       getSettings(),
       getLiveBanners(),
       getActiveBrands(),
-      getFeaturedCoupons(),
     ]);
+
+  const aggregate = computeReviewAggregate(reviews);
 
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify([storeJsonLd(), webSiteJsonLd()]),
+          __html: JSON.stringify([storeJsonLd(aggregate), webSiteJsonLd()]),
         }}
       />
       <Storefront
@@ -51,7 +51,6 @@ export default async function HomePage({ searchParams }: Props) {
         settings={settings}
         banners={banners}
         brands={brands}
-        featuredCoupons={featuredCoupons}
         isDemo={isDemo()}
         initialMilestone={
           age && (MILESTONES as readonly string[]).includes(age) ? age : undefined

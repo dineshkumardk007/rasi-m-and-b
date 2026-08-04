@@ -13,7 +13,9 @@ const config: Config = {
         ink: "#2B2140", // deep plum — ALL outlines and body text
         cream: "#FFF9F0", // page background
         paper: "#FFFFFF", // card surfaces
-        brand: "#EC5D8A", // primary action / brand accent ("pink")
+        brand: "#BE3466", // primary action / brand accent ("pink") — darkened from
+        // #EC5D8A so white button text and pink price text clear WCAG AA (4.5:1);
+        // the old value sat at ~3.2:1. ~5.4:1 with #fff, ~5.4:1 as text on white.
         mute: "#6B617D", // secondary text
         ribbon: "#FFE1A8", // ink-bar text / toast text
         cat: {

@@ -7,13 +7,12 @@ import {
   getActiveProducts,
   getApprovedReviews,
   getBrandBySlug,
-  getFeaturedCoupons,
   getLiveBanners,
   getSettings,
 } from "@/lib/data/catalog";
 import { isDemo } from "@/lib/data/mode";
 import { BUSINESS, MILESTONES, siteUrl, type Milestone } from "@/lib/constants";
-import { storeJsonLd } from "@/lib/seo/jsonld";
+import { computeReviewAggregate, storeJsonLd } from "@/lib/seo/jsonld";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +51,7 @@ export default async function BrandPage({ params, searchParams }: Props) {
   const brand = await getBrandBySlug(slug);
   if (!brand) notFound();
 
-  const [products, bundles, reviews, settings, banners, brands, featuredCoupons] =
+  const [products, bundles, reviews, settings, banners, brands] =
     await Promise.all([
       getActiveProducts(),
       getActiveBundles(),
@@ -60,7 +59,6 @@ export default async function BrandPage({ params, searchParams }: Props) {
       getSettings(),
       getLiveBanners(),
       getActiveBrands(),
-      getFeaturedCoupons(),
     ]);
 
   const base = siteUrl();
@@ -78,12 +76,19 @@ export default async function BrandPage({ params, searchParams }: Props) {
     ],
   };
 
+  const breadcrumbItems = breadcrumbJsonLd.itemListElement.map((li) => ({
+    name: li.name,
+    href: li.item.replace(base, "") || "/",
+  }));
+
+  const aggregate = computeReviewAggregate(reviews);
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify([breadcrumbJsonLd, storeJsonLd()]),
+          __html: JSON.stringify([breadcrumbJsonLd, storeJsonLd(aggregate)]),
         }}
       />
       <Storefront
@@ -93,8 +98,8 @@ export default async function BrandPage({ params, searchParams }: Props) {
         settings={settings}
         banners={banners}
         brands={brands}
-        featuredCoupons={featuredCoupons}
         isDemo={isDemo()}
+        breadcrumb={breadcrumbItems}
         initialMilestone={
           age && (MILESTONES as readonly string[]).includes(age)
             ? (age as Milestone)

@@ -10,7 +10,7 @@ export function isPinMatch(pin: string, pattern: string): boolean {
   const cleanPin = pin.trim().replace(/\D/g, "");
   if (cleanPin.length !== 6) return false;
 
-  const cleanPattern = pattern.trim();
+  const cleanPattern = pattern.trim().replace(/–|—/g, "-");
   if (!cleanPattern) return false;
 
   // Wildcard pattern: e.g. "628*" or "628" or "62*"

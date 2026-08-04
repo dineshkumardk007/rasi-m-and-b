@@ -14,13 +14,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import type { Banner, Brand, Coupon, Product, Review, StoreSettings } from "@/lib/types";
+import type { Banner, Brand, Product, Review, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
-import { inr } from "@/lib/constants";
 import { Stars } from "@/components/ui";
 import { Marquee } from "./sections";
 import {
-  featuredOffers,
   formatCountdown,
   liveBanners,
   secondsUntilMidnightIST,
@@ -32,39 +30,43 @@ import {
 /**
  * The scrolling strip of live offers under the hero.
  *
- * Coupon codes are re-validated by featuredOffers() before they appear:
- * advertising a code that fails at checkout costs more than staying quiet.
+ * Text is admin-configurable (settings.offer_strip_text_{en,ta}), falling
+ * back to a fixed default — not derived from live coupons, so nothing here
+ * re-validates a code before showing it.
  */
 export function OfferStrip({
-  coupons,
   settings,
 }: {
-  coupons: Coupon[];
   settings: StoreSettings;
 }) {
-  const { t } = useT();
+  const { lang } = useT();
 
   const messages = useMemo(() => {
-    const out = featuredOffers(coupons).map((c) =>
-      c.type === "percent"
-        ? t("offer.percent", {
-            value: String(c.value),
-            code: c.code,
-            min: inr(c.min_order),
-          })
-        : t("offer.flat", {
-            value: inr(c.value),
-            code: c.code,
-            min: inr(c.min_order),
-          }),
-    );
+    // If master toggle for OfferStrip is explicitly turned off by admin
+    if (settings.offer_strip_enabled === false) return [];
 
-    out.push(t("offer.freeDelivery", { amount: inr(settings.free_delivery_threshold) }));
-    if (settings.same_day_enabled) out.push(t("offer.sameDay"));
+    const out: string[] = [];
+
+    // Custom Dedicated OfferStrip Ticker Messages from Admin Settings Tab.
+    // Tamil falls back to the admin's own English text (not the hardcoded
+    // generic default below) when no Tamil translation was set — matching
+    // Ribbon.tsx's announcement text, so a Tamil visitor sees the real offer
+    // copy instead of a placeholder.
+    const customText =
+      lang === "ta" ? settings.offer_strip_text_ta || settings.offer_strip_text_en : settings.offer_strip_text_en;
+    const activeText = (customText && customText.trim())
+      ? customText
+      : `10% off with WELCOME10 above ₹499\n₹50 off with RASI50 above ₹999\n🚚 FREE Delivery on ALL Orders!\nSame-day delivery in Thoothukudi`;
+
+    const customItems = activeText.split(/\r?\n|·/).map((s) => s.trim()).filter(Boolean);
+    out.push(...customItems);
     return out;
-  }, [coupons, settings, t]);
+  }, [settings, lang]);
 
   if (messages.length === 0) return null;
+
+  const bg = settings.offer_strip_bg || "#FFE66D";
+  const color = settings.offer_strip_color || "#2B2140";
 
   const half = (
     <span className="flex shrink-0 items-center gap-9 pr-9">
@@ -77,7 +79,10 @@ export function OfferStrip({
   );
 
   return (
-    <div className="marquee-mask marquee-paused overflow-hidden border-y-2.5 border-ink bg-[#FFE66D] text-ink">
+    <div
+      className="marquee-mask marquee-paused overflow-hidden border-y-2.5 border-ink transition-colors duration-300"
+      style={{ backgroundColor: bg, color: color }}
+    >
       <div className="marquee-track flex w-max py-[7px]">
         {half}
         {/* The duplicate is what makes the -50% loop seamless. It is decorative
@@ -208,9 +213,8 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
           <div
             key={banner.id}
             aria-hidden={i !== index}
-            className={`absolute inset-0 transition-opacity duration-500 ${
-              i === index ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
+            className={`absolute inset-0 transition-opacity duration-500 ${i === index ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
           >
             <BannerFrame banner={banner}>
               <BannerImage banner={banner} priority={i === 0} />
@@ -249,9 +253,8 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
                   onClick={() => go(i)}
                   aria-label={`Go to slide ${i + 1}`}
                   aria-current={i === index}
-                  className={`h-2.5 rounded-full border-2 border-ink transition-all ${
-                    i === index ? "w-6 bg-brand" : "w-2.5 bg-white/90"
-                  }`}
+                  className={`h-2.5 rounded-full border-2 border-ink transition-all ${i === index ? "w-6 bg-brand" : "w-2.5 bg-white/90"
+                    }`}
                 />
               ))}
             </div>
@@ -304,9 +307,8 @@ export function PromoBanner({ banners }: { banners: Banner[] }) {
           <div
             key={banner.id}
             aria-hidden={i !== index}
-            className={`absolute inset-0 transition-opacity duration-500 ${
-              i === index ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
+            className={`absolute inset-0 transition-opacity duration-500 ${i === index ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
           >
             <BannerFrame banner={banner}>
               <BannerImage banner={banner} priority={i === 0} />
@@ -345,9 +347,8 @@ export function PromoBanner({ banners }: { banners: Banner[] }) {
                   onClick={() => go(i)}
                   aria-label={`Go to slide ${i + 1}`}
                   aria-current={i === index}
-                  className={`h-2.5 rounded-full border-2 border-ink transition-all ${
-                    i === index ? "w-6 bg-brand" : "w-2.5 bg-white/90"
-                  }`}
+                  className={`h-2.5 rounded-full border-2 border-ink transition-all ${i === index ? "w-6 bg-brand" : "w-2.5 bg-white/90"
+                    }`}
                 />
               ))}
             </div>
@@ -422,16 +423,16 @@ function PlayableReviewCard({
   productName: string | null;
 }) {
   const theme = COLOR_THEMES[index % COLOR_THEMES.length]!;
-  const [likes, setLikes] = useState(2 + (index % 4));
   const [hasLiked, setHasLiked] = useState(false);
   const [pop, setPop] = useState(false);
 
+  // A purely local "helpful" toggle — no count. It used to seed a fabricated
+  // number (2 + index % 4) that reset for every visitor and was never stored,
+  // i.e. manufactured social proof. Showing only the viewer's own toggle is honest.
   const handleLike = () => {
     if (hasLiked) {
-      setLikes((l) => l - 1);
       setHasLiked(false);
     } else {
-      setLikes((l) => l + 1);
       setHasLiked(true);
       setPop(true);
       setTimeout(() => setPop(false), 400);
@@ -485,15 +486,15 @@ function PlayableReviewCard({
         <button
           type="button"
           onClick={handleLike}
-          className={`btn-press shrink-0 flex items-center gap-1 rounded-pill border-2 border-ink px-2.5 py-1 text-[12px] font-extrabold transition-all cursor-pointer select-none ${
-            hasLiked
+          className={`btn-press shrink-0 flex items-center gap-1 rounded-pill border-2 border-ink px-2.5 py-1 text-[12px] font-extrabold transition-all cursor-pointer select-none ${hasLiked
               ? "bg-[#FE91E8] text-ink shadow-hard-2 scale-105"
               : "bg-white text-ink hover:bg-[#FFE1A8] shadow-xs"
-          } ${pop ? "animate-bounce" : ""}`}
+            } ${pop ? "animate-bounce" : ""}`}
           title="Mark review as helpful"
+          aria-pressed={hasLiked}
         >
           <span>{hasLiked ? "❤️" : "🤍"}</span>
-          <span>{likes}</span>
+          <span>{hasLiked ? "Helpful" : "Helpful?"}</span>
         </button>
       </div>
     </div>
@@ -558,7 +559,7 @@ export function ReviewsStrip({
               {t("reviews.title")}
             </h2>
             <p className="text-[12px] font-bold text-mute mt-0.5 font-display">
-              Real feedback from 2,360+ happy parents
+              Real feedback from {reviews.length.toLocaleString("en-IN")}+ happy parents
             </p>
           </div>
         </div>
@@ -570,22 +571,20 @@ export function ReviewsStrip({
             <button
               type="button"
               onClick={() => setViewMode("spotlight")}
-              className={`px-2.5 py-1 rounded-pill transition-all cursor-pointer ${
-                viewMode === "spotlight"
+              className={`px-2.5 py-1 rounded-pill transition-all cursor-pointer ${viewMode === "spotlight"
                   ? "bg-[#FFE1A8] text-ink border border-ink"
                   : "text-mute hover:text-ink"
-              }`}
+                }`}
             >
               ⚡ Spotlight
             </button>
             <button
               type="button"
               onClick={() => setViewMode("grid")}
-              className={`px-2.5 py-1 rounded-pill transition-all cursor-pointer ${
-                viewMode === "grid"
+              className={`px-2.5 py-1 rounded-pill transition-all cursor-pointer ${viewMode === "grid"
                   ? "bg-[#C7E9FF] text-ink border border-ink"
                   : "text-mute hover:text-ink"
-              }`}
+                }`}
             >
               📑 All Reviews ({count})
             </button>
@@ -669,11 +668,10 @@ export function ReviewsStrip({
                     key={idx}
                     type="button"
                     onClick={() => setCurrentIndex(idx)}
-                    className={`h-3 rounded-pill border-2 border-ink transition-all duration-300 cursor-pointer ${
-                      idx === currentIndex
+                    className={`h-3 rounded-pill border-2 border-ink transition-all duration-300 cursor-pointer ${idx === currentIndex
                         ? "w-7 bg-brand shadow-hard-2"
                         : "w-3 bg-white hover:bg-[#FFE1A8]"
-                    }`}
+                      }`}
                     aria-label={`Go to review ${idx + 1}`}
                   />
                 ))}

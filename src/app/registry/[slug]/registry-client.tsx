@@ -6,6 +6,7 @@ import type { BabyRegistry, Product } from "@/lib/types";
 import { useCart } from "@/lib/store/CartProvider";
 import { BUSINESS, glowStyle, inr } from "@/lib/constants";
 import { Art, Badge, Btn, Card } from "@/components/ui";
+import { giftRegistryItemAction } from "@/app/customer-actions";
 
 export function RegistryClient({
   registry,
@@ -15,17 +16,18 @@ export function RegistryClient({
   products: Product[];
 }) {
   const { add } = useCart();
-  const [copied, setCopied] = useState(false);
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
+  const [items, setItems] = useState(registry.items);
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+  const shareMessage = `🎁 ${registry.parent_name}'s baby registry "${registry.title}" on ${BUSINESS.name} — take a look and gift something from the list!\n${shareUrl}`;
 
-  const itemsWithProduct = registry.items
+  const itemsWithProduct = items
     .map((item) => ({
       item,
       product: products.find((p) => p.id === item.product_id),
     }))
-    .filter((x): x is { item: typeof registry.items[0]; product: Product } => x.product !== undefined);
+    .filter((x): x is { item: typeof items[0]; product: Product } => x.product !== undefined);
 
   const handleGift = (product: Product) => {
     add(product.id);
@@ -33,6 +35,14 @@ export function RegistryClient({
     setTimeout(() => {
       setAddedIds((prev) => ({ ...prev, [product.id]: false }));
     }, 2500);
+    // Optimistic: reflect the gift on the progress bar immediately rather
+    // than waiting on the network round-trip. If the write fails server-side
+    // it's logged there (see giftRegistryItemAction) — worst case the count
+    // is briefly ahead of the DB, not silently wrong forever.
+    setItems((prev) =>
+      prev.map((i) => (i.product_id === product.id ? { ...i, purchased_qty: i.purchased_qty + 1 } : i)),
+    );
+    giftRegistryItemAction(registry.slug, product.id, 1);
   };
 
   return (
@@ -67,21 +77,16 @@ export function RegistryClient({
           </p>
 
           <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (navigator.clipboard) {
-                  navigator.clipboard.writeText(shareUrl);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2500);
-                }
-              }}
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(shareMessage)}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="btn-press rounded-pill border-2.5 border-ink bg-white px-5 py-2 font-display text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-cream"
             >
-              {copied ? "✓ Registry Link Copied!" : "🔗 Share Registry on WhatsApp"}
-            </button>
+              💬 Share Registry on WhatsApp
+            </a>
             <Link
-              href="/"
+              href="/?openCart=1"
               className="btn-press rounded-pill border-2.5 border-ink bg-[#8CE0CE] px-5 py-2 font-display text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-[#6FD4BD]"
             >
               🛒 View Cart / Checkout

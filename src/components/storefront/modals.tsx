@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import Image from "next/image";
 import type { CustomerAddress, Order, Product, Review, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
@@ -83,7 +84,8 @@ export function ProductModal({
   product: Product;
   reviews: Review[];
   onClose: () => void;
-  onAdd: () => void;
+  /** Fires with the selected variant's id, or undefined for a plain product. */
+  onAdd: (variantId?: string) => void;
   notify: (m: string) => void;
   /** Adds any product by id — powers the "often bought with" row. */
   onAddItem?: (id: string) => void;
@@ -100,8 +102,20 @@ export function ProductModal({
     "same-day" | "tomorrow" | "courier" | "unserviceable" | null
   >(null);
   const [showRestockForm, setShowRestockForm] = useState(false);
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [restockPhone, setRestockPhone] = useState(session?.phone ?? "");
   const [restockDays, setRestockDays] = useState(30);
+  // Defaults to the first configured variant so a product with variants is
+  // purchasable the moment the modal opens — the admin can configure variants
+  // (size, pack, etc.) but until now nothing in the storefront let a customer
+  // actually pick one.
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
+    p.variants?.[0]?.id ?? null,
+  );
+  const selectedVariant = p.variants?.find((v) => v.id === selectedVariantId) ?? null;
+  const activePrice = selectedVariant?.price ?? p.price;
+  const activeMrp = selectedVariant?.mrp ?? p.mrp;
+  const activeStock = selectedVariant ? selectedVariant.stock : p.stock;
   const meta = MILESTONE_META[p.milestone];
   const name = lang === "ta" ? p.name_ta : p.name_en;
   const desc = lang === "ta" ? p.description_ta : p.description_en;
@@ -113,6 +127,7 @@ export function ProductModal({
   };
 
   return (
+    <>
     <Modal onClose={onClose} wide>
       {/* Product Image Preview Carousel with Floating Wishlist Heart Button */}
       <div className="relative">
@@ -146,12 +161,12 @@ export function ProductModal({
       <div className="mt-3.5 rounded-card border-2.5 border-ink bg-[#FFF6ED] p-3.5 shadow-sm backdrop-blur-sm">
         <h3 className="font-display text-[24px] sm:text-[26px] font-extrabold text-ink leading-snug">{name}</h3>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
-          <span className="font-display text-[24px] font-extrabold text-brand">{inr(p.price)}</span>
-          {p.mrp > p.price && (
+          <span className="font-display text-[24px] font-extrabold text-brand">{inr(activePrice)}</span>
+          {activeMrp > activePrice && (
             <>
-              <span className="text-[14px] text-[#B4AABF] line-through">{inr(p.mrp)}</span>
+              <span className="text-[14px] text-[#B4AABF] line-through">{inr(activeMrp)}</span>
               <Badge bg="#D6E8B0">
-                SAVE {inr(p.mrp - p.price)}
+                SAVE {inr(activeMrp - activePrice)}
               </Badge>
             </>
           )}
@@ -159,6 +174,45 @@ export function ProductModal({
           {p.brand && <Badge bg="#C7E9FF">{p.brand}</Badge>}
         </div>
         <p className="mt-2.5 text-[14px] sm:text-[15px] leading-[1.55] text-mute">{desc}</p>
+
+        {p.variants && p.variants.length > 0 && (
+          <div className="mt-3">
+            <div className="font-display text-[12px] font-extrabold uppercase text-mute tracking-wide">
+              {t("product.chooseOption")}
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {p.variants.map((v) => {
+                const vName = lang === "ta" ? v.name_ta : v.name_en;
+                const active = v.id === selectedVariantId;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setSelectedVariantId(v.id)}
+                    disabled={v.stock === 0}
+                    className={`rounded-pill border-2 px-3 py-1 text-[13px] font-bold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${active
+                        ? "border-ink bg-brand text-white shadow-hard-1"
+                        : "border-ink/40 bg-white text-ink hover:border-ink"
+                      }`}
+                  >
+                    {vName}
+                    {v.stock === 0 ? ` (${t("shop.soldOut")})` : ""}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {p.size_chart_type && p.size_chart_type !== "none" && (
+          <button
+            type="button"
+            onClick={() => setShowSizeGuide(true)}
+            className="btn-press mt-2.5 flex items-center gap-1 text-[13px] font-bold text-mute underline hover:text-ink transition-colors cursor-pointer"
+          >
+            📏 Size Guide
+          </button>
+        )}
       </div>
 
       {p.ingredients && (
@@ -181,7 +235,7 @@ export function ProductModal({
             onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
             placeholder={t("product.pinPlaceholder")}
             inputMode="numeric"
-            className="min-w-0 flex-1 rounded-pill border-2.5 border-ink bg-paper px-4 py-2 font-body text-[14px] outline-none shadow-inner"
+            className="min-w-0 flex-1 rounded-pill border-2.5 border-ink bg-paper px-4 py-2 font-body text-[14px] outline-none shadow-inner focus:border-brand"
           />
           <Btn small bg="#E4D6FF" color="#2B2140" onClick={checkPin}>
             {t("product.pinCheck")}
@@ -204,9 +258,9 @@ export function ProductModal({
       <div className="mt-4 flex flex-col gap-2">
         <div className="flex items-center gap-2.5">
           <div className="flex-1">
-            {p.stock > 0 ? (
-              <Btn full onClick={onAdd}>
-                🛒 {t("shop.addToCart")} — {inr(p.price)}
+            {activeStock > 0 ? (
+              <Btn full onClick={() => onAdd(selectedVariant?.id)}>
+                🛒 {t("shop.addToCart")} — {inr(activePrice)}
               </Btn>
             ) : (
               <Btn
@@ -240,34 +294,39 @@ export function ProductModal({
         </div>
 
         {/* Subscribe & Save 10% Auto-Replenishment Button */}
-        {p.stock > 0 && (p.categories.includes("diapering") || p.categories.includes("feeding")) && (
+        {activeStock > 0 && (p.categories.includes("diapering") || p.categories.includes("feeding")) && (
           <button
             type="button"
             onClick={async () => {
-              const res = await createSubscriptionAction(p.id, null, 1, 30);
+              const res = await createSubscriptionAction(p.id, selectedVariant?.id ?? null, 1, 30);
               if (res.ok) {
                 notify("🔄 Subscribed! Saved 10% on monthly delivery");
-                onAdd();
+                onAdd(selectedVariant?.id);
               } else {
                 notify(res.error ?? "Please sign in to subscribe");
               }
             }}
             className="btn-press w-full flex items-center justify-center gap-2 rounded-pill border-2.5 border-ink bg-[#D6E8B0] px-4 py-2 font-display text-[13px] font-extrabold text-ink shadow-hard-2 hover:bg-[#B9EBDD] cursor-pointer"
           >
-            <span>🔄 Subscribe & Save 10% ({inr(Math.round(p.price * 0.9))}) · Auto-delivers every 30 days</span>
+            <span>🔄 Subscribe & Save 10% ({inr(Math.round(activePrice * 0.9))}) · Auto-delivers every 30 days</span>
           </button>
         )}
 
-        {/* 30-Day Auto-Restock WhatsApp Reminder Button */}
+        {/* Reorder nudge — a time-based "remind me to buy this again" for an
+            in-stock item. Only shown in-stock: on an out-of-stock product the
+            "Notify Me" button above already covers "tell me when it's back",
+            and showing both together read as two overlapping promises. */}
+        {activeStock > 0 && (
         <button
           type="button"
           onClick={() => setShowRestockForm(!showRestockForm)}
           className="btn-press w-full flex items-center justify-center gap-2 rounded-pill border-2.5 border-ink bg-[#FFE1A8] px-4 py-2 font-display text-[13px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] cursor-pointer"
         >
-          <span>🔔 Remind Me in 30 Days (WhatsApp Reorder)</span>
+          <span>🔔 Remind Me to Reorder (WhatsApp)</span>
         </button>
+        )}
 
-        {showRestockForm && (
+        {activeStock > 0 && showRestockForm && (
           <div className="rounded-card border-2.5 border-ink bg-[#FFF6ED] p-3.5 shadow-sm mt-1">
             <div className="font-display text-[14px] font-extrabold text-ink mb-1 flex items-center justify-between">
               <span>🔔 Set Restock Reminder</span>
@@ -288,12 +347,12 @@ export function ProductModal({
                 placeholder="10-digit mobile number"
                 value={restockPhone}
                 onChange={(e) => setRestockPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                className="min-w-[140px] flex-1 rounded-pill border-2 border-ink bg-white px-3 py-1.5 font-body text-[13px] font-bold outline-none"
+                className="min-w-[140px] flex-1 rounded-pill border-2 border-ink bg-white px-3 py-1.5 font-body text-[13px] font-bold outline-none focus:border-brand"
               />
               <select
                 value={restockDays}
                 onChange={(e) => setRestockDays(Number(e.target.value))}
-                className="rounded-pill border-2 border-ink bg-white px-2.5 py-1.5 font-body text-[13px] font-bold outline-none"
+                className="rounded-pill border-2 border-ink bg-white px-2.5 py-1.5 font-body text-[13px] font-bold outline-none focus:border-brand"
               >
                 <option value={15}>In 15 days</option>
                 <option value={30}>In 30 days</option>
@@ -334,7 +393,7 @@ export function ProductModal({
 
       {/* Reviews */}
       <div className="mt-[22px]">
-        <h4 className="mb-2 font-display font-extrabold">
+        <h4 className="mb-2 font-display text-[15px] font-extrabold text-ink">
           {t("product.reviews")} ({reviews.length}) ⭐
         </h4>
         {reviews.length === 0 && (
@@ -389,7 +448,7 @@ export function ProductModal({
               value={author}
               onChange={(e) => setAuthor(e.target.value)}
               placeholder={t("product.yourName")}
-              className="mb-2 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[14px] outline-none"
+              className="mb-2 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[14px] outline-none focus:border-brand"
             />
           )}
           <textarea
@@ -397,24 +456,30 @@ export function ProductModal({
             onChange={(e) => setText(e.target.value)}
             rows={2}
             placeholder={t("product.writeReview")}
-            className="w-full rounded-tile border-2.5 border-ink px-3.5 py-2.5 font-body text-[14px] outline-none"
+            className="w-full rounded-tile border-2.5 border-ink px-3.5 py-2.5 font-body text-[14px] outline-none focus:border-brand"
           />
           <input
             type="text"
             value={photoUrl}
             onChange={(e) => setPhotoUrl(e.target.value)}
             placeholder="📷 Add Image/Photo Link (Optional)"
-            className="mt-2 mb-2 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[13px] outline-none"
+            className="mt-2 mb-2 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[13px] outline-none focus:border-brand"
           />
           <div className="mt-2">
             <Btn
               small
               onClick={async () => {
                 if (!text.trim()) return;
-                await submitReviewAction(p.id, author || session?.name || "", rating, text, photoUrl);
-                setText("");
-                setPhotoUrl("");
-                notify(t("product.reviewPending"));
+                const res = await submitReviewAction(p.id, author || session?.name || "", rating, text, photoUrl);
+                if (res.ok) {
+                  setText("");
+                  setPhotoUrl("");
+                  notify(t("product.reviewPending"));
+                } else if (res.error === "rate_limited") {
+                  notify(t("checkout.tooManyAttempts"));
+                } else {
+                  notify("Please enter a valid review (5-1000 characters).");
+                }
               }}
             >
               {t("product.postReview")}
@@ -432,12 +497,18 @@ export function ProductModal({
         </button>
       </div>
     </Modal>
+    {showSizeGuide && p.size_chart_type && p.size_chart_type !== "none" && (
+      <SizeGuideModal type={p.size_chart_type} onClose={() => setShowSizeGuide(false)} />
+    )}
+    </>
   );
 }
 
 /* ── Cart ────────────────────────────────────────────────────────────────── */
 export interface CartItemView {
   itemId: string;
+  /** Set when this line is a specific product variant, not the base product. */
+  variantId?: string;
   qty: number;
   name: string;
   price: number;
@@ -458,7 +529,7 @@ export function CartModal({
   items: CartItemView[];
   subtotal: number;
   settings: StoreSettings;
-  setQty: (id: string, qty: number) => void;
+  setQty: (id: string, qty: number, variantId?: string) => void;
   onClose: () => void;
   onCheckout: () => void;
 }) {
@@ -478,7 +549,7 @@ export function CartModal({
       <div className="space-y-2.5">
         {items.map((c) => (
           <div
-            key={c.itemId}
+            key={`${c.itemId}:${c.variantId ?? ""}`}
             className="flex items-center gap-3 rounded-card border-2.5 border-ink bg-white p-3 shadow-hard-2"
           >
             <div className="w-12 shrink-0">
@@ -493,7 +564,7 @@ export function CartModal({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setQty(c.itemId, c.qty - 1)}
+                onClick={() => setQty(c.itemId, c.qty - 1, c.variantId)}
                 className="btn-press flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink bg-[#FFCBD9] font-display text-[15px] font-extrabold shadow-hard-1 hover:bg-[#FF5A78] hover:text-white cursor-pointer transition-all"
                 aria-label="decrease"
               >
@@ -502,7 +573,7 @@ export function CartModal({
               <span className="w-5 text-center font-display text-[15px] font-extrabold text-ink">{c.qty}</span>
               <button
                 type="button"
-                onClick={() => setQty(c.itemId, Math.min(c.qty + 1, c.maxStock))}
+                onClick={() => setQty(c.itemId, Math.min(c.qty + 1, c.maxStock), c.variantId)}
                 className="btn-press flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink bg-[#D6E8B0] font-display text-[15px] font-extrabold shadow-hard-1 hover:bg-[#B9EBDD] cursor-pointer transition-all"
                 aria-label="increase"
               >
@@ -529,7 +600,7 @@ export function CartModal({
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-pill border-2 border-ink bg-[#FFE1A8] px-3 py-1 font-display text-[12px] font-extrabold text-ink shadow-hard-2">
-                {inr(49)}
+                {inr(deliveryInfo.fee)}
               </span>
             )}
           </div>
@@ -624,7 +695,7 @@ function PaymentProcessingView({
       {/* Payment Summary Box */}
       <div className="mx-auto mb-4 max-w-[320px] rounded-card border-3 border-ink bg-paper p-3.5 text-left shadow-hard-4">
         <div className="flex items-center justify-between text-[11px] font-extrabold tracking-wider text-mute uppercase font-display">
-          <span>Amount to Pay</span>
+          <span>{t("checkout.amountToPay")}</span>
           <span className="text-ink font-extrabold">
             {method === "upi" ? "UPI — GPay / PhonePe / Paytm" : method === "card" ? "Credit / Debit Card" : "Online Payment"}
           </span>
@@ -733,11 +804,12 @@ export function CheckoutModal({
     f.line.trim() &&
     /^\d{6}$/.test(f.pin);
 
-  const deliveryInfo = calculateDeliveryFee(subtotal, settings);
-  const delivery = deliveryInfo.fee;
   const discount = coupon?.discount ?? 0;
+  const postDiscountSubtotal = Math.max(0, subtotal - discount);
+  const deliveryInfo = calculateDeliveryFee(postDiscountSubtotal, settings);
+  const delivery = deliveryInfo.fee;
   const giftWrapFee = isGift && (settings.gift_wrap_enabled ?? true) ? (settings.gift_wrap_fee ?? 30) : 0;
-  const total = subtotal + delivery - discount + giftWrapFee;
+  const total = postDiscountSubtotal + delivery + giftWrapFee;
   const codAllowed = total <= settings.cod_limit;
 
   const applyCoupon = async () => {
@@ -778,7 +850,7 @@ export function CheckoutModal({
       });
     }
     const result = await submitOrderAction({
-      items: items.map((c) => ({ itemId: c.itemId, qty: c.qty })),
+      items: items.map((c) => ({ itemId: c.itemId, qty: c.qty, variantId: c.variantId })),
       address: { name: f.name, phone: f.phone, line: f.line, city: f.city, pin: f.pin },
       payment_method: method,
       coupon_code: coupon?.code,
@@ -796,7 +868,9 @@ export function CheckoutModal({
             ? t("checkout.codLimit", { limit: inr(settings.cod_limit) })
             : result.error === "unserviceable_pin"
               ? t("checkout.unserviceablePin", { pin: f.pin })
-              : t("checkout.couponNotFound"),
+              : result.error === "too_many_attempts"
+                ? t("checkout.tooManyAttempts")
+                : t("checkout.serverError"),
       );
       return null;
     }
@@ -862,11 +936,32 @@ export function CheckoutModal({
       prefill: { name: f.name, contact: f.phone },
       theme: { color: "#EC5D8A" },
       handler: async (response: Record<string, string>) => {
-        await fetch("/api/razorpay/confirm", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ order_no: order.order_no, ...response }),
-        });
+        // Razorpay only calls this handler after IT considers the payment
+        // captured — the customer has already paid at this point, so still
+        // show them the success screen even if our own confirm call fails
+        // (the webhook is the source of truth and will reconcile it). But a
+        // failure here previously vanished with no trace: if the webhook is
+        // also misconfigured or delayed, nobody would know this order needs
+        // attention. Report it so it's visible instead of silent.
+        try {
+          const confirmRes = await fetch("/api/razorpay/confirm", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ order_no: order.order_no, ...response }),
+          });
+          if (!confirmRes.ok) {
+            const body = await confirmRes.json().catch(() => ({}));
+            Sentry.captureMessage(`razorpay confirm call failed for ${order.order_no}`, {
+              level: "error",
+              tags: { area: "razorpay_confirm_client", order_no: order.order_no },
+              extra: { status: confirmRes.status, body },
+            });
+          }
+        } catch (err) {
+          Sentry.captureException(err, {
+            tags: { area: "razorpay_confirm_client", order_no: order.order_no },
+          });
+        }
         onPlaced(order, placed.invoiceToken);
       },
       modal: {
@@ -1068,7 +1163,7 @@ export function CheckoutModal({
                     rows={2}
                     maxLength={GIFT_MESSAGE_MAX}
                     placeholder={t("gift.notePlaceholder")}
-                    className="mt-1 w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 font-body text-[14px] outline-none"
+                    className="mt-1 w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 font-body text-[14px] outline-none focus:border-brand"
                   />
                 </label>
                 <div className="mt-0.5 text-right text-[11px] text-mute">
@@ -1121,7 +1216,7 @@ export function CheckoutModal({
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder={t("checkout.coupon")}
-                className="min-w-0 flex-1 rounded-pill border-2.5 border-ink px-4 py-[9px] font-body uppercase outline-none"
+                className="min-w-0 flex-1 rounded-pill border-2.5 border-ink px-4 py-[9px] font-body uppercase outline-none focus:border-brand"
               />
               <Btn small bg="#E4D6FF" color="#2B2140" onClick={applyCoupon}>
                 {t("checkout.apply")}
@@ -1319,6 +1414,8 @@ export function AuthModal({
     registerWithPassword,
     signInWithEmail,
     registerWithEmail,
+    changePasswordAndSignIn,
+    changePasswordAndSignInWithEmail,
     isDemo,
   } = useSession();
   const [mode, setMode] = useState<"register" | "login" | "otp">("register");
@@ -1333,6 +1430,20 @@ export function AuthModal({
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set only when a login attempt comes back needing a new password before a
+  // session is issued (admin-reset temp password). Holds the already-typed
+  // temp password so the customer isn't asked to retype it.
+  const [pendingChange, setPendingChange] = useState<
+    { identifier: string; tempPassword: string; kind: "phone" | "email"; name?: string } | null
+  >(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const resetPendingChange = () => {
+    setPendingChange(null);
+    setNewPassword("");
+    setConfirmPassword("");
+  };
 
   const handleRegister = async () => {
     setLoading(true);
@@ -1365,8 +1476,33 @@ export function AuthModal({
     setLoading(false);
     if (res.ok) {
       onSignedIn(res.name || "Customer");
+    } else if (res.mustChangePassword) {
+      // Server actions re-clean/normalize the identifier internally, so the
+      // raw form value is fine to carry forward here.
+      setPendingChange({
+        identifier: authType === "email" ? email : phone,
+        tempPassword: password,
+        kind: authType,
+        name: res.name,
+      });
     } else {
       setError(res.message ?? "Login failed");
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!pendingChange) return;
+    setLoading(true);
+    setError(null);
+    const res =
+      pendingChange.kind === "email"
+        ? await changePasswordAndSignInWithEmail(pendingChange.identifier, pendingChange.tempPassword, newPassword)
+        : await changePasswordAndSignIn(pendingChange.identifier, pendingChange.tempPassword, newPassword);
+    setLoading(false);
+    if (res.ok) {
+      onSignedIn(res.name || pendingChange.name || "Customer");
+    } else {
+      setError(res.message ?? "Could not update password");
     }
   };
 
@@ -1379,6 +1515,7 @@ export function AuthModal({
           onClick={() => {
             setMode("register");
             setError(null);
+            resetPendingChange();
           }}
           className={`flex-1 rounded-pill py-2 font-display text-[14px] font-extrabold transition-all cursor-pointer ${mode === "register" ? "bg-brand text-white shadow-hard-2" : "text-mute hover:text-ink"
             }`}
@@ -1390,6 +1527,7 @@ export function AuthModal({
           onClick={() => {
             setMode("login");
             setError(null);
+            resetPendingChange();
           }}
           className={`flex-1 rounded-pill py-2 font-display text-[14px] font-extrabold transition-all cursor-pointer ${mode === "login" ? "bg-brand text-white shadow-hard-2" : "text-mute hover:text-ink"
             }`}
@@ -1406,6 +1544,7 @@ export function AuthModal({
             onClick={() => {
               setAuthType("phone");
               setError(null);
+              resetPendingChange();
             }}
             className={`rounded-pill border-2 border-ink px-3 py-1 text-[12px] font-extrabold transition-all cursor-pointer ${authType === "phone" ? "bg-[#FFE1A8] text-ink shadow-hard-2" : "bg-white text-mute hover:bg-paper"
               }`}
@@ -1417,6 +1556,7 @@ export function AuthModal({
             onClick={() => {
               setAuthType("email");
               setError(null);
+              resetPendingChange();
             }}
             className={`rounded-pill border-2 border-ink px-3 py-1 text-[12px] font-extrabold transition-all cursor-pointer ${authType === "email" ? "bg-[#C7E9FF] text-ink shadow-hard-2" : "bg-white text-mute hover:bg-paper"
               }`}
@@ -1492,6 +1632,7 @@ export function AuthModal({
               onClick={() => {
                 setMode("otp");
                 setError(null);
+                resetPendingChange();
               }}
               className="text-[12px] font-extrabold text-mute underline hover:text-ink transition-colors cursor-pointer"
             >
@@ -1501,7 +1642,66 @@ export function AuthModal({
         </div>
       )}
 
-      {mode === "login" && (
+      {mode === "login" && pendingChange && (
+        <div className="rounded-card border-3 border-ink bg-[#FFF6ED] p-4 shadow-hard-4 space-y-3">
+          <div>
+            <h3 className="mb-0.5 font-display text-[22px] font-extrabold text-ink">Set a New Password 🔑</h3>
+            <p className="text-[13px] text-mute font-medium">
+              Your account was reset with a temporary password. Choose a new one to finish signing in.
+            </p>
+          </div>
+
+          <Field
+            label="New Password"
+            type="password"
+            value={newPassword}
+            onChange={setNewPassword}
+            placeholder="Min 6 characters"
+          />
+          <Field
+            label="Confirm New Password"
+            type="password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            placeholder="Re-enter new password"
+          />
+
+          <div className="pt-1">
+            <Btn
+              full
+              disabled={
+                loading ||
+                newPassword.length < 6 ||
+                newPassword !== confirmPassword ||
+                newPassword === pendingChange.tempPassword
+              }
+              onClick={handleChangePassword}
+            >
+              {loading ? "Saving..." : "Save & Sign In 🔑"}
+            </Btn>
+          </div>
+          {newPassword && newPassword === pendingChange.tempPassword && (
+            <p className="text-[12px] font-bold text-[#E24B4A]">
+              Choose a password different from your temporary one.
+            </p>
+          )}
+          {newPassword && confirmPassword && newPassword !== confirmPassword && (
+            <p className="text-[12px] font-bold text-[#E24B4A]">Passwords don&apos;t match.</p>
+          )}
+
+          <div className="text-center pt-1">
+            <button
+              type="button"
+              onClick={resetPendingChange}
+              className="text-[12px] font-extrabold text-mute underline hover:text-ink transition-colors cursor-pointer"
+            >
+              ← Cancel and go back
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === "login" && !pendingChange && (
         <div className="rounded-card border-3 border-ink bg-[#FFFDF7] p-4 shadow-hard-4 space-y-3">
           <div>
             <h3 className="mb-0.5 font-display text-[22px] font-extrabold text-ink">Welcome Back! 🛍️</h3>
@@ -1572,6 +1772,7 @@ export function AuthModal({
               onClick={() => {
                 setMode("otp");
                 setError(null);
+                resetPendingChange();
               }}
               className="text-[12px] font-extrabold text-mute underline hover:text-ink transition-colors cursor-pointer"
             >
@@ -1657,6 +1858,7 @@ export function AuthModal({
               onClick={() => {
                 setMode("login");
                 setError(null);
+                resetPendingChange();
               }}
               className="text-[12px] font-extrabold text-mute underline hover:text-ink transition-colors cursor-pointer"
             >
@@ -1684,6 +1886,22 @@ export function ProfileModal({
   onOpenRegistry?: () => void;
 }) {
   const { session } = useSession();
+  const { t } = useT();
+  const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    myAddressesAction()
+      .then((a) => {
+        if (alive) setAddresses(a ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const primaryAddress = addresses.find((a) => a.is_default) ?? addresses[0] ?? null;
 
   return (
     <Modal onClose={onClose}>
@@ -1722,22 +1940,29 @@ export function ProfileModal({
           </div>
         </div>
 
-        {/* Saved Delivery Address */}
+        {/* Saved Delivery Address — the customer's real saved address, not a
+            placeholder. Falls back to a genuine empty state. */}
         <div className="rounded-tile border-2.5 border-ink bg-paper p-3 shadow-hard-2">
           <div className="flex items-center justify-between">
             <div className="text-[11px] font-extrabold uppercase text-mute font-display">
               📍 Saved Delivery Address
             </div>
-            <span className="rounded-pill bg-[#FFCBD9] px-2 py-0.5 text-[10px] font-extrabold border border-ink text-ink">
-              PRIMARY
-            </span>
+            {primaryAddress && (
+              <span className="rounded-pill bg-[#FFCBD9] px-2 py-0.5 text-[10px] font-extrabold border border-ink text-ink">
+                {primaryAddress.is_default ? "PRIMARY" : "SAVED"}
+              </span>
+            )}
           </div>
-          <div className="mt-1 text-[14px] font-semibold text-ink leading-relaxed">
-            Thoothukudi, Tamil Nadu — 628001
-          </div>
-          <div className="mt-1 text-[12px] text-mute font-medium">
-            ⚡ Eligible for Express Same-Day Delivery
-          </div>
+          {primaryAddress ? (
+            <div className="mt-1 text-[14px] font-semibold text-ink leading-relaxed">
+              {primaryAddress.name ? `${primaryAddress.name}, ` : ""}
+              {primaryAddress.line}, {primaryAddress.city} — {primaryAddress.pin}
+            </div>
+          ) : (
+            <div className="mt-1 text-[13px] text-mute font-medium">
+              No saved address yet — you can add one at checkout.
+            </div>
+          )}
         </div>
 
         {/* Account Activity Summary & Perks */}
@@ -1747,11 +1972,11 @@ export function ProfileModal({
           </div>
           <div className="grid grid-cols-2 gap-2 text-[12px]">
             <div className="bg-white p-2 rounded-tile border-2 border-ink text-center">
-              <div className="font-extrabold text-brand">Free Delivery</div>
+              <div className="font-extrabold text-brand">{t("perks.freeDelivery")}</div>
               <div className="text-[10px] text-mute">Orders above ₹999</div>
             </div>
             <div className="bg-white p-2 rounded-tile border-2 border-ink text-center">
-              <div className="font-extrabold text-[#9A6BE0]">Thoothukudi Store</div>
+              <div className="font-extrabold text-[#9A6BE0]">{t("perks.storeName")}</div>
             </div>
           </div>
         </div>
@@ -1837,7 +2062,7 @@ function ChangePasswordBox() {
             placeholder="Enter new permanent password"
             value={newPass}
             onChange={(e) => setNewPass(e.target.value)}
-            className="w-full rounded-pill border-2 border-ink px-3.5 py-1.5 text-[13px] font-semibold outline-none bg-white"
+            className="w-full rounded-pill border-2 border-ink px-3.5 py-1.5 text-[13px] font-semibold outline-none bg-white focus:border-brand"
           />
           <Btn small full disabled={saving}>
             {saving ? "Saving…" : "Save New Password ✓"}
@@ -1865,7 +2090,7 @@ export function WishlistModal({
   onAddToCart: (itemId: string) => void;
   onOpenProduct: (p: Product) => void;
 }) {
-  const { lang } = useT();
+  const { t, lang } = useT();
   const wishlist = useWishlist();
 
   const savedProducts = products.filter((p) => wishlist.has(p.id));
@@ -1874,7 +2099,7 @@ export function WishlistModal({
     <Modal onClose={onClose}>
       <div className="flex items-center gap-2 mb-3.5 pr-10">
         <span className="text-[24px]">❤️</span>
-        <h3 className="font-display text-[22px] font-extrabold text-ink">My Wishlist</h3>
+        <h3 className="font-display text-[22px] font-extrabold text-ink">{t("wishlist.title")}</h3>
         <span className="rounded-pill bg-[#A0D2EB] border-2 border-ink px-2.5 py-0.5 font-display text-[12px] font-extrabold text-ink shadow-hard-1">
           {savedProducts.length} items
         </span>

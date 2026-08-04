@@ -5,15 +5,24 @@ import { useRouter } from "next/navigation";
 import type { PendingApproval } from "@/lib/types";
 import { Card, Badge } from "@/components/ui";
 import { approveActionRequestAction, rejectActionRequestAction } from "@/app/admin/actions";
+import { APPROVAL_ACTIONS } from "@/lib/approvals";
 
 export function ApprovalsTab({ pendingApprovals }: { pendingApprovals: PendingApproval[] }) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleApprove = async (id: string) => {
     setBusyId(id);
-    await approveActionRequestAction(id);
+    setError(null);
+    const res = await approveActionRequestAction(id);
     setBusyId(null);
+    if (!res.ok) {
+      // Left in the queue (see approveActionRequestAction) — surface why, or
+      // the owner has no way to tell a stuck approval from a resolved one.
+      setError(res.error ?? "Could not complete this action.");
+      return;
+    }
     router.refresh();
   };
 
@@ -47,6 +56,12 @@ export function ApprovalsTab({ pendingApprovals }: { pendingApprovals: PendingAp
         <Badge bg="#FFE1A8">Owner Verification Required</Badge>
       </div>
 
+      {error && (
+        <div className="rounded-tile border-2 border-ink bg-[#FFCBD9] p-2.5 text-[13px] font-bold text-ink">
+          ⚠️ {error}
+        </div>
+      )}
+
       <div className="grid gap-3">
         {pendingApprovals.map((req) => (
           <Card key={req.id} className="p-4 flex flex-wrap items-center justify-between gap-3">
@@ -55,7 +70,9 @@ export function ApprovalsTab({ pendingApprovals }: { pendingApprovals: PendingAp
                 <span className="font-display text-[15px] font-extrabold text-ink">
                   Requested by: {req.staff_name}
                 </span>
-                <Badge bg="#FBD0EA">{req.action_type}</Badge>
+                <Badge bg="#FBD0EA">
+                  {APPROVAL_ACTIONS[req.action_type as keyof typeof APPROVAL_ACTIONS] ?? req.action_type}
+                </Badge>
               </div>
               <p className="mt-1 font-display text-[14px] font-bold text-ink">
                 {req.description}

@@ -13,6 +13,7 @@ declare module "@/env.mjs" {
     // Server (Phase 4)
     N8N_WEBHOOK_URL?: string;
     N8N_WEBHOOK_SECRET?: string;
+    CRON_SECRET?: string;
     // Server — admin login (/admin is disabled unless all three are set)
     ADMIN_USERNAME?: string;
     ADMIN_PASSWORD_HASH?: string;
@@ -25,5 +26,6 @@ declare module "@/env.mjs" {
     NEXT_PUBLIC_RAZORPAY_KEY_ID?: string;
     NEXT_PUBLIC_GA4_MEASUREMENT_ID?: string;
     NEXT_PUBLIC_META_PIXEL_ID?: string;
+    NEXT_PUBLIC_SENTRY_DSN?: string;
   };
 }

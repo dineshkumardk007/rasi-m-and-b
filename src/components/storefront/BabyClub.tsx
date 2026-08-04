@@ -96,7 +96,7 @@ export function BabyClub({
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-[30px]">👶</span>
             <div className="min-w-0 flex-1">
-              <h2 className="font-display text-[18px] font-extrabold">{t("baby.addDob")}</h2>
+              <h2 className="font-display text-[22px] font-extrabold text-ink">{t("baby.addDob")}</h2>
               <p className="mt-0.5 text-[13px] text-mute">{t("baby.dobHelp")}</p>
             </div>
             {!editing && (
@@ -124,7 +124,7 @@ export function BabyClub({
                   value={draft}
                   max={new Date().toISOString().slice(0, 10)}
                   onChange={(e) => setDraft(e.target.value)}
-                  className="mt-1 w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2.5 font-body text-[15px] outline-none"
+                  className="mt-1 w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2.5 font-body text-[15px] outline-none focus:border-brand"
                 />
               </label>
               <Btn small disabled={saving || !draft} onClick={() => save(draft)}>
@@ -201,7 +201,7 @@ export function BabyClub({
                 value={draft}
                 max={new Date().toISOString().slice(0, 10)}
                 onChange={(e) => setDraft(e.target.value)}
-                className="mt-1 w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2.5 font-body text-[15px] outline-none"
+                className="mt-1 w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2.5 font-body text-[15px] outline-none focus:border-brand"
               />
             </label>
             <Btn small disabled={saving || !draft} onClick={() => save(draft)}>
@@ -222,43 +222,44 @@ export function BabyClub({
       {!milestone && <p className="text-[14px] text-mute">{t("baby.graduated")}</p>}
 
       {picks.length > 0 && (
-        <>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {picks.map((p) => (
-              <Card
-                key={p.id}
-                className={`pop glow-card w-40 shrink-0 p-2.5 ${
-                  openProduct ? "cursor-pointer group hover:border-brand" : ""
-                }`}
-                style={glowStyle(p.tile_color)}
-                onClick={() => openProduct?.(p)}
-              >
-                <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} />
-                <div className="mt-2 text-[12px] font-bold leading-[1.2] group-hover:text-brand transition-colors">
-                  {lang === "ta" ? p.name_ta : p.name_en}
-                </div>
-                <div className="mt-1 font-display font-extrabold text-brand">{inr(p.price)}</div>
-                <div className="mt-2" onClick={(e) => openProduct && e.stopPropagation()}>
-                  <Btn small full onClick={() => addToCart(p.id)}>
-                    {t("buyAgain.add")}
-                  </Btn>
-                </div>
-              </Card>
-            ))}
-          </div>
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {picks.map((p) => (
+            <Card
+              key={p.id}
+              className={`pop glow-card w-40 shrink-0 p-2.5 ${
+                openProduct ? "cursor-pointer group hover:border-brand" : ""
+              }`}
+              style={glowStyle(p.tile_color)}
+              onClick={() => openProduct?.(p)}
+            >
+              <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} />
+              <div className="mt-2 text-[12px] font-bold leading-[1.2] group-hover:text-brand transition-colors">
+                {lang === "ta" ? p.name_ta : p.name_en}
+              </div>
+              <div className="mt-1 font-display font-extrabold text-brand">{inr(p.price)}</div>
+              <div className="mt-2" onClick={(e) => openProduct && e.stopPropagation()}>
+                <Btn small full onClick={() => addToCart(p.id)}>
+                  {t("buyAgain.add")}
+                </Btn>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
-          {upcoming && (
-            <p className="mt-1 text-[13px] text-mute">
-              {t("baby.nextStage", { months: upcoming.inMonths })}{" "}
-              <span className="font-bold text-ink">
-                {MILESTONE_META[upcoming.milestone].emoji}{" "}
-                {lang === "ta"
-                  ? MILESTONE_META[upcoming.milestone].shortTa
-                  : MILESTONE_META[upcoming.milestone].shortEn}
-              </span>
-            </p>
-          )}
-        </>
+      {upcoming && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-tile border-2 border-ink/20 bg-[#FFF5E6] px-4 py-3 shadow-[2px_2px_0px_#2B2140]">
+          <span className="text-[18px]">✨</span>
+          <div className="flex-1 text-[14px] sm:text-[15px] font-bold text-ink leading-snug">
+            {t("baby.nextStage", { months: upcoming.inMonths })}{" "}
+            <span className="inline-flex items-center gap-1.5 rounded-pill bg-[#FFE1A8] px-3 py-1 text-[13px] sm:text-[14px] font-extrabold text-ink border border-ink/30 ml-1.5">
+              {MILESTONE_META[upcoming.milestone].emoji}{" "}
+              {lang === "ta"
+                ? MILESTONE_META[upcoming.milestone].shortTa
+                : MILESTONE_META[upcoming.milestone].shortEn}
+            </span>
+          </div>
+        </div>
       )}
     </div>
   );

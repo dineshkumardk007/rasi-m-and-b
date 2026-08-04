@@ -107,3 +107,81 @@ export function trackSearch(query: string) {
   meta("Search", { search_string: query });
   ga("search", { search_term: query });
 }
+
+export interface ServerConversionPayload {
+  eventName: "Purchase" | "AddToCart" | "InitiateCheckout";
+  orderNo?: string;
+  value: number;
+  currency?: string;
+  items?: Trackable[];
+  phone?: string;
+}
+
+export async function dispatchServerConversionEvent(
+  payload: ServerConversionPayload,
+): Promise<void> {
+  const pixelId = process.env.META_PIXEL_ID || process.env.NEXT_PUBLIC_META_PIXEL_ID;
+  const metaToken = process.env.META_CAPI_ACCESS_TOKEN;
+  const gaId = process.env.GA4_MEASUREMENT_ID || process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID;
+  const gaSecret = process.env.GA4_API_SECRET;
+
+  const currency = payload.currency || CURRENCY;
+
+  // Meta Conversions API (CAPI)
+  if (pixelId && metaToken) {
+    try {
+      await fetch(`https://graph.facebook.com/v19.0/${pixelId}/events`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          data: [
+            {
+              event_name: payload.eventName,
+              event_time: Math.floor(Date.now() / 1000),
+              action_source: "website",
+              user_data: payload.phone
+                ? { ph: [payload.phone.replace(/\D/g, "").slice(-10)] }
+                : {},
+              custom_data: {
+                currency,
+                value: payload.value,
+                order_id: payload.orderNo,
+              },
+            },
+          ],
+          access_token: metaToken,
+        }),
+      });
+    } catch (e) {
+      console.error("[CAPI] Meta dispatch error:", e);
+    }
+  }
+
+  // GA4 Measurement Protocol
+  if (gaId && gaSecret) {
+    try {
+      await fetch(
+        `https://www.google-analytics.com/mp/collect?measurement_id=${gaId}&api_secret=${gaSecret}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            client_id: payload.orderNo || "server_event",
+            events: [
+              {
+                name: payload.eventName.toLowerCase(),
+                params: {
+                  currency,
+                  value: payload.value,
+                  transaction_id: payload.orderNo,
+                },
+              },
+            ],
+          }),
+        },
+      );
+    } catch (e) {
+      console.error("[CAPI] GA4 dispatch error:", e);
+    }
+  }
+}

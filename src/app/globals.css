@@ -30,15 +30,64 @@
     @apply font-tamil;
   }
 
-  /* WCAG: visible focus everywhere, sticker-styled */
+  /* WCAG: visible focus everywhere, Neo-Brutalist sticker-styled */
   :focus-visible {
-    outline: 3px solid var(--pink);
-    outline-offset: 2px;
-    border-radius: 4px;
+    outline: 3px solid #2b2140 !important;
+    outline-offset: 3px !important;
+    box-shadow: 0 0 0 3px #ffe1a8 !important;
+    border-radius: 6px;
+  }
+
+  .btn-press:focus-visible,
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 3px solid #2b2140 !important;
+    outline-offset: 3px !important;
+    box-shadow: 0 0 0 3px #ffe1a8 !important;
   }
 }
 
 @layer components {
+
+  /* ── Hover-Triggered Rainbow Border Animation ── */
+  @keyframes rainbowShift {
+    0% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
+
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  .rainbow-border-hover {
+    border: 2.5px solid #2b2140;
+    border-radius: 1rem;
+    background-color: #ffffff;
+    box-shadow: 2.5px 2.5px 0px #2B2140;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .rainbow-border-hover:hover {
+    border-color: transparent !important;
+    background-image: linear-gradient(#ffffff, #ffffff), linear-gradient(90deg, #EC5D8A, #F59E0B, #7CB342, #3B9EDB, #9A6BE0, #EC5D8A) !important;
+    background-origin: border-box !important;
+    background-clip: padding-box, border-box !important;
+    background-size: 100% 100%, 300% 300% !important;
+    animation: rainbowShift 3s linear infinite !important;
+    box-shadow: none !important;
+    transform: scale(1.02);
+  }
+
+  .rainbow-border-hover:active {
+    transform: scale(0.96);
+  }
 
   /* Hover lift for cards & tiles — the ".pop" utility from the spec */
   .pop {
@@ -152,6 +201,47 @@
   .animate-modal {
     animation: modalSlideUp 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
+
+  /* ── Children's Crayon Art & Unorganized Neo-Brutalist Background Animations ── */
+  @keyframes crayonWiggle {
+
+    0%,
+    100% {
+      transform: rotate(0deg) translateY(0px);
+    }
+
+    25% {
+      transform: rotate(-3deg) translateY(-4px);
+    }
+
+    50% {
+      transform: rotate(2deg) translateY(-2px);
+    }
+
+    75% {
+      transform: rotate(-1deg) translateY(-6px);
+    }
+  }
+
+  @keyframes crayonFloat {
+
+    0%,
+    100% {
+      transform: translateY(0px) rotate(var(--rot, 0deg));
+    }
+
+    50% {
+      transform: translateY(-14px) rotate(calc(var(--rot, 0deg) + 3deg));
+    }
+  }
+
+  .animate-crayon-wiggle {
+    animation: crayonWiggle 7s ease-in-out infinite;
+  }
+
+  .animate-crayon-float {
+    animation: crayonFloat 9s ease-in-out infinite;
+  }
 }
 
 @layer utilities {
@@ -246,5 +336,29 @@
 
   .pop:hover {
     transform: none;
+  }
+}
+
+/* Print Stylesheet — Clean Invoice Physical Paper Output */
+@media print {
+  nav, header, footer, button, .no-print, [role="dialog"] > div:first-child {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .printable-invoice {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: 1px solid #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
   }
 }

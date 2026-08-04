@@ -81,12 +81,45 @@ const en = {
   "shop.soldOut": "Sold out",
   "shop.empty": "No products match these filters",
   "shop.clearAll": "Clear all filters",
+  "shop.sortLabel": "Sort:",
+  "shop.sortDefault": "Featured",
+  "shop.sortPriceAsc": "Price: Low to High",
+  "shop.sortPriceDesc": "Price: High to Low",
+  "shop.sortNewest": "Newest First",
+  "shop.showingCount": "Showing {shown} of {total}",
+  "shop.loadMore": "Load more",
+  "shop.viewAll": "View all",
+  "shop.shopNow": "Shop Now",
+  "shop.exploreBundles": "Explore Bundles",
+  "shop.outOfStockBadge": "Out of Stock",
+  "shop.inStockBadge": "In Stock",
+
+  // Accessibility labels
+  "a11y.scrollLeft": "Scroll Left",
+  "a11y.scrollRight": "Scroll Right",
+  "a11y.prevProducts": "Previous products",
+  "a11y.nextProducts": "Next products",
+
+  // Search
+  "search.liveResults": "Instant Live Results",
+  "search.clickPreview": "Click item for preview",
+
+  // Nav
+  "nav.profile": "Profile",
+  "nav.cart": "Cart",
+
+  // Perks (profile modal)
+  "perks.freeDelivery": "Free Delivery",
+  "perks.storeName": "Thoothukudi Store",
+
+  // Wishlist
+  "wishlist.title": "My Wishlist",
 
   // Trust
   "trust.title": "The store you already trust",
   "trust.sub": "The same shelves and the same people from Palayamkottai Road, now on your phone.",
   "trust.hours": "Opens 9 AM daily",
-  "trust.reviews": "Google reviews",
+  "trust.reviews": "customer reviews",
   "trust.quote": "Huge toy collection at reasonable prices — the staff patiently helped us choose.",
 
   // Product detail
@@ -97,6 +130,7 @@ const en = {
   "product.reviewPending": "Thanks! Your review appears after a quick check. 💛",
   "product.yourName": "Your name",
   "product.ingredients": "Ingredients",
+  "product.chooseOption": "Choose an option",
   "product.checkPin": "Delivery at your PIN",
   "product.pinPlaceholder": "PIN code e.g. 628001",
   "product.pinCheck": "Check",
@@ -149,8 +183,14 @@ const en = {
   "checkout.sameDayYes": "🚚 Arrives today — you beat the 4 PM cutoff!",
   "checkout.sameDayNo": "🚚 Arrives tomorrow morning.",
   "checkout.outOfStock": "Some items just sold out — please review your cart.",
+  "checkout.serverError": "Order processing failed. Please try again or contact support.",
+  "checkout.tooManyAttempts": "Too many attempts just now — please wait a moment and try again.",
   "checkout.signInRequired": "Please sign in or create an account to proceed to checkout 🎈",
   "checkout.unserviceablePin": "Delivery is currently unavailable for PIN {pin}. We deliver to Thoothukudi & select regions.",
+  "checkout.paymentFailed": "Payment processing failed. Please try another card or UPI option.",
+  "checkout.variantOutOfStock": "The selected option ({variant}) is currently out of stock.",
+  "checkout.generalError": "An unexpected error occurred. Please refresh and try again.",
+  "checkout.amountToPay": "Amount to Pay",
 
   // Order done
   "orderDone.title": "Order confirmed!",
@@ -324,11 +364,39 @@ const ta: Record<TranslationKey, string> = {
   "shop.soldOut": "விற்றுத் தீர்ந்தது",
   "shop.empty": "பொருட்கள் இல்லை",
   "shop.clearAll": "அனைத்தையும் அழி",
+  "shop.sortLabel": "வரிசைப்படுத்து:",
+  "shop.sortDefault": "சிறப்பு",
+  "shop.sortPriceAsc": "விலை: குறைவு முதல் அதிகம்",
+  "shop.sortPriceDesc": "விலை: அதிகம் முதல் குறைவு",
+  "shop.sortNewest": "புதியவை முதலில்",
+  "shop.showingCount": "{total}-இல் {shown} காட்டப்படுகிறது",
+  "shop.loadMore": "மேலும் காட்டு",
+  "shop.viewAll": "அனைத்தையும் காண்க",
+  "shop.shopNow": "இப்போது வாங்குங்கள்",
+  "shop.exploreBundles": "தொகுப்புகளை காண்க",
+  "shop.outOfStockBadge": "கையிருப்பில் இல்லை",
+  "shop.inStockBadge": "கையிருப்பில் உள்ளது",
+
+  "a11y.scrollLeft": "இடதுபுறம் உருட்டு",
+  "a11y.scrollRight": "வலதுபுறம் உருட்டு",
+  "a11y.prevProducts": "முந்தைய பொருட்கள்",
+  "a11y.nextProducts": "அடுத்த பொருட்கள்",
+
+  "search.liveResults": "உடனடி நேரடி முடிவுகள்",
+  "search.clickPreview": "முன்னோட்டத்திற்கு கிளிக் செய்யவும்",
+
+  "nav.profile": "சுயவிவரம்",
+  "nav.cart": "கூடை",
+
+  "perks.freeDelivery": "இலவச டெலிவரி",
+  "perks.storeName": "தூத்துக்குடி கடை",
+
+  "wishlist.title": "எனது விருப்பப்பட்டியல்",
 
   "trust.title": "நீங்கள் நம்பும் கடை",
   "trust.sub": "பழையம்கோட்டை சாலையின் அதே கடை, அதே அன்பான ஊழியர்கள் — இப்போது உங்கள் மொபைலில்.",
   "trust.hours": "தினமும் காலை 9 மணி",
-  "trust.reviews": "கூகுள் மதிப்பாய்வு",
+  "trust.reviews": "வாடிக்கையாளர் மதிப்பாய்வு",
   "trust.quote": "நியாயமான விலையில் பெரிய பொம்மை சேகரிப்பு — ஊழியர்கள் பொறுமையாக உதவினார்கள்.",
 
   "product.reviews": "மதிப்பாய்வு",
@@ -338,6 +406,7 @@ const ta: Record<TranslationKey, string> = {
   "product.reviewPending": "நன்றி! சரிபார்ப்புக்குப் பிறகு உங்கள் மதிப்பாய்வு வெளியாகும். 💛",
   "product.yourName": "உங்கள் பெயர்",
   "product.ingredients": "மூலப்பொருட்கள்",
+  "product.chooseOption": "விருப்பத்தைத் தேர்ந்தெடுக்கவும்",
   "product.checkPin": "உங்கள் PIN-இல் டெலிவரி",
   "product.pinPlaceholder": "PIN எ.கா. 628001",
   "product.pinCheck": "சரிபார்",
@@ -388,8 +457,14 @@ const ta: Record<TranslationKey, string> = {
   "checkout.sameDayYes": "🚚 இன்றே வந்துவிடும் — 4 மணிக்கு முன் ஆர்டர் செய்தீர்கள்!",
   "checkout.sameDayNo": "🚚 நாளை காலை வந்துவிடும்.",
   "checkout.outOfStock": "சில பொருட்கள் விற்றுத் தீர்ந்தன — கூடையை சரிபார்க்கவும்.",
+  "checkout.serverError": "ஆர்டர் செயலாக்கத்தில் பிழை ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.",
+  "checkout.tooManyAttempts": "சற்று அதிக முயற்சிகள் — சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும்.",
   "checkout.signInRequired": "செக் அவுட் செய்ய கணக்கில் உள்நுழையவும் 🎈",
   "checkout.unserviceablePin": "PIN {pin}-க்கு தற்போது டெலிவரி வசதி இல்லை. தூத்துக்குடி மற்றும் குறிப்பிட்ட பகுதிகளுக்கு மட்டுமே டெலிவரி செய்யப்படுகிறது.",
+  "checkout.paymentFailed": "பரிவர்த்தனைத் தோல்வியடைந்தது. வேறு கார்டு அல்லது UPI மூலம் முயற்சிக்கவும்.",
+  "checkout.variantOutOfStock": "தேர்ந்தெடுக்கப்பட்ட விருப்பம் ({variant}) தற்போது கையிருப்பில் இல்லை.",
+  "checkout.generalError": "எதிர்பாராத பிழை ஏற்பட்டது. பக்கத்தைப் புதுப்பித்து மீண்டும் முயற்சிக்கவும்.",
+  "checkout.amountToPay": "செலுத்த வேண்டிய தொகை",
 
   "orderDone.title": "ஆர்டர் உறுதி!",
   "orderDone.order": "ஆர்டர்",

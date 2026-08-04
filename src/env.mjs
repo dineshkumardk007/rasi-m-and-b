@@ -25,6 +25,12 @@ const serverSchema = z.object({
   N8N_WEBHOOK_URL: z.string().url().optional(),
   N8N_WEBHOOK_SECRET: z.string().optional(),
 
+  // Authenticates Vercel's cron dispatcher against /api/cron/*. Set this in
+  // the Vercel project env — Vercel then sends it as `Authorization: Bearer
+  // $CRON_SECRET` automatically. Optional here so a keyless demo still boots;
+  // the route itself fails closed (401) when it's unset.
+  CRON_SECRET: z.string().optional(),
+
   // ---- Admin login: optional here so a keyless demo still boots, but /admin
   // refuses every login unless all three are present (see lib/admin-session).
   ADMIN_USERNAME: z.string().optional(),
@@ -48,6 +54,10 @@ const clientSchema = z.object({
   NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string().optional(),
   NEXT_PUBLIC_GA4_MEASUREMENT_ID: z.string().optional(),
   NEXT_PUBLIC_META_PIXEL_ID: z.string().optional(),
+
+  // Error tracking. A DSN is not a secret (it's designed to ship in the
+  // client bundle), so one var covers client, server and edge init.
+  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
 });
 
 const isServer = typeof window === "undefined";
@@ -72,6 +82,7 @@ if (!skip) {
         NEXT_PUBLIC_RAZORPAY_KEY_ID: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         NEXT_PUBLIC_GA4_MEASUREMENT_ID: process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID,
         NEXT_PUBLIC_META_PIXEL_ID: process.env.NEXT_PUBLIC_META_PIXEL_ID,
+        NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
       });
 
   if (!parsed.success) {

@@ -1,4 +1,5 @@
 import { getActiveProducts } from "@/lib/data/catalog";
+import { siteUrl } from "@/lib/constants";
 
 /**
  * Google Merchant Center product feed (RSS 2.0 / g: namespace).
@@ -12,7 +13,7 @@ const escapeXml = (s: string) =>
   );
 
 export async function GET() {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const base = siteUrl();
   const products = await getActiveProducts();
   const items = products
     .map(
@@ -26,6 +27,10 @@ export async function GET() {
     <g:price>${p.price}.00 INR</g:price>
     <g:brand>${escapeXml(p.brand || "Rasi Mom & Baby")}</g:brand>
     <g:condition>new</g:condition>
+    <!-- No gtin/mpn: catalog has no manufacturer identifiers, so declare that
+         explicitly rather than omitting them (which Merchant Center flags
+         as a missing-identifier disapproval instead of an intentional gap). -->
+    <g:identifier_exists>false</g:identifier_exists>
   </item>`,
     )
     .join("\n");

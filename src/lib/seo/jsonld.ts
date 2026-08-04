@@ -1,4 +1,5 @@
 import { BUSINESS, siteUrl } from "@/lib/constants";
+import type { Review } from "@/lib/types";
 
 /**
  * Structured data for the shop itself.
@@ -15,7 +16,26 @@ import { BUSINESS, siteUrl } from "@/lib/constants";
 /** Stable node id so the Store and WebSite graphs can reference each other. */
 const storeId = () => `${siteUrl()}/#store`;
 
-export function storeJsonLd() {
+/** Real store-wide rating/count from approved reviews, for storeJsonLd() and
+ * any UI that shows the same number — undefined when there's nothing to
+ * average yet, so callers can fall back to BUSINESS.rating/reviewCount. */
+export function computeReviewAggregate(
+  reviews: Review[],
+): { rating: number; reviewCount: number } | undefined {
+  if (reviews.length === 0) return undefined;
+  return {
+    rating: Number((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)),
+    reviewCount: reviews.length,
+  };
+}
+
+/**
+ * @param aggregate Real rating/count computed from approved reviews at the call
+ * site (see getApprovedReviews() callers). Falls back to BUSINESS.rating/
+ * reviewCount only when there are no reviews yet — never asserting a number
+ * nobody can back up, same rule as the rest of this file.
+ */
+export function storeJsonLd(aggregate?: { rating: number; reviewCount: number }) {
   const base = siteUrl();
 
   return {
@@ -42,8 +62,8 @@ export function storeJsonLd() {
     paymentAccepted: "Cash, UPI, Credit Card, Debit Card, Net Banking",
     aggregateRating: {
       "@type": "AggregateRating",
-      ratingValue: BUSINESS.rating,
-      reviewCount: BUSINESS.reviewCount,
+      ratingValue: aggregate?.rating ?? BUSINESS.rating,
+      reviewCount: aggregate?.reviewCount ?? BUSINESS.reviewCount,
     },
     // `telephone` is the field Google leans on hardest for a local business, so
     // it goes in the moment the owner supplies one — and stays out until then.
@@ -105,5 +125,19 @@ export function webSiteJsonLd() {
       },
       "query-input": "required name=search_term_string",
     },
+  };
+}
+
+export function breadcrumbJsonLd(items: { name: string; item?: string }[]) {
+  const base = siteUrl();
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((it, idx) => ({
+      "@type": "ListItem",
+      position: idx + 1,
+      name: it.name,
+      ...(it.item ? { item: it.item.startsWith("http") ? it.item : `${base}${it.item}` } : {}),
+    })),
   };
 }

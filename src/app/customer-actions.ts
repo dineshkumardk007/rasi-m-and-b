@@ -1,5 +1,7 @@
 "use server";
 
+import * as Sentry from "@sentry/nextjs";
+import { logQueryError } from "@/lib/log-query-error";
 import { demoDB } from "@/lib/data/demo-store";
 import { isDemo } from "@/lib/data/mode";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -358,6 +360,11 @@ export async function saveCustomerAddressAction(
         is_default: address.is_default,
       })
       .eq("id", address.id)
+      // Scope to the signed-in customer so a guessed/leaked address id can't be
+      // used to overwrite another family's saved name/phone/delivery address.
+      // (customer_addresses has RLS enabled but no policies, and this uses the
+      // service-role client, so this filter is the only ownership check.)
+      .eq("customer_id", customerId)
       .select()
       .single();
     if (error) return { ok: false, error: "Failed to update address." };
@@ -416,12 +423,21 @@ export async function updateMyPasswordAction(newPassword: string): Promise<{ ok:
     const customer = demoDB().customers.find(
       (c) => c.phone === digits || c.email?.toLowerCase() === me.sub.toLowerCase(),
     );
-    if (customer) (customer as any).password = hashed;
+    if (customer) {
+      (customer as any).password = hashed;
+      customer.must_change_password = false;
+    }
   } else {
     const customerId = await findMyCustomerId(me.sub);
-    if (customerId) {
-      const supabase = createAdminClient();
-      await supabase.from("customers").update({ password_hash: hashed }).eq("id", customerId);
+    if (!customerId) return { ok: false, error: "Could not find your account" };
+    const supabase = createAdminClient();
+    const { error } = await supabase
+      .from("customers")
+      .update({ password: hashed, must_change_password: false })
+      .eq("id", customerId);
+    if (error) {
+      console.error("updateMyPasswordAction: customer password update failed:", error);
+      return { ok: false, error: "Failed to save password" };
     }
   }
 
@@ -474,19 +490,12 @@ export async function createBabyRegistryAction(
   });
 
   if (error) {
-    console.warn("Supabase registry insert fallback to demoDB:", error);
-    const reg: BabyRegistry = {
-      id: `reg-${Date.now()}`,
-      customer_id: customerId,
-      title: title.trim(),
-      parent_name: parentName.trim() || me.name,
-      baby_name_or_title: babyNameOrTitle.trim() || "Baby",
-      event_date: eventDate,
-      slug,
-      items,
-      created_at: new Date().toISOString(),
-    };
-    demoDB().registries.unshift(reg);
+    // A demoDB() fallback here means "the app said success" while the
+    // registry was never actually saved anywhere durable — it's gone the
+    // moment this server instance recycles, with the customer none the wiser.
+    console.error("Registry insert failed:", error);
+    Sentry.captureException(error, { tags: { area: "customer_registry" } });
+    return { ok: false, error: "Could not save your registry. Please try again." };
   }
 
   return { ok: true, slug };
@@ -504,7 +513,11 @@ export async function myRegistriesAction(): Promise<BabyRegistry[]> {
   if (!customerId) return [];
 
   const supabase = createAdminClient();
-  const { data } = await supabase.from("registries").select("*").eq("customer_id", customerId);
+  const { data, error } = await supabase.from("registries").select("*").eq("customer_id", customerId);
+  if (error) {
+    console.error("myRegistriesAction query failed:", error);
+    Sentry.captureException(error, { tags: { area: "customer_registry_read" } });
+  }
   return (data ?? demoDB().registries.filter((r) => r.customer_id === customerId)) as BabyRegistry[];
 }
 
@@ -513,8 +526,62 @@ export async function getBabyRegistryBySlugAction(slug: string): Promise<BabyReg
     return demoDB().registries.find((r) => r.slug === slug) ?? null;
   }
   const supabase = createAdminClient();
-  const { data } = await supabase.from("registries").select("*").eq("slug", slug).maybeSingle();
+  const { data, error } = await supabase.from("registries").select("*").eq("slug", slug).maybeSingle();
+  if (error) {
+    console.error("getBabyRegistryBySlugAction query failed:", error);
+    Sentry.captureException(error, { tags: { area: "customer_registry_read" } });
+  }
   return (data ?? demoDB().registries.find((r) => r.slug === slug)) as BabyRegistry | null;
+}
+
+/**
+ * Marks a registry item as gifted. purchased_qty was set to 0 at creation and
+ * never incremented anywhere — the "1-click gift" flow added the product to
+ * the gift-giver's cart but never told the registry itself, so the fulfilled
+ * badge/progress bar never moved and a second gift-giver had no way to see an
+ * item was already covered. No sign-in required: gift-givers are anonymous by
+ * design (that's the whole point of a shareable registry link).
+ *
+ * Counted at "added to cart" time, not at completed order — the registry has
+ * no login and nothing links a later checkout back to it, so this is the
+ * earliest (and only) point in the guest flow where intent to gift is known.
+ */
+export async function giftRegistryItemAction(
+  slug: string,
+  productId: string,
+  qty: number = 1,
+): Promise<{ ok: boolean; error?: string }> {
+  if (isDemo()) {
+    const registry = demoDB().registries.find((r) => r.slug === slug);
+    const item = registry?.items.find((i) => i.product_id === productId);
+    if (!item) return { ok: false, error: "Registry item not found" };
+    item.purchased_qty += qty;
+    return { ok: true };
+  }
+
+  const supabase = createAdminClient();
+  const { data: registry, error: fetchErr } = await supabase
+    .from("registries")
+    .select("id, items")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (fetchErr || !registry) {
+    logQueryError("customer_registry", "giftRegistryItemAction:fetch", fetchErr);
+    return { ok: false, error: "Registry not found" };
+  }
+
+  const items = (registry.items as RegistryItem[]) ?? [];
+  const idx = items.findIndex((i) => i.product_id === productId);
+  const found = items[idx];
+  if (idx === -1 || !found) return { ok: false, error: "Registry item not found" };
+  items[idx] = { ...found, purchased_qty: found.purchased_qty + qty };
+
+  const { error: updateErr } = await supabase.from("registries").update({ items }).eq("id", registry.id);
+  if (updateErr) {
+    logQueryError("customer_registry", "giftRegistryItemAction:update", updateErr);
+    return { ok: false, error: "Could not update the registry. Please try again." };
+  }
+  return { ok: true };
 }
 
 /* ── Subscribe & Save Actions ────────────────────────────────────────────── */
@@ -563,19 +630,12 @@ export async function createSubscriptionAction(
   });
 
   if (error) {
-    console.warn("Supabase subscription fallback to demoDB:", error);
-    demoDB().subscriptions.unshift({
-      id: `sub-${Date.now()}`,
-      customer_id: customerId,
-      product_id: productId,
-      variant_id: variantId,
-      qty,
-      frequency_days: frequencyDays,
-      status: "active",
-      discount_percent: 10,
-      next_delivery_date: nextDate,
-      created_at: new Date().toISOString(),
-    });
+    // A demoDB() fallback here means "the app said success" while the
+    // subscription was never actually saved anywhere durable — it silently
+    // never delivers, and the customer has no idea it didn't take.
+    console.error("Subscription insert failed:", error);
+    Sentry.captureException(error, { tags: { area: "customer_subscription" } });
+    return { ok: false, error: "Could not set up your subscription. Please try again." };
   }
 
   return { ok: true };
@@ -593,6 +653,10 @@ export async function mySubscriptionsAction(): Promise<Subscription[]> {
   if (!customerId) return [];
 
   const supabase = createAdminClient();
-  const { data } = await supabase.from("subscriptions").select("*").eq("customer_id", customerId);
+  const { data, error } = await supabase.from("subscriptions").select("*").eq("customer_id", customerId);
+  if (error) {
+    console.error("mySubscriptionsAction query failed:", error);
+    Sentry.captureException(error, { tags: { area: "customer_subscription_read" } });
+  }
   return (data ?? demoDB().subscriptions.filter((s) => s.customer_id === customerId)) as Subscription[];
 }

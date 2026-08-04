@@ -99,12 +99,20 @@ export async function verifyAdminCredentials(
     return { ok: true, id: acc.id, username: acc.username, role: acc.role };
   }
 
+  // Two separate queries rather than a single .or(`username.ilike.${cleanUser},...`):
+  // that would interpolate untrusted input directly into a PostgREST filter
+  // string, where commas/periods/wildcards are syntax, not data.
   const supabase = createAdminClient();
-  const { data: acc } = await supabase
+  const { data: byUsername } = await supabase
     .from("staff_accounts")
     .select("*")
-    .or(`username.ilike.${cleanUser},phone.eq.${cleanUser}`)
+    .ilike("username", cleanUser)
     .maybeSingle();
+  const acc =
+    byUsername ??
+    (
+      await supabase.from("staff_accounts").select("*").eq("phone", cleanUser).maybeSingle()
+    ).data;
 
   if (!acc) return { ok: false, reason: "bad_credentials" };
   if (acc.status === "disabled") return { ok: false, reason: "disabled" };

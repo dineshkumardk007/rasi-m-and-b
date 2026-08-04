@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { drainPendingEvents } from "@/lib/data/events";
+import { env } from "@/env.mjs";
 
 /**
  * Retry queue drain: re-sends events that never reached n8n (order creation
@@ -14,12 +15,14 @@ import { drainPendingEvents } from "@/lib/data/events";
  * via after(), so the drain only matters when n8n was actually unreachable.
  */
 export async function GET(request: Request) {
-  const secret = process.env.N8N_WEBHOOK_SECRET;
-  if (secret) {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`)
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  // Fails closed: without CRON_SECRET set, there's no way to distinguish
+  // Vercel's dispatcher from a public caller, so the route refuses everyone
+  // rather than running unauthenticated. Set CRON_SECRET in the Vercel
+  // project env — Vercel then sends it as this Authorization header itself.
+  const secret = env.CRON_SECRET;
+  const auth = request.headers.get("authorization");
+  if (!secret || auth !== `Bearer ${secret}`)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const drained = await drainPendingEvents();
   return NextResponse.json({ drained });
 }

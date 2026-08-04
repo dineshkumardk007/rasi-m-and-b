@@ -63,7 +63,7 @@ export function Ribbon({ settings }: { settings: StoreSettings }) {
   const bg = settings.announcement_bg || "#2B2140";
   const color = settings.announcement_color || "#FFE1A8";
 
-  const displayText = customText
+  const displayText = (isAnnouncementActive && customText)
     ? settings.same_day_enabled
       ? `${customText}  ·  ⚡ ${countdownLabel}`
       : customText

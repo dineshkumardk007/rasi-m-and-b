@@ -58,26 +58,18 @@ function ImagePicker({
         setBusy(false);
         return;
       }
+      // The upload was rejected (too large, wrong type, or storage not
+      // configured). Surface the reason and STOP. The old code fell through to
+      // storing the raw file as a base64 data URL, which silently bypassed the
+      // 5 MB / MIME-type validation and the image pipeline, dropping an
+      // arbitrarily large, un-optimised blob straight into the banner/brand row.
+      setError(res.error || "Image upload failed. Please try a smaller JP/PNG/WebP.");
+      setBusy(false);
     } catch (e) {
-      console.warn("Server image upload failed, falling back to local file reader:", e);
+      console.error("Merch image upload failed:", e);
+      setError("Image upload failed. Please try again.");
+      setBusy(false);
     }
-
-    // Resilient fallback: read file as base64 Data URL so image uploading ALWAYS works!
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      if (dataUrl) {
-        onChange(dataUrl);
-      } else {
-        setError("Could not read image file.");
-      }
-      setBusy(false);
-    };
-    reader.onerror = () => {
-      setError("Could not read image file.");
-      setBusy(false);
-    };
-    reader.readAsDataURL(file);
   };
 
   return (
@@ -132,13 +124,19 @@ export function BannersTab({ banners }: { banners: Banner[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Banner | "new" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Banner | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const hero = banners.filter((b) => b.slot === "hero");
   const mid = banners.filter((b) => b.slot === "mid");
 
   const remove = async (banner: Banner) => {
-    await deleteBannerAction(banner.id);
+    setDeleteError(null);
+    const res = await deleteBannerAction(banner.id);
     setConfirmDelete(null);
+    if (!res.ok) {
+      setDeleteError(res.error ?? "Failed to delete banner. Please try again.");
+      return;
+    }
     router.refresh();
   };
 
@@ -184,6 +182,11 @@ export function BannersTab({ banners }: { banners: Banner[] }) {
 
   return (
     <div>
+      {deleteError && (
+        <div className="mb-4 rounded-tile border-2 border-ink bg-[#FFCBD9] p-2.5 text-[13px] font-bold text-ink">
+          ⚠️ {deleteError}
+        </div>
+      )}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Btn onClick={() => setEditing("new")}>➕ Add banner</Btn>
         <p className="text-[12px] text-mute">
@@ -402,15 +405,26 @@ export function BrandsTab({ brands }: { brands: Brand[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Brand | "new" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Brand | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const remove = async (brand: Brand) => {
-    await deleteBrandAction(brand.id);
+    setDeleteError(null);
+    const res = await deleteBrandAction(brand.id);
     setConfirmDelete(null);
+    if (!res.ok) {
+      setDeleteError(res.error ?? "Failed to delete brand. Please try again.");
+      return;
+    }
     router.refresh();
   };
 
   return (
     <div>
+      {deleteError && (
+        <div className="mb-4 rounded-tile border-2 border-ink bg-[#FFCBD9] p-2.5 text-[13px] font-bold text-ink">
+          ⚠️ {deleteError}
+        </div>
+      )}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Btn onClick={() => setEditing("new")}>➕ Add brand</Btn>
         <p className="text-[12px] text-mute">

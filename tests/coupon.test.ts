@@ -92,4 +92,19 @@ describe("coupon evaluation", () => {
     );
     expect(res).toMatchObject({ ok: false, reason: "expired" });
   });
+
+  it("never discounts more than the cart is worth (flat coupon > subtotal)", () => {
+    const res = evaluateCoupon(
+      coupon({ type: "flat", value: 900, min_order: 0 }),
+      500,
+    );
+    // Without the clamp this would be a 900 discount on a 500 cart → negative total.
+    expect(res).toMatchObject({ ok: true, discount: 500 });
+  });
+
+  it("clamps a percent coupon so the discount can never exceed the subtotal", () => {
+    // A mistakenly-large percent value must not drive the discount past the cart.
+    const res = evaluateCoupon(coupon({ type: "percent", value: 100 }), 750);
+    expect(res).toMatchObject({ ok: true, discount: 750 });
+  });
 });

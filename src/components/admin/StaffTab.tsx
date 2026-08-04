@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { StaffAccount, StaffRole } from "@/lib/types";
+import type { StaffAccountPublic, StaffRole } from "@/lib/types";
 import { Card, Btn, Badge } from "@/components/ui";
 import {
   createStaffAccountAction,
@@ -10,7 +10,7 @@ import {
   toggleStaffStatusAction,
 } from "@/app/admin/actions";
 
-export function StaffTab({ staffAccounts }: { staffAccounts: StaffAccount[] }) {
+export function StaffTab({ staffAccounts }: { staffAccounts: StaffAccountPublic[] }) {
   const router = useRouter();
 
   const [username, setUsername] = useState("");
@@ -45,7 +45,12 @@ export function StaffTab({ staffAccounts }: { staffAccounts: StaffAccount[] }) {
 
   const handleResetPassword = async (staffId: string) => {
     if (!newPass.trim()) return;
-    await resetStaffPasswordAction(staffId, newPass);
+    setError(null);
+    const res = await resetStaffPasswordAction(staffId, newPass);
+    if (!res.ok) {
+      setError(res.error ?? "Failed to reset password");
+      return;
+    }
     setResetId(null);
     setNewPass("");
     router.refresh();
@@ -204,10 +209,15 @@ export function StaffTab({ staffAccounts }: { staffAccounts: StaffAccount[] }) {
                 <button
                   type="button"
                   onClick={async () => {
-                    await toggleStaffStatusAction(
+                    setError(null);
+                    const res = await toggleStaffStatusAction(
                       acc.id,
                       acc.status === "active" ? "disabled" : "active",
                     );
+                    if (!res.ok) {
+                      setError(res.error ?? "Failed to update staff status");
+                      return;
+                    }
                     router.refresh();
                   }}
                   className={`btn-press rounded-pill border-2 border-ink px-3 py-1 font-display text-[12px] font-extrabold text-ink shadow-hard-1 ${

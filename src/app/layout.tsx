@@ -51,16 +51,29 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     images: [{ url: "/logo.png", width: 512, height: 512, alt: BUSINESS.name }],
   },
-  twitter: { card: "summary_large_image" },
+  twitter: {
+    card: "summary_large_image",
+    title: `${BUSINESS.name} — Baby Store, Thoothukudi`,
+    description: DESCRIPTION,
+    images: [{ url: "/logo.png", width: 512, height: 512, alt: BUSINESS.name }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Rasi Mom & Baby",
   },
+  icons: {
+    icon: [
+      { url: "/icon.png", sizes: "192x192", type: "image/png" },
+      { url: "/logo.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: ["/icon.png"],
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#EC5D8A",
+  themeColor: "#BE3466",
 };
 
 export default async function RootLayout({

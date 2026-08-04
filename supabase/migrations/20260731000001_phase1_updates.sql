@@ -22,3 +22,9 @@ create table if not exists public.customer_addresses (
 create index if not exists customer_addresses_customer_idx on public.customer_addresses(customer_id);
 
 alter table public.customer_addresses enable row level security;
+
+-- No policies are defined (every app read/write goes through the service-role
+-- client in customer-actions.ts, which bypasses RLS) — RLS-with-no-policy is
+-- deny-all for anon/authenticated, which is what we want. But service_role
+-- still needs the table-level grant Postgres checks before RLS ever runs.
+grant all on public.customer_addresses to service_role;

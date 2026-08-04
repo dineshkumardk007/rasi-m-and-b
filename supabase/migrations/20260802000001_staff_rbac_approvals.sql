@@ -31,3 +31,8 @@ alter table pending_approvals enable row level security;
 -- Policies for RLS
 create policy "staff_accounts staff write" on staff_accounts for all using (is_staff());
 create policy "pending_approvals staff write" on pending_approvals for all using (is_staff());
+
+-- The app reads/writes both tables exclusively through the service-role
+-- client (see lib/admin-session.ts, lib/data/admin.ts) — RLS policies alone
+-- don't grant access; Postgres checks the table-level grant first.
+grant all on staff_accounts, pending_approvals to service_role;

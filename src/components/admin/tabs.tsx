@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   Coupon,
@@ -15,6 +15,7 @@ import type {
 import { autoTranslateToTamil } from "@/lib/i18n/auto-translate";
 import {
   CATEGORIES,
+  CATEGORY_META,
   MILESTONES,
   MILESTONE_META,
   TILE_SWATCHES,
@@ -36,6 +37,7 @@ import {
   moderateReviewAction,
   resetCustomerPasswordAction,
   saveCustomerNoteAction,
+  getStaffLogsAction,
   updateProductStockAction,
   updateSettingsAction,
   upsertProductAction,
@@ -50,6 +52,7 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
   const [catFilter, setCatFilter] = useState<string>("all");
   const [stockFilter, setStockFilter] = useState<"all" | "low" | "out">("all");
   const [stockUpdating, setStockUpdating] = useState<string | null>(null);
+  const [catError, setCatError] = useState<string | null>(null);
 
   /* ── merged built-in + custom categories ───────────────── */
   const { slugs: allCatSlugs, meta: allCatMeta } = useMemo(
@@ -145,6 +148,12 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
             <span className="text-[12px] text-mute">Built-in categories (8) + your custom ones. Products can use any of these.</span>
           </div>
 
+          {catError && (
+            <div className="rounded-tile border-2 border-ink bg-[#FFCBD9] p-2 text-[12px] font-bold text-ink">
+              ⚠️ {catError}
+            </div>
+          )}
+
           {/* existing categories */}
           <div className="flex flex-wrap gap-2">
             {allCatSlugs.map((slug) => {
@@ -160,8 +169,10 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
                     <button
                       type="button"
                       onClick={async () => {
+                        setCatError(null);
                         const updated = (settings.custom_categories ?? []).filter((cc) => cc.slug !== slug);
-                        await updateSettingsAction({ custom_categories: updated });
+                        const res = await updateSettingsAction({ custom_categories: updated });
+                        if (!res.ok) { setCatError(res.error ?? "Failed to save. Please try again."); return; }
                         router.refresh();
                       }}
                       className="ml-1 text-[12px] font-extrabold text-[#E24B4A] hover:scale-110 cursor-pointer"
@@ -210,11 +221,13 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
                 onClick={async () => {
                   if (!newCatSlug || !newCatEn) return;
                   if (allCatSlugs.includes(newCatSlug)) return;
+                  setCatError(null);
                   const updated = [
                     ...(settings.custom_categories ?? []),
                     { slug: newCatSlug, en: newCatEn, ta: newCatTa || newCatEn, emoji: newCatEmoji, bg: newCatBg, pop: newCatPop },
                   ];
-                  await updateSettingsAction({ custom_categories: updated });
+                  const res = await updateSettingsAction({ custom_categories: updated });
+                  if (!res.ok) { setCatError(res.error ?? "Failed to save. Please try again."); return; }
                   setNewCatSlug(""); setNewCatEn(""); setNewCatTa(""); setNewCatEmoji("📦");
                   router.refresh();
                 }}
@@ -912,7 +925,7 @@ function ProductImages({
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {images.map((url, i) => (
               <div key={url} className="rounded-tile border-2.5 border-ink bg-white p-2 shadow-hard-2">
-                <div className="relative aspect-[5/3] w-full overflow-hidden rounded-md border border-ink/40">
+                <div className="relative aspect-[5/3] w-full overflow-hidden rounded-tile border border-ink/40">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={url} alt="" className="h-full w-full object-cover" />
                   <button
@@ -924,9 +937,8 @@ function ProductImages({
                     ✕
                   </button>
                   <span
-                    className={`absolute bottom-1 left-1 rounded-xl border border-ink px-1.5 py-[1px] text-[9px] font-extrabold ${
-                      i === 0 ? "bg-brand text-white" : "bg-[#FFE1A8] text-ink"
-                    }`}
+                    className={`absolute bottom-1 left-1 rounded-xl border border-ink px-1.5 py-[1px] text-[9px] font-extrabold ${i === 0 ? "bg-brand text-white" : "bg-[#FFE1A8] text-ink"
+                      }`}
                   >
                     {i === 0 ? "1. MAIN (STATIC)" : `${i + 1}. SLIDE`}
                   </span>
@@ -1178,13 +1190,16 @@ function ResetPasswordModal({ customer, onClose }: { customer: CustomerRecord; o
   const [tempPass, setTempPass] = useState(`Rasi${Math.floor(100000 + Math.random() * 900000)}`);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const handleReset = async () => {
     if (!tempPass.trim() || tempPass.length < 6) return;
     setSaving(true);
-    await resetCustomerPasswordAction(customer.id, tempPass.trim());
+    setFailed(false);
+    const ok = await resetCustomerPasswordAction(customer.id, tempPass.trim());
     setSaving(false);
-    setSuccess(true);
+    if (ok) setSuccess(true);
+    else setFailed(true);
   };
 
   const waText = encodeURIComponent(
@@ -1214,6 +1229,11 @@ function ResetPasswordModal({ customer, onClose }: { customer: CustomerRecord; o
               className="w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 font-mono text-[15px] font-bold outline-none"
             />
           </div>
+          {failed && (
+            <div className="rounded-tile border-2 border-ink bg-[#FFCBD9] p-3 text-[13px] font-bold text-ink">
+              ✕ Could not update the password in Supabase. Nothing was sent — try again.
+            </div>
+          )}
           <div className="flex gap-2">
             <Btn full bg="#F2EAE0" color="#2B2140" onClick={onClose}>
               Cancel
@@ -1247,21 +1267,39 @@ function ResetPasswordModal({ customer, onClose }: { customer: CustomerRecord; o
 
 function NoteField({ customerId, initial }: { customerId: string; initial: string }) {
   const [value, setValue] = useState(initial);
+  const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
+
+  const save = async () => {
+    setStatus("saving");
+    const res = await saveCustomerNoteAction(customerId, value);
+    setStatus(res.ok ? "idle" : "error");
+  };
+
   return (
-    <textarea
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => value !== initial && saveCustomerNoteAction(customerId, value)}
-      placeholder="CRM notes — baby due Aug, prefers Tamil, WhatsApp only…"
-      rows={2}
-      className="mt-2 w-full rounded-tile border-2.5 border-ink px-3.5 py-2.5 font-body text-[14px] outline-none"
-    />
+    <div>
+      <textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => value !== initial && save()}
+        placeholder="CRM notes — baby due Aug, prefers Tamil, WhatsApp only…"
+        rows={2}
+        className="mt-2 w-full rounded-tile border-2.5 border-ink px-3.5 py-2.5 font-body text-[14px] outline-none"
+      />
+      {status === "saving" && <p className="mt-1 text-[11px] text-mute">Saving…</p>}
+      {status === "error" && (
+        <p className="mt-1 text-[11px] font-bold text-[#E24B4A]">
+          ⚠️ Failed to save — check your connection and try again.
+        </p>
+      )}
+    </div>
   );
 }
 
 /* ── Coupons ─────────────────────────────────────────────────────────────── */
 export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
   const router = useRouter();
+  const [confirmDelete, setConfirmDelete] = useState<Coupon | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
   const [f, setF] = useState({
     code: "",
     type: "percent" as "percent" | "flat",
@@ -1275,6 +1313,11 @@ export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
     <div>
       <Card className="p-4">
         <h3 className="mb-3 font-display font-extrabold">Create coupon 🏷️</h3>
+        {couponError && (
+          <div className="mb-3 rounded-tile border-2 border-ink bg-[#FFCBD9] p-2.5 text-[13px] font-bold text-ink">
+            ⚠️ {couponError}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Field label="Code" value={f.code} onChange={(v) => setF({ ...f, code: v })} placeholder="DIWALI15" />
           <label className="mb-3 block">
@@ -1311,7 +1354,8 @@ export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
           small
           onClick={async () => {
             if (!f.code || !f.value) return;
-            await addCouponAction({
+            setCouponError(null);
+            const res = await addCouponAction({
               code: f.code,
               type: f.type,
               value: Number(f.value),
@@ -1320,6 +1364,10 @@ export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
               valid_until: f.validUntil ? `${f.validUntil}T23:59:59.999Z` : null,
               usage_limit: Number(f.usageLimit) > 0 ? Number(f.usageLimit) : null,
             });
+            if (!res.ok) {
+              setCouponError(res.error ?? "Failed to create coupon — the code may already exist.");
+              return;
+            }
             setF({ code: "", type: "percent", value: "", min: "", validUntil: "", usageLimit: "" });
             router.refresh();
           }}
@@ -1332,59 +1380,87 @@ export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
           const expired = !!c.valid_until && new Date(c.valid_until) < new Date();
           const exhausted = c.usage_limit !== null && c.used_count >= c.usage_limit;
           return (
-          <Card key={c.code} className="flex items-center justify-between p-3">
-            <div>
-              <span className="font-display font-extrabold">{c.code}</span>{" "}
-              <span className="ml-2 text-[14px] text-mute">
-                {c.type === "percent" ? `${c.value}% off` : `${inr(c.value)} off`} · min{" "}
-                {inr(c.min_order)} · used {c.used_count}
-                {c.usage_limit !== null ? `/${c.usage_limit}` : ""}×
-                {c.valid_until
-                  ? ` · till ${new Date(c.valid_until).toLocaleDateString("en-IN")}`
-                  : ""}
-              </span>
-              {(expired || exhausted) && (
-                <span className="ml-2 rounded-pill border-2 border-ink bg-[#FFCBD9] px-2 py-0.5 text-[11px] font-extrabold">
-                  {expired ? "EXPIRED" : "LIMIT REACHED"}
+            <Card key={c.code} className="flex items-center justify-between p-3">
+              <div>
+                <span className="font-display font-extrabold">{c.code}</span>{" "}
+                <span className="ml-2 text-[14px] text-mute">
+                  {c.type === "percent" ? `${c.value}% off` : `${inr(c.value)} off`} · min{" "}
+                  {inr(c.min_order)} · used {c.used_count}
+                  {c.usage_limit !== null ? `/${c.usage_limit}` : ""}×
+                  {c.valid_until
+                    ? ` · till ${new Date(c.valid_until).toLocaleDateString("en-IN")}`
+                    : ""}
                 </span>
-              )}
-              {c.featured && (
-                <span className="ml-2 rounded-pill border-2 border-ink bg-[#FFE66D] px-2 py-0.5 text-[11px] font-extrabold">
-                  ON HOME PAGE
-                </span>
-              )}
-            </div>
-            <div className="flex shrink-0 gap-2">
-              {/* An expired or exhausted code is never advertised, so offering
+                {(expired || exhausted) && (
+                  <span className="ml-2 rounded-pill border-2 border-ink bg-[#FFCBD9] px-2 py-0.5 text-[11px] font-extrabold">
+                    {expired ? "EXPIRED" : "LIMIT REACHED"}
+                  </span>
+                )}
+                {c.featured && (
+                  <span className="ml-2 rounded-pill border-2 border-ink bg-[#FFE66D] px-2 py-0.5 text-[11px] font-extrabold">
+                    ON HOME PAGE
+                  </span>
+                )}
+              </div>
+              <div className="flex shrink-0 gap-2">
+                {/* An expired or exhausted code is never advertised, so offering
                   the toggle on one would promise something checkout refuses. */}
-              {!expired && !exhausted && (
+                {!expired && !exhausted && (
+                  <Btn
+                    small
+                    bg={c.featured ? "#F2EAE0" : "#FFE66D"}
+                    color="#2B2140"
+                    onClick={async () => {
+                      await setCouponFeaturedAction(c.code, !c.featured);
+                      router.refresh();
+                    }}
+                  >
+                    {c.featured ? "Unfeature" : "Feature"}
+                  </Btn>
+                )}
                 <Btn
                   small
-                  bg={c.featured ? "#F2EAE0" : "#FFE66D"}
-                  color="#2B2140"
-                  onClick={async () => {
-                    await setCouponFeaturedAction(c.code, !c.featured);
-                    router.refresh();
-                  }}
+                  bg="#E24B4A"
+                  onClick={() => setConfirmDelete(c)}
                 >
-                  {c.featured ? "Unfeature" : "Feature"}
+                  Delete
                 </Btn>
-              )}
-              <Btn
-                small
-                bg="#E24B4A"
-                onClick={async () => {
-                  await deleteCouponAction(c.code);
-                  router.refresh();
-                }}
-              >
-                Delete
-              </Btn>
-            </div>
-          </Card>
+              </div>
+            </Card>
           );
         })}
       </div>
+      {confirmDelete && (
+        <Modal onClose={() => setConfirmDelete(null)}>
+          <h3 className="font-display text-[20px] font-extrabold">
+            Delete coupon “{confirmDelete.code}”?
+          </h3>
+          <p className="mt-2 text-[14px] text-mute">
+            Customers can no longer redeem this code. This can’t be undone.
+          </p>
+          <div className="mt-4 flex gap-2.5">
+            <Btn full bg="#F2EAE0" color="#2B2140" onClick={() => setConfirmDelete(null)}>
+              Keep it
+            </Btn>
+            <Btn
+              full
+              bg="#E24B4A"
+              onClick={async () => {
+                setCouponError(null);
+                const res = await deleteCouponAction(confirmDelete.code);
+                setConfirmDelete(null);
+                if (!res.ok) {
+                  setCouponError(res.error ?? "Failed to delete coupon. Please try again.");
+                  return;
+                }
+                router.refresh();
+              }}
+            >
+              Delete
+            </Btn>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -1398,13 +1474,19 @@ export function ReviewsTab({ reviews, products }: { reviews: Review[]; products:
   const [text, setText] = useState("");
   const [productId, setProductId] = useState(products[0]?.id ?? "");
   const [submitting, setSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const pending = reviews.filter((r) => r.status === "pending");
   const rest = reviews.filter((r) => r.status !== "pending");
   const productName = (id: string) => products.find((p) => p.id === id)?.name_en ?? "—";
 
   const decide = async (id: string, status: "approved" | "rejected") => {
-    await moderateReviewAction(id, status);
+    setReviewError(null);
+    const res = await moderateReviewAction(id, status);
+    if (!res.ok) {
+      setReviewError(res.error ?? "Failed to update this review. Please try again.");
+      return;
+    }
     router.refresh();
   };
 
@@ -1412,13 +1494,18 @@ export function ReviewsTab({ reviews, products }: { reviews: Review[]; products:
     e.preventDefault();
     if (!authorName.trim() || !text.trim()) return;
     setSubmitting(true);
-    await addAdminReviewAction({
+    setReviewError(null);
+    const res = await addAdminReviewAction({
       author_name: authorName.trim(),
       rating,
       text: text.trim(),
       product_id: productId,
     });
     setSubmitting(false);
+    if (!res.ok) {
+      setReviewError(res.error ?? "Failed to add review. Please try again.");
+      return;
+    }
     setAuthorName("");
     setText("");
     setShowAdd(false);
@@ -1433,6 +1520,12 @@ export function ReviewsTab({ reviews, products }: { reviews: Review[]; products:
           {showAdd ? "✕ Close Form" : "➕ Add Customer Review"}
         </Btn>
       </div>
+
+      {reviewError && (
+        <div className="rounded-tile border-2 border-ink bg-[#FFCBD9] p-2.5 text-[13px] font-bold text-ink">
+          ⚠️ {reviewError}
+        </div>
+      )}
 
       {showAdd && (
         <Card className="p-4 bg-paper border-2.5 border-ink">
@@ -1746,17 +1839,29 @@ export function ReportsTab({ orders, products }: { orders: Order[]; products: Pr
   }, [orders]);
   const [month, setMonth] = useState(months[0] ?? "");
 
+  const [logQuery, setLogQuery] = useState("");
+  const [logEntity, setLogEntity] = useState("all");
+  const [logs, setLogs] = useState<{ id?: string; user_id?: string; action: string; entity: string; entity_id: string; at: string }[]>([]);
+
+  useEffect(() => {
+    getStaffLogsAction(logQuery, logEntity).then((res) => setLogs(res || []));
+  }, [logQuery, logEntity]);
+
   const download = () => {
     const rows = orders.filter(
       (o) => o.placed_at.startsWith(month) && o.status !== "cancelled",
     );
+    // Fallback to the product's current rate only for orders placed before
+    // gst_rate was snapshotted per line item — every order since then uses
+    // what was actually charged, so correcting a product's rate later can't
+    // silently rewrite an already-filed month's report.
     const gstRateFor = (id: string | null) =>
       products.find((p) => p.id === id)?.gst_rate ?? 12;
     const header =
       "order_no,date,customer,phone,item,qty,gross,taxable,gst_rate,gst_amount,payment_method,payment_status";
     const lines = rows.flatMap((o) =>
       o.items.map((i) => {
-        const rate = gstRateFor(i.product_id);
+        const rate = i.gst_rate ?? gstRateFor(i.product_id);
         const gross = i.price_snapshot * i.qty;
         const taxable = Math.round((gross * 100) / (100 + rate));
         return [
@@ -1789,30 +1894,75 @@ export function ReportsTab({ orders, products }: { orders: Order[]; products: Pr
   const revenue = monthOrders.reduce((s, o) => s + o.total, 0);
 
   return (
-    <Card className="p-[18px]">
-      <h3 className="mb-3 font-display font-extrabold">📈 Monthly GST report</h3>
-      <div className="flex flex-wrap items-end gap-3">
-        <label>
-          <span className="font-display text-[12px] font-extrabold uppercase text-mute">Month</span>
-          <select
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="mt-1 block rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2.5 font-body text-[15px] outline-none"
-          >
-            {months.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
+    <div className="grid gap-4">
+      <Card className="p-[18px]">
+        <h3 className="mb-3 font-display font-extrabold">📈 Monthly GST report</h3>
+        <div className="flex flex-wrap items-end gap-3">
+          <label>
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">Month</span>
+            <select
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="mt-1 block rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2.5 font-body text-[15px] outline-none"
+            >
+              {months.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Btn onClick={download}>⬇️ Download CSV</Btn>
+        </div>
+        <p className="mt-3 text-[14px] text-mute">
+          {monthOrders.length} orders · {inr(revenue)} revenue in {month || "—"}. One row per
+          order line with taxable value and GST split — ready for the accountant.
+        </p>
+      </Card>
+
+      <Card className="p-[18px]">
+        <h3 className="mb-3 font-display text-[18px] font-extrabold text-ink">📜 Staff Audit Log</h3>
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <input
+            value={logQuery}
+            onChange={(e) => setLogQuery(e.target.value)}
+            placeholder="Search audit action, entity or ID…"
+            className="flex-1 min-w-[200px] rounded-pill border-2.5 border-ink bg-paper px-4 py-2 font-body text-[14px] outline-none"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {["all", "order", "product", "coupon", "brand", "settings"].map((e) => (
+              <Pill
+                key={e}
+                bg={logEntity === e ? "#2B2140" : "#F2EAE0"}
+                color={logEntity === e ? "#fff" : "#2B2140"}
+                onClick={() => setLogEntity(e)}
+              >
+                {e.toUpperCase()}
+              </Pill>
             ))}
-          </select>
-        </label>
-        <Btn onClick={download}>⬇️ Download CSV</Btn>
-      </div>
-      <p className="mt-3 text-[14px] text-mute">
-        {monthOrders.length} orders · {inr(revenue)} revenue in {month || "—"}. One row per
-        order line with taxable value and GST split — ready for the accountant.
-      </p>
-    </Card>
+          </div>
+        </div>
+
+        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+          {logs.length === 0 ? (
+            <p className="text-[13px] text-mute text-center py-4">No audit logs found matching filter.</p>
+          ) : (
+            logs.map((l, i) => (
+              <div key={l.id || i} className="flex flex-wrap items-center justify-between gap-2 rounded-tile border border-ink/20 p-2.5 text-[13px] bg-paper">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge bg="#E4D6FF">{l.entity}</Badge>
+                  <span className="font-extrabold text-ink">{l.action}</span>
+                  <span className="text-mute font-mono text-[11px]">{l.entity_id}</span>
+                </div>
+                <div className="text-[11px] text-mute font-mono">
+                  {new Date(l.at).toLocaleString()}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -1820,6 +1970,33 @@ export function ReportsTab({ orders, products }: { orders: Order[]; products: Pr
 /* ── Settings: same-day kill switch + future-proof PIN Code Manager ───── */
 export function SettingsTab({ settings }: { settings: StoreSettings }) {
   const router = useRouter();
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  // Every settings field in this tab goes through this instead of calling
+  // updateSettingsAction directly — a failed write used to refresh the page
+  // and look identical to success, with nothing telling the admin the value
+  // they just set didn't actually save.
+  const saveSetting = async (patch: Partial<StoreSettings>) => {
+    setSettingsError(null);
+    const res = await updateSettingsAction(patch);
+    if (!res.ok) setSettingsError(res.error ?? "Failed to save. Please try again.");
+    return res;
+  };
+  const [sameDayEnabled, setSameDayEnabled] = useState(settings.same_day_enabled ?? true);
+  const [announcementEnabled, setAnnouncementEnabled] = useState(settings.announcement_enabled ?? true);
+  const [offerStripEnabled, setOfferStripEnabled] = useState(settings.offer_strip_enabled ?? true);
+  const [universalFreeDelivery, setUniversalFreeDelivery] = useState(settings.universal_free_delivery ?? false);
+  const [enableLanguageSwitch, setEnableLanguageSwitch] = useState(settings.enable_language_switch ?? true);
+  const [giftWrapEnabled, setGiftWrapEnabled] = useState(settings.gift_wrap_enabled ?? true);
+
+  useEffect(() => {
+    setSameDayEnabled(settings.same_day_enabled ?? true);
+    setAnnouncementEnabled(settings.announcement_enabled ?? true);
+    setOfferStripEnabled(settings.offer_strip_enabled ?? true);
+    setUniversalFreeDelivery(settings.universal_free_delivery ?? false);
+    setEnableLanguageSwitch(settings.enable_language_switch ?? true);
+    setGiftWrapEnabled(settings.gift_wrap_enabled ?? true);
+  }, [settings]);
+
   const [serviceableList, setServiceableList] = useState<string[]>(
     settings.serviceable_pins || [],
   );
@@ -1843,7 +2020,7 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
     newUnserviceable: string[] = unserviceableList,
   ) => {
     setSaving(true);
-    await updateSettingsAction({
+    await saveSetting({
       serviceable_pins: newServiceable,
       unserviceable_pins: newUnserviceable,
     });
@@ -1890,6 +2067,11 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
 
   return (
     <div className="grid gap-4">
+      {settingsError && (
+        <div className="rounded-tile border-2 border-ink bg-[#FFCBD9] p-2.5 text-[13px] font-bold text-ink">
+          ⚠️ {settingsError}
+        </div>
+      )}
       {/* Same-Day Kill Switch */}
       <Card className="flex items-center justify-between p-4">
         <div>
@@ -1899,13 +2081,15 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
           </p>
         </div>
         <Pill
-          bg={settings.same_day_enabled ? "#D6E8B0" : "#FFCBD9"}
+          bg={sameDayEnabled ? "#D6E8B0" : "#FFCBD9"}
           onClick={async () => {
-            await updateSettingsAction({ same_day_enabled: !settings.same_day_enabled });
+            const next = !sameDayEnabled;
+            setSameDayEnabled(next);
+            await saveSetting({ same_day_enabled: next });
             router.refresh();
           }}
         >
-          {settings.same_day_enabled ? "ON ✓" : "OFF ✕"}
+          {sameDayEnabled ? "ON ✓" : "OFF ✕"}
         </Pill>
       </Card>
 
@@ -1914,57 +2098,60 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
         <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-ink/10 pb-3">
           <div>
             <div className="font-display text-[17px] font-extrabold text-ink">
-              📢 Storefront Announcement Ribbon & Promo Marquee
+              📢 Top Header Announcement Ribbon (Above Navigation)
             </div>
             <p className="text-[13px] text-mute">
-              Header top ticker bar to announce active sales, discount codes, and delivery promises.
+              Fixed banner bar at the very top of the website header announcing store deals & live cutoff countdowns.
             </p>
           </div>
           <Pill
-            bg={(settings.announcement_enabled ?? true) ? "#D6E8B0" : "#FFCBD9"}
+            bg={announcementEnabled ? "#D6E8B0" : "#FFCBD9"}
             onClick={async () => {
-              await updateSettingsAction({ announcement_enabled: !((settings.announcement_enabled ?? true)) });
+              const next = !announcementEnabled;
+              setAnnouncementEnabled(next);
+              await saveSetting({ announcement_enabled: next });
               router.refresh();
             }}
           >
-            {(settings.announcement_enabled ?? true) ? "RIBBON ANNOUNCEMENT ON ✓" : "OFF ✕"}
+            {announcementEnabled ? "TOP RIBBON ON ✓" : "OFF ✕"}
           </Pill>
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <label>
             <span className="font-display text-[12px] font-extrabold uppercase text-mute">
-              Announcement Text (English)
+              Top Ribbon Announcement Text (English)
             </span>
             <input
               type="text"
-              defaultValue={settings.announcement_text_en ?? "🎉 FLAT 10% OFF with code WELCOME10 · 🚚 FREE Delivery on orders over ₹999"}
+              defaultValue={settings.announcement_text_en ?? "🎉 FLAT 10% OFF with code WELCOME10 · 🚚 FREE Delivery on orders over ₹499"}
               onBlur={async (e) => {
                 const valEn = e.target.value;
                 const autoTa = autoTranslateToTamil(valEn);
-                await updateSettingsAction({
+                await saveSetting({
                   announcement_text_en: valEn,
                   announcement_text_ta: autoTa,
                 });
                 router.refresh();
               }}
               className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[14px] outline-none font-bold"
-              placeholder="🎉 FLAT 10% OFF with code WELCOME10..."
+              placeholder="e.g. 🎉 FLAT 10% OFF with code WELCOME10 · 🚚 FREE Delivery on orders over ₹499"
             />
           </label>
 
           <label>
             <span className="font-display text-[12px] font-extrabold uppercase text-mute">
-              Announcement Text (Tamil Auto-Translated)
+              Top Ribbon Announcement Text (Tamil Auto-Translated)
             </span>
             <input
               type="text"
-              defaultValue={settings.announcement_text_ta ?? "🎉 WELCOME10 கூப்பனுடன் 10% தள்ளுபடி · 🚚 ₹999 மேல் இலவச டெலிவரி"}
+              defaultValue={settings.announcement_text_ta ?? "🎉 WELCOME10 கூப்பனுடன் 10% தள்ளுபடி · 🚚 ₹499 மேல் இலவச டெலிவரி"}
               onBlur={async (e) => {
-                await updateSettingsAction({ announcement_text_ta: e.target.value });
+                await saveSetting({ announcement_text_ta: e.target.value });
                 router.refresh();
               }}
               className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[14px] outline-none bg-paper font-bold text-brand"
+              placeholder="தமிழ் அறிவிப்பு..."
             />
           </label>
         </div>
@@ -1978,7 +2165,7 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
               type="color"
               defaultValue={settings.announcement_bg ?? "#2B2140"}
               onChange={async (e) => {
-                await updateSettingsAction({ announcement_bg: e.target.value });
+                await saveSetting({ announcement_bg: e.target.value });
                 router.refresh();
               }}
               className="mt-1 h-10 w-full rounded-pill border-2 border-ink cursor-pointer p-1"
@@ -1993,7 +2180,104 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
               type="color"
               defaultValue={settings.announcement_color ?? "#FFE1A8"}
               onChange={async (e) => {
-                await updateSettingsAction({ announcement_color: e.target.value });
+                await saveSetting({ announcement_color: e.target.value });
+                router.refresh();
+              }}
+              className="mt-1 h-10 w-full rounded-pill border-2 border-ink cursor-pointer p-1"
+            />
+          </label>
+        </div>
+      </Card>
+
+      {/* Dedicated Running Offer Ticker (OfferStrip) Settings */}
+      <Card className="p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-ink/10 pb-3">
+          <div>
+            <div className="font-display text-[17px] font-extrabold text-ink">
+              ⚡ Hero Running Offer Ticker (OfferStrip) Settings
+            </div>
+            <p className="text-[13px] text-mute">
+              Independent settings for the auto-scrolling offer strip located directly below the main hero section.
+            </p>
+          </div>
+          <Pill
+            bg={offerStripEnabled ? "#D6E8B0" : "#FFCBD9"}
+            onClick={async () => {
+              const next = !offerStripEnabled;
+              setOfferStripEnabled(next);
+              await saveSetting({ offer_strip_enabled: next });
+              router.refresh();
+            }}
+          >
+            {offerStripEnabled ? "OFFER STRIP TICKER ON ✓" : "OFF ✕"}
+          </Pill>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label>
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+              Custom Offer Ticker Sentences (English — One per line)
+            </span>
+            <textarea
+              rows={4}
+              defaultValue={
+                settings.offer_strip_text_en ||
+                `10% off with WELCOME10 above ₹499\n₹50 off with RASI50 above ₹999\n🚚 FREE Delivery on ALL Orders!\nSame-day delivery in Thoothukudi`
+              }
+              onBlur={async (e) => {
+                const valEn = e.target.value;
+                await saveSetting({
+                  offer_strip_text_en: valEn,
+                });
+                router.refresh();
+              }}
+              className="mt-1 w-full rounded-tile border-2.5 border-ink p-3 font-body text-[14px] outline-none font-bold resize-y"
+              placeholder="Enter one sentence per line..."
+            />
+          </label>
+
+          <label>
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+              Custom Offer Ticker Sentences (Tamil — One per line)
+            </span>
+            <textarea
+              rows={4}
+              defaultValue={settings.offer_strip_text_ta || ""}
+              onBlur={async (e) => {
+                await saveSetting({ offer_strip_text_ta: e.target.value });
+                router.refresh();
+              }}
+              className="mt-1 w-full rounded-tile border-2.5 border-ink p-3 font-body text-[14px] outline-none bg-paper font-bold text-brand resize-y"
+              placeholder="Leave empty or enter Tamil sentences line-by-line..."
+            />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <label>
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+              Offer Strip Background Color
+            </span>
+            <input
+              type="color"
+              defaultValue={settings.offer_strip_bg ?? "#FFE66D"}
+              onChange={async (e) => {
+                await saveSetting({ offer_strip_bg: e.target.value });
+                router.refresh();
+              }}
+              className="mt-1 h-10 w-full rounded-pill border-2 border-ink cursor-pointer p-1"
+            />
+          </label>
+
+          <label>
+            <span className="font-display text-[12px] font-extrabold uppercase text-mute">
+              Offer Strip Text Color
+            </span>
+            <input
+              type="color"
+              defaultValue={settings.offer_strip_color ?? "#2B2140"}
+              onChange={async (e) => {
+                await saveSetting({ offer_strip_color: e.target.value });
                 router.refresh();
               }}
               className="mt-1 h-10 w-full rounded-pill border-2 border-ink cursor-pointer p-1"
@@ -2014,13 +2298,15 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
             </p>
           </div>
           <Pill
-            bg={settings.universal_free_delivery ? "#D6E8B0" : "#FFCBD9"}
+            bg={universalFreeDelivery ? "#D6E8B0" : "#FFCBD9"}
             onClick={async () => {
-              await updateSettingsAction({ universal_free_delivery: !settings.universal_free_delivery });
+              const next = !universalFreeDelivery;
+              setUniversalFreeDelivery(next);
+              await saveSetting({ universal_free_delivery: next });
               router.refresh();
             }}
           >
-            {settings.universal_free_delivery ? "UNIVERSAL FREE DELIVERY ON ✓" : "STANDARD RATES ACTIVE ✕"}
+            {universalFreeDelivery ? "UNIVERSAL FREE DELIVERY ON ✓" : "STANDARD RATES ACTIVE ✕"}
           </Pill>
         </div>
 
@@ -2034,7 +2320,7 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
               defaultValue={settings.base_delivery_fee ?? 49}
               onBlur={async (e) => {
                 const val = Number(e.target.value) || 0;
-                await updateSettingsAction({ base_delivery_fee: val });
+                await saveSetting({ base_delivery_fee: val });
                 router.refresh();
               }}
               className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[15px] outline-none"
@@ -2049,8 +2335,11 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
               type="number"
               defaultValue={settings.free_delivery_threshold ?? 999}
               onBlur={async (e) => {
-                const val = Number(e.target.value) || 999;
-                await updateSettingsAction({ free_delivery_threshold: val });
+                // Not `|| 999` — that treats a deliberate 0 (free delivery on
+                // every order, no minimum) as unset and silently reverts it.
+                const parsed = Number(e.target.value);
+                const val = Number.isFinite(parsed) && parsed >= 0 ? parsed : 999;
+                await saveSetting({ free_delivery_threshold: val });
                 router.refresh();
               }}
               className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[15px] outline-none"
@@ -2078,7 +2367,7 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
                     onClick={async () => {
                       const updated = slabs.filter((_, i) => i !== idx);
                       setSlabs(updated);
-                      await updateSettingsAction({ delivery_slabs: updated });
+                      await saveSetting({ delivery_slabs: updated });
                       router.refresh();
                     }}
                     className="text-[12px] text-[#E24B4A] hover:underline cursor-pointer"
@@ -2133,7 +2422,7 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
                 };
                 const updated = [...slabs, item];
                 setSlabs(updated);
-                await updateSettingsAction({ delivery_slabs: updated });
+                await saveSetting({ delivery_slabs: updated });
                 router.refresh();
               }}
             >
@@ -2152,13 +2441,15 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
           </p>
         </div>
         <Pill
-          bg={(settings.enable_language_switch ?? true) ? "#D6E8B0" : "#FFCBD9"}
+          bg={enableLanguageSwitch ? "#D6E8B0" : "#FFCBD9"}
           onClick={async () => {
-            await updateSettingsAction({ enable_language_switch: !((settings.enable_language_switch ?? true)) });
+            const next = !enableLanguageSwitch;
+            setEnableLanguageSwitch(next);
+            await saveSetting({ enable_language_switch: next });
             router.refresh();
           }}
         >
-          {(settings.enable_language_switch ?? true) ? "ENABLED ✓" : "DISABLED ✕"}
+          {enableLanguageSwitch ? "ENABLED ✓" : "DISABLED ✕"}
         </Pill>
       </Card>
 
@@ -2174,13 +2465,15 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
             </p>
           </div>
           <Pill
-            bg={(settings.gift_wrap_enabled ?? true) ? "#D6E8B0" : "#FFCBD9"}
+            bg={giftWrapEnabled ? "#D6E8B0" : "#FFCBD9"}
             onClick={async () => {
-              await updateSettingsAction({ gift_wrap_enabled: !((settings.gift_wrap_enabled ?? true)) });
+              const next = !giftWrapEnabled;
+              setGiftWrapEnabled(next);
+              await saveSetting({ gift_wrap_enabled: next });
               router.refresh();
             }}
           >
-            {(settings.gift_wrap_enabled ?? true) ? "ENABLED ✓" : "DISABLED ✕"}
+            {giftWrapEnabled ? "ENABLED ✓" : "DISABLED ✕"}
           </Pill>
         </div>
         <div className="mt-3 flex items-center gap-3">
@@ -2193,7 +2486,7 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
               defaultValue={settings.gift_wrap_fee ?? 30}
               onBlur={async (e) => {
                 const val = Number(e.target.value) || 0;
-                await updateSettingsAction({ gift_wrap_fee: val });
+                await saveSetting({ gift_wrap_fee: val });
                 router.refresh();
               }}
               className="mt-1 w-full rounded-tile border-2.5 border-ink px-3.5 py-2 font-body text-[15px] outline-none"
@@ -2217,18 +2510,16 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
             <button
               type="button"
               onClick={() => setMode("tags")}
-              className={`rounded-pill px-3 py-1 text-[12px] font-bold border-2 border-ink transition-all ${
-                mode === "tags" ? "bg-brand text-white shadow-hard-1" : "bg-white text-ink"
-              }`}
+              className={`rounded-pill px-3 py-1 text-[12px] font-bold border-2 border-ink transition-all ${mode === "tags" ? "bg-brand text-white shadow-hard-1" : "bg-white text-ink"
+                }`}
             >
               🏷️ Tags & Presets
             </button>
             <button
               type="button"
               onClick={() => setMode("bulk")}
-              className={`rounded-pill px-3 py-1 text-[12px] font-bold border-2 border-ink transition-all ${
-                mode === "bulk" ? "bg-brand text-white shadow-hard-1" : "bg-white text-ink"
-              }`}
+              className={`rounded-pill px-3 py-1 text-[12px] font-bold border-2 border-ink transition-all ${mode === "bulk" ? "bg-brand text-white shadow-hard-1" : "bg-white text-ink"
+                }`}
             >
               📝 Bulk Editor
             </button>
@@ -2446,6 +2737,273 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
           {inr(settings.cod_limit)}
         </p>
       </Card>
+    </div>
+  );
+}
+
+/* ── Custom Box Media & Dimensions Management Tab ────────────────────── */
+export function BoxMediaTab({ settings }: { settings: StoreSettings }) {
+  const router = useRouter();
+  const [boxMedia, setBoxMedia] = useState<Record<string, string>>(settings.box_media || {});
+  const [activeSubTab, setActiveSubTab] = useState<"hero" | "categories" | "banner">("hero");
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const heroCollageItems = [
+    { key: "hero-collage-bath", title: "Baby Care (Hero Tile)", category: "Bath & Skincare", emoji: "🧴", bg: "#C7E9FF", width: 400, height: 260, aspect: "16:10" },
+    { key: "hero-collage-toys", title: "Toys & Play (Hero Tile)", category: "Toys & Play", emoji: "🧸", bg: "#FFCBD9", width: 400, height: 260, aspect: "16:10" },
+    { key: "hero-collage-clothing", title: "Baby Clothing (Hero Tile)", category: "Clothing", emoji: "👕", bg: "#D6E8B0", width: 400, height: 260, aspect: "16:10" },
+    { key: "hero-collage-feeding", title: "Feeding (Hero Tile)", category: "Feeding", emoji: "🍼", bg: "#FFE1A8", width: 400, height: 260, aspect: "16:10" },
+    { key: "hero-collage-mom", title: "Maternity & Mom (Hero Tile)", category: "Mom Care", emoji: "🤱", bg: "#FBD0EA", width: 400, height: 260, aspect: "16:10" },
+    { key: "hero-collage-diapering", title: "Diapers & Essentials (Hero Tile)", category: "Diapering", emoji: "🧷", bg: "#E4D6FF", width: 400, height: 260, aspect: "16:10" },
+  ];
+
+  const categoryItems = CATEGORIES.map((cat) => ({
+    key: `cat-${cat}`,
+    title: `${CATEGORY_META[cat]?.en || cat} Box`,
+    category: cat,
+    emoji: CATEGORY_META[cat]?.emoji || "📦",
+    bg: CATEGORY_META[cat]?.bg || "#FFE1A8",
+    width: 360,
+    height: 225,
+    aspect: "16:10",
+  }));
+
+  const bannerItem = {
+    key: "hero-store-banner",
+    title: "Flagship Store Showcase Banner (Hero Card)",
+    category: "Hero Banner",
+    emoji: "🏪",
+    bg: "#FE91E8",
+    width: 1024,
+    height: 576,
+    aspect: "16:9",
+  };
+
+  const handleFileUpload = async (key: string, file: File) => {
+    // box_media is inlined (base64) into the settings row, which is read on
+    // EVERY storefront page load — so an oversized or non-image file here bloats
+    // every page for every visitor. This path had no validation at all (only the
+    // bypassable accept="image/*" hint). Bound it before storing.
+    const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
+    const MAX_BYTES = 1_500_000; // 1.5 MB — kept small because it's page-inlined
+    if (!ALLOWED.includes(file.type)) {
+      setToast("Please choose a JPG, PNG or WebP image.");
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      setToast("Image is too large (max 1.5 MB). Please compress it first.");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    setSavingKey(key);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string;
+      if (dataUrl) {
+        const updated = { ...boxMedia, [key]: dataUrl };
+        setBoxMedia(updated);
+        const res = await updateSettingsAction({ box_media: updated });
+        setToast(res.ok ? `Saved picture for ${key}!` : (res.error ?? "Failed to save. Please try again."));
+        setTimeout(() => setToast(null), res.ok ? 3000 : 5000);
+        if (res.ok) router.refresh();
+      }
+      setSavingKey(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleResetImage = async (key: string) => {
+    setSavingKey(key);
+    const updated = { ...boxMedia };
+    delete updated[key];
+    setBoxMedia(updated);
+    const res = await updateSettingsAction({ box_media: updated });
+    setToast(res.ok ? `Reset picture for ${key}!` : (res.error ?? "Failed to save. Please try again."));
+    setTimeout(() => setToast(null), res.ok ? 3000 : 5000);
+    setSavingKey(null);
+    if (res.ok) router.refresh();
+  };
+
+  const renderBoxCard = (item: {
+    key: string;
+    title: string;
+    category: string;
+    emoji: string;
+    bg: string;
+    width: number;
+    height: number;
+    aspect: string;
+  }) => {
+    const currentImg = boxMedia[item.key];
+    const isSaving = savingKey === item.key;
+
+    return (
+      <Card key={item.key} className="p-4 flex flex-col justify-between border-3 border-ink shadow-hard-3">
+        <div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="font-display text-[15px] font-extrabold text-ink flex items-center gap-1.5">
+              <span>{item.emoji}</span>
+              <span>{item.title}</span>
+            </span>
+            <Badge bg={item.bg}>{item.aspect}</Badge>
+          </div>
+
+          {/* Wireframe Helper Guide for Staff */}
+          <div className="mb-3 rounded-tile border-2 border-dashed border-ink/40 bg-paper p-2 text-[12px] text-mute">
+            <div className="font-bold text-ink flex items-center justify-between">
+              <span>📐 Ideal Dimensions:</span>
+              <span className="text-brand font-extrabold">{item.width} × {item.height} px</span>
+            </div>
+            <div className="mt-0.5 text-[11px]">
+              Recommended format: PNG / WebP / JPG. Artwork automatically fits the box frame.
+            </div>
+          </div>
+
+          {/* Visual Box Shape Example & Live Preview */}
+          <div
+            className="relative w-full rounded-card border-2.5 border-ink p-3 shadow-hard-2 overflow-hidden flex flex-col justify-between min-h-[140px] transition-all"
+            style={{ backgroundColor: item.bg }}
+          >
+            {currentImg ? (
+              <div className="relative w-full h-[110px] rounded-tile border-2 border-ink overflow-hidden bg-white/60">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={currentImg} alt={item.title} className="w-full h-full object-cover" />
+                <span className="absolute top-1 right-1 rounded-pill border border-ink bg-emerald-400 px-2 py-0.5 text-[9px] font-extrabold text-ink">
+                  CUSTOM ACTIVE ✓
+                </span>
+              </div>
+            ) : (
+              <div className="relative w-full h-[110px] rounded-tile border-2 border-dashed border-ink/40 bg-white/50 flex flex-col items-center justify-center p-2 text-center">
+                <span className="text-[28px] opacity-75">{item.emoji}</span>
+                <span className="mt-1 font-display text-[11px] font-extrabold text-ink/75">
+                  Default Emoji / Pattern Active
+                </span>
+                <span className="text-[9px] text-mute">({item.width} × {item.height} px Wireframe Shape)</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Upload Controls & Actions */}
+        <div className="mt-4 flex flex-col gap-2">
+          <label className="btn-press cursor-pointer flex items-center justify-center gap-2 rounded-pill border-2.5 border-ink bg-[#FFE1A8] px-3 py-2 font-display text-[12px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE66D]">
+            <span>📷 {currentImg ? "Change Picture" : "Upload Picture"}</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(item.key, file);
+              }}
+            />
+          </label>
+
+          {currentImg && (
+            <button
+              type="button"
+              onClick={() => handleResetImage(item.key)}
+              className="btn-press rounded-pill border-2 border-ink bg-[#FFCBD9] px-3 py-1 text-[11px] font-extrabold text-ink shadow-hard-1 hover:bg-[#FF8DA9]"
+            >
+              🔄 Reset to Default
+            </button>
+          )}
+
+          {isSaving && <span className="text-[11px] text-center text-brand font-extrabold animate-pulse">Saving picture…</span>}
+        </div>
+      </Card>
+    );
+  };
+
+  return (
+    <div className="grid gap-4">
+      {toast && (
+        <div className="fixed top-20 right-6 z-50 rounded-pill border-3 border-ink bg-[#D6E8B0] px-5 py-2.5 font-display text-[14px] font-extrabold text-ink shadow-hard-4 animate-bounce">
+          {toast}
+        </div>
+      )}
+
+      {/* Header Banner */}
+      <Card className="p-5 bg-gradient-to-r from-[#FFE1A8] via-[#FFCBD9] to-[#C7E9FF] border-3 border-ink shadow-hard-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-[22px] font-extrabold text-ink flex items-center gap-2">
+              <span>🖼️</span>
+              <span>Custom Box Media & Wireframe Dimensions</span>
+            </h2>
+            <p className="mt-1 text-[14px] font-bold text-ink/80">
+              Upload custom pictures for storefront cards (Hero Product Wall, Category Grid, Store Banner).
+              Each box shows exact width & height recommendations so your uploaded artwork fits perfectly!
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Pill
+              bg={activeSubTab === "hero" ? "#2B2140" : "#FFF"}
+              color={activeSubTab === "hero" ? "#FFF" : "#2B2140"}
+              onClick={() => setActiveSubTab("hero")}
+            >
+              🛍️ Hero Wall (6 Boxes)
+            </Pill>
+            <Pill
+              bg={activeSubTab === "categories" ? "#2B2140" : "#FFF"}
+              color={activeSubTab === "categories" ? "#FFF" : "#2B2140"}
+              onClick={() => setActiveSubTab("categories")}
+            >
+              🎨 Category Grid Boxes
+            </Pill>
+            <Pill
+              bg={activeSubTab === "banner" ? "#2B2140" : "#FFF"}
+              color={activeSubTab === "banner" ? "#FFF" : "#2B2140"}
+              onClick={() => setActiveSubTab("banner")}
+            >
+              🏪 Store Banner Box
+            </Pill>
+          </div>
+        </div>
+      </Card>
+
+      {/* SubTab Content */}
+      {activeSubTab === "hero" && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <span className="font-display text-[16px] font-extrabold text-ink">
+              🛍️ Hero Product Wall Collage Boxes (Recommended: 400 × 260 px)
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+            {heroCollageItems.map(renderBoxCard)}
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === "categories" && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <span className="font-display text-[16px] font-extrabold text-ink">
+              🎨 Shop by Category Grid Boxes (Recommended: 360 × 225 px)
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+            {categoryItems.map(renderBoxCard)}
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === "banner" && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <span className="font-display text-[16px] font-extrabold text-ink">
+              🏪 Hero Flagship Store Banner Box (Recommended: 1024 × 576 px)
+            </span>
+          </div>
+          <div className="max-w-md">
+            {renderBoxCard(bannerItem)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

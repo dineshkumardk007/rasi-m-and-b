@@ -7,38 +7,66 @@
  */
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { bannerUrlFor } from "@/lib/images";
+import { breadcrumbJsonLd } from "@/lib/seo/jsonld";
 
 export function Btn({
   children,
   onClick,
-  bg = "#EC5D8A",
+  bg = "#BE3466", // matches the `brand` token; AA-contrast with white text
   color = "#fff",
   full,
   small,
   disabled,
   type = "button",
+  className = "",
 }: {
   children: ReactNode;
-  onClick?: () => void;
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  onClick?: (e?: any) => any;
   bg?: string;
   color?: string;
   full?: boolean;
   small?: boolean;
   disabled?: boolean;
   type?: "button" | "submit";
+  className?: string;
 }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!onClick || disabled || loading) return;
+    try {
+      setLoading(true);
+      await onClick(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isBtnDisabled = disabled || loading;
+
   return (
     <button
       type={type}
-      onClick={onClick}
-      disabled={disabled}
-      style={{ background: disabled ? "#D8D2E0" : bg, color: disabled ? "#8A8398" : color }}
-      className={`btn-press rounded-pill border-3 border-ink font-display font-extrabold ${disabled ? "shadow-none" : "shadow-hard-3"
-        } ${small ? "px-4 py-[7px] text-[13px]" : "px-5 py-[11px] text-[15px]"} ${full ? "w-full" : ""
-        } min-h-[44px]`}
+      onClick={handleClick}
+      disabled={isBtnDisabled}
+      style={{ background: isBtnDisabled ? "#D8D2E0" : bg, color: isBtnDisabled ? "#8A8398" : color }}
+      className={`btn-press inline-flex items-center justify-center gap-2 rounded-pill border-3 border-ink font-display font-extrabold transition-all ${
+        isBtnDisabled ? "shadow-none opacity-85 cursor-not-allowed" : "shadow-hard-3 cursor-pointer hover:scale-[1.02] active:scale-95"
+      } ${small ? "px-4 py-[7px] text-[13px]" : "px-5 py-[11px] text-[15px]"} ${full ? "w-full" : ""} ${
+        loading ? "animate-pulse" : ""
+      } min-h-[44px] ${className}`}
     >
-      {children}
+      {loading ? (
+        <>
+          <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <span>Processing...</span>
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }
@@ -50,22 +78,49 @@ export function Pill({
   color = "#2B2140",
   active,
   className = "",
+  disabled,
 }: {
   children: ReactNode;
-  onClick?: () => void;
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  onClick?: (e?: any) => any;
   bg?: string;
   color?: string;
   active?: boolean;
   className?: string;
+  disabled?: boolean;
 }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!onClick || disabled || loading) return;
+    try {
+      setLoading(true);
+      await onClick(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isPillDisabled = disabled || loading;
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handleClick}
+      disabled={isPillDisabled}
       style={active ? { background: "#2B2140", color: "#fff" } : { background: bg, color }}
-      className={`btn-press whitespace-nowrap rounded-pill border-2.5 border-ink px-3.5 py-[7px] font-display text-[13px] font-extrabold shadow-hard-2 min-h-[38px] ${className}`}
+      className={`btn-press inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-pill border-2.5 border-ink px-3.5 py-[7px] font-display text-[13px] font-extrabold shadow-hard-2 min-h-[38px] transition-all ${
+        isPillDisabled ? "opacity-75 cursor-not-allowed scale-95" : "cursor-pointer hover:scale-105 active:scale-95"
+      } ${loading ? "animate-pulse" : ""} ${className}`}
     >
-      {children}
+      {loading ? (
+        <>
+          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <span>Saving...</span>
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }
@@ -81,6 +136,50 @@ export function Badge({ children, bg = "#FFE1A8" }: { children: ReactNode; bg?: 
   );
 }
 
+/** Visual breadcrumb trail — mirrors the BreadcrumbList JSON-LD already emitted
+ * on category/brand/product pages so crawlers and sighted users see the same
+ * hierarchy. Last item renders as plain text (current page, not a link). */
+export function Breadcrumbs({ items }: { items: { name: string; href: string }[] }) {
+  if (items.length === 0) return null;
+  const jsonLd = breadcrumbJsonLd(items.map((i) => ({ name: i.name, item: i.href })));
+  // Escape markup-significant characters so a breadcrumb name containing
+  // "</script>" cannot break out of the JSON-LD block. Same mitigation as
+  // p/[slug]/page.tsx applies to its product + breadcrumb JSON-LD.
+  const jsonLdHtml = JSON.stringify(jsonLd)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml }}
+      />
+      <nav aria-label="Breadcrumb" className="mb-3 flex flex-wrap items-center gap-1.5 px-5 pt-3 text-[13px] font-bold text-mute">
+        {items.map((item, i) => {
+          const isLast = i === items.length - 1;
+          return (
+            <span key={item.href} className="flex items-center gap-1.5">
+              {i > 0 && <span aria-hidden="true">›</span>}
+              {isLast ? (
+                <span className="text-ink" aria-current="page">
+                  {item.name}
+                </span>
+              ) : (
+                <Link href={item.href} className="hover:text-ink hover:underline">
+                  {item.name}
+                </Link>
+              )}
+            </span>
+          );
+        })}
+      </nav>
+    </>
+  );
+}
+
 export function Card({
   children,
   className = "",
@@ -93,11 +192,28 @@ export function Card({
   onClick?: () => void;
 }) {
   const hasCustomBg = Boolean(style && ("background" in style || "backgroundColor" in style));
+  // When a Card is clickable it must be operable by keyboard too. Every product
+  // carousel (Buy Again, Recently Viewed, Baby Club, Bought Together, deal/bundle
+  // tiles) opens the quick-view through this onClick — as a bare <div> those were
+  // unreachable by keyboard and invisible to assistive tech as interactive.
+  const interactive = Boolean(onClick);
   return (
     <div
       onClick={onClick}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
       style={style}
-      className={`rounded-card border-3 border-ink ${hasCustomBg ? "" : "bg-paper"} shadow-hard-4 ${className}`}
+      className={`rounded-card border-3 border-ink ${hasCustomBg ? "" : "bg-paper"} shadow-hard-4 ${interactive ? "cursor-pointer" : ""} ${className}`}
     >
       {children}
     </div>
@@ -140,7 +256,7 @@ export function Field({
           onChange(val);
         }}
         placeholder={placeholder}
-        className="mt-1 w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2.5 font-body text-[15px] text-ink outline-none min-h-[44px]"
+        className="mt-1 w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2.5 font-body text-[15px] text-ink outline-none min-h-[44px] focus:border-brand"
       />
     </label>
   );
@@ -483,14 +599,19 @@ export function Modal({
 
         <div className="relative z-10">
           {!hideClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close modal"
-              className="btn-press absolute -right-1.5 -top-1.5 z-30 flex h-9 w-9 items-center justify-center rounded-full border-2.5 border-ink bg-[#FFE1A8] font-display text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] active:scale-90 transition-all cursor-pointer"
-            >
-              ✕
-            </button>
+            <div className="absolute -right-1.5 -top-1.5 z-30 flex items-center gap-1.5">
+              <kbd className="hidden sm:inline-block rounded border border-ink/30 bg-white/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-mute shadow-xs select-none">
+                Esc
+              </kbd>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close modal (Esc)"
+                className="btn-press flex h-9 w-9 items-center justify-center rounded-full border-2.5 border-ink bg-[#FFE1A8] font-display text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFCBD9] active:scale-90 transition-all cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
           )}
           {children}
         </div>

@@ -52,7 +52,11 @@ export function verifyPaymentSignature(
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
     .update(`${rzpOrderId}|${rzpPaymentId}`)
     .digest("hex");
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  } catch {
+    return false;
+  }
 }
 
 /** Verify a webhook body against X-Razorpay-Signature. */
@@ -68,11 +72,23 @@ export function verifyWebhookSignature(body: string, signature: string): boolean
 }
 
 /** Issue a refund for a captured payment (admin cancellations). */
-export async function refundPayment(paymentId: string, amountInr?: number): Promise<boolean> {
+export async function refundPayment(
+  paymentId: string,
+  orderNo: string,
+  amountInr?: number,
+): Promise<boolean> {
   const res = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}/refund`, {
     method: "POST",
     headers: { authorization: authHeader(), "content-type": "application/json" },
-    body: JSON.stringify(amountInr ? { amount: amountInr * 100 } : {}),
+    body: JSON.stringify({
+      ...(amountInr ? { amount: amountInr * 100 } : {}),
+      // Without this, the webhook's refund.processed handler has no way to
+      // resolve which RSB order a refund issued from OUR admin belongs to.
+      notes: { order_no: orderNo },
+    }),
   });
+  if (!res.ok) {
+    console.error("Razorpay refund request failed:", res.status, await res.text());
+  }
   return res.ok;
 }

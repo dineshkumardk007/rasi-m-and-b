@@ -2,6 +2,7 @@
 // before deploy, not silently at runtime. Set SKIP_ENV_VALIDATION=1 only for
 // CI scaffolding checks (e.g. lint-only jobs) — never on Vercel.
 import "./src/env.mjs";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -22,6 +23,18 @@ const SUPABASE_ORIGIN = (() => {
 const RAZORPAY = ["https://checkout.razorpay.com", "https://api.razorpay.com", "https://lumberjack.razorpay.com"];
 const META = ["https://connect.facebook.net", "https://www.facebook.com"];
 const GA = ["https://www.googletagmanager.com", "https://www.google-analytics.com", "https://region1.google-analytics.com"];
+
+// The browser SDK reports client-side errors directly to this origin — CSP
+// must allow it or every report is silently dropped by the browser itself.
+const SENTRY_ORIGIN = (() => {
+  const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+  if (!dsn) return null;
+  try {
+    return new URL(dsn).origin;
+  } catch {
+    return null;
+  }
+})();
 
 /**
  * Full policy — enforced.
@@ -52,9 +65,9 @@ const enforcedCsp = [
   `default-src 'self'`,
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} ${[...RAZORPAY, ...META, ...GA].join(" ")}`,
   `style-src 'self' 'unsafe-inline'`,
-  `img-src 'self' data: blob: https:`,
+  `img-src 'self' data: blob: ${SUPABASE_ORIGIN} https://images.unsplash.com https://i.imgur.com https://res.cloudinary.com ${[...META, ...GA].join(" ")}`,
   `font-src 'self' data:`,
-  `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_ORIGIN.replace("https://", "wss://")} ${[...RAZORPAY, ...META, ...GA].join(" ")}`,
+  `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_ORIGIN.replace("https://", "wss://")} ${[...RAZORPAY, ...META, ...GA].join(" ")}${SENTRY_ORIGIN ? ` ${SENTRY_ORIGIN}` : ""}`,
   `frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com`,
   `form-action 'self'`,
   `frame-ancestors 'none'`,
@@ -124,4 +137,17 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // No org/project/authToken yet (see .env.example) — this silently skips
+  // sourcemap upload rather than failing the build, so stack traces are
+  // minified in Sentry until those are set.
+  silent: true,
+  widenClientFileUpload: true,
+  webpack: { treeshake: { removeDebugLogging: true } },
+  // Sentry's own tunnel route would need adding to the CSP's connect-src and
+  // isn't needed at this scale — reports go straight to the ingest origin.
+  tunnelRoute: false,
+});

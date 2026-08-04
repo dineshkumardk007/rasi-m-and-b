@@ -13,15 +13,16 @@ import type {
   PendingApproval,
   Product,
   Review,
-  StaffAccount,
+  StaffAccountPublic,
   StaffRole,
   StoreSettings,
 } from "@/lib/types";
 import { BUSINESS, inr } from "@/lib/constants";
 import { Badge, Card, Modal, Pill } from "@/components/ui";
-import { logoutAdminAction, setOrderStatusAction, updateProductStockAction } from "@/app/admin/actions";
+import { logoutAdminAction, refundOrderAction, setOrderStatusAction, updateProductStockAction } from "@/app/admin/actions";
 import {
   AnalyticsTab,
+  BoxMediaTab,
   CouponsTab,
   CustomersTab,
   ProductsTab,
@@ -42,7 +43,7 @@ export interface AdminProps {
   settings: StoreSettings;
   banners: Banner[];
   brands: Brand[];
-  staffAccounts?: StaffAccount[];
+  staffAccounts?: StaffAccountPublic[];
   pendingApprovals?: PendingApproval[];
   currentStaff?: { userId: string; username: string; role: StaffRole };
   isDemo: boolean;
@@ -55,6 +56,7 @@ const TABS = [
   ["products", "📦 Products"],
   ["approvals", "🔔 Approvals"],
   ["staff", "👥 Staff & Roles"],
+  ["boxMedia", "🖼️ Box Media"],
   ["banners", "🖼️ Banners"],
   ["brands", "🏭 Brands"],
   ["customers", "👥 Customers"],
@@ -71,13 +73,14 @@ const TAB_COLORS: Record<(typeof TABS)[number][0], { bg: string; activeBg: strin
   products: { bg: "#FFCBD9", activeBg: "#FF8DA9" },
   approvals: { bg: "#FFE1A8", activeBg: "#FFC857" },
   staff: { bg: "#B9EBDD", activeBg: "#52D1AF" },
+  boxMedia: { bg: "#FFE66D", activeBg: "#FFD000" },
   banners: { bg: "#E2D4F9", activeBg: "#B892F7" },
   brands: { bg: "#FFD6A5", activeBg: "#FFAB52" },
   customers: { bg: "#B9EBDD", activeBg: "#52D1AF" },
   coupons: { bg: "#FFE66D", activeBg: "#FFD000" },
   reviews: { bg: "#FBD0EA", activeBg: "#F78BD1" },
   reports: { bg: "#A0D2EB", activeBg: "#4DA8DA" },
-  settings: { bg: "#E5DBCC", activeBg: "#C4B29A" },
+  settings: { bg: "#DDD0FE", activeBg: "#A78BFA" },
 };
 
 export function AdminShell(props: AdminProps) {
@@ -176,6 +179,7 @@ export function AdminShell(props: AdminProps) {
         {tab === "products" && <ProductsTab products={props.products} settings={props.settings} />}
         {tab === "approvals" && <ApprovalsTab pendingApprovals={props.pendingApprovals ?? []} />}
         {tab === "staff" && <StaffTab staffAccounts={props.staffAccounts ?? []} />}
+        {tab === "boxMedia" && <BoxMediaTab settings={props.settings} />}
         {tab === "banners" && <BannersTab banners={props.banners} />}
         {tab === "brands" && <BrandsTab brands={props.brands} />}
         {tab === "customers" && <CustomersTab customers={props.customers} orders={props.orders} />}
@@ -350,7 +354,7 @@ function Dashboard({ orders, products }: AdminProps) {
                   `Hi ${o.address_snapshot.name}, greeting from Rasi Mom & Baby regarding order #${o.order_no}!`,
                 )}`}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="rounded-full border border-ink bg-[#D6E8B0] px-2.5 py-0.5 text-[11px] font-extrabold hover:bg-[#B9EBDD] transition-colors"
               >
                 💬 WhatsApp
@@ -398,6 +402,9 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
   const [slip, setSlip] = useState<Order | null>(null);
   const [label, setLabel] = useState<Order | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState<Order | null>(null);
+  const [confirmRefund, setConfirmRefund] = useState<Order | null>(null);
+  const [refundError, setRefundError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
 
@@ -518,7 +525,7 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
               🎁 “{o.gift_message}”
             </div>
           )}
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {PIPELINE.map((step) => (
               <Pill
                 key={step.status}
@@ -529,6 +536,12 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
                 {step.label}
               </Pill>
             ))}
+
+            {/* Visual Divider Barrier '|' between pipeline and action buttons */}
+            <span className="mx-1 inline-flex items-center justify-center font-display font-black text-ink/40 text-[18px] select-none" aria-hidden="true">
+              |
+            </span>
+
             <Pill bg="#E4D6FF" onClick={() => setSlip(o)}>
               🖨️ Slip
             </Pill>
@@ -536,7 +549,7 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
               href={`/admin/print/${o.order_no}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-press rounded-pill border-2 border-ink bg-[#8CE0CE] px-3 py-1 text-[13px] font-extrabold text-ink shadow-hard-1 hover:bg-[#6FD4BD]"
+              className="btn-press inline-flex items-center rounded-pill border-2 border-ink bg-[#8CE0CE] px-3 py-1 text-[13px] font-extrabold text-ink shadow-hard-1 hover:bg-[#6FD4BD]"
             >
               🏷️ 4x6 Label
             </a>
@@ -557,13 +570,89 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
               📱 WhatsApp
             </Pill>
             {o.status !== "cancelled" && o.status !== "delivered" && (
-              <Pill bg="#FFCBD9" onClick={() => busy !== o.id && move(o, "cancelled")}>
+              <Pill bg="#FFCBD9" onClick={() => busy !== o.id && setConfirmCancel(o)}>
                 ✕ Cancel
+              </Pill>
+            )}
+            {o.payment_status !== "refunded" && (
+              <Pill bg="#FF5A78" color="#ffffff" onClick={() => busy !== o.id && setConfirmRefund(o)}>
+                💸 Refund
               </Pill>
             )}
           </div>
         </Card>
       ))}
+      {confirmCancel && (
+        <Modal onClose={() => setConfirmCancel(null)}>
+          <h3 className="font-display text-[20px] font-extrabold text-ink">Cancel this order?</h3>
+          <p className="mt-2 text-[14px] text-mute">
+            Order <span className="font-extrabold text-ink">#{confirmCancel.order_no}</span> for{" "}
+            {confirmCancel.address_snapshot.name} will be marked cancelled. This can’t be undone.
+          </p>
+          <div className="mt-4 flex gap-2.5">
+            <Pill bg="#E4E0EC" onClick={() => setConfirmCancel(null)}>
+              Keep order
+            </Pill>
+            <Pill
+              bg="#FFCBD9"
+              onClick={() => {
+                const target = confirmCancel;
+                setConfirmCancel(null);
+                if (busy !== target.id) move(target, "cancelled");
+              }}
+            >
+              ✕ Yes, cancel order
+            </Pill>
+          </div>
+        </Modal>
+      )}
+      {confirmRefund && (
+        <Modal onClose={() => setConfirmRefund(null)}>
+          <h3 className="font-display text-[20px] font-extrabold text-ink">Issue refund for this order?</h3>
+          <p className="mt-2 text-[14px] text-mute">
+            Order <span className="font-extrabold text-ink">#{confirmRefund.order_no}</span> ({inr(confirmRefund.total)}) for{" "}
+            {confirmRefund.address_snapshot.name} will be marked refunded and Razorpay refund triggered if online.
+          </p>
+          <div className="mt-4 flex gap-2.5">
+            <Pill bg="#E4E0EC" onClick={() => setConfirmRefund(null)}>
+              Cancel
+            </Pill>
+            <Pill
+              bg="#FF5A78"
+              color="#ffffff"
+              onClick={async () => {
+                const target = confirmRefund;
+                setConfirmRefund(null);
+                setBusy(target.id);
+                setRefundError(null);
+                const res = await refundOrderAction(target.id);
+                setBusy(null);
+                if (!res.ok) {
+                  // Money didn't move (or the DB update failed) — an admin
+                  // silently seeing "success" here is exactly how a refund
+                  // gets marked done without a customer ever being paid.
+                  setRefundError(res.error ?? "Refund failed.");
+                  return;
+                }
+                router.refresh();
+              }}
+            >
+              💸 Yes, issue refund
+            </Pill>
+          </div>
+        </Modal>
+      )}
+      {refundError && (
+        <Modal onClose={() => setRefundError(null)}>
+          <h3 className="font-display text-[20px] font-extrabold text-ink">⚠️ Refund failed</h3>
+          <p className="mt-2 text-[14px] text-mute">{refundError}</p>
+          <div className="mt-4">
+            <Pill bg="#E4E0EC" onClick={() => setRefundError(null)}>
+              Close
+            </Pill>
+          </div>
+        </Modal>
+      )}
       {slip && <PackingSlip order={slip} onClose={() => setSlip(null)} />}
       {label && <ShippingLabel order={label} onClose={() => setLabel(null)} />}
     </div>
