@@ -144,7 +144,7 @@ export function ProductModal({
             wishlist.toggle(p.id);
             notify(wishlist.has(p.id) ? "Removed from Wishlist" : "Saved to Wishlist ❤️");
           }}
-          className={`btn-press absolute top-3 right-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border-2.5 border-ink transition-all duration-200 cursor-pointer ${wishlist.has(p.id)
+          className={`btn-press absolute bottom-3 left-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border-2.5 border-ink transition-all duration-200 cursor-pointer ${wishlist.has(p.id)
               ? "bg-[#FF5A78] text-white shadow-hard-3 scale-110 rotate-6"
               : "bg-white/95 text-ink shadow-hard-2 hover:bg-[#FFCBD9] hover:scale-110"
             }`}

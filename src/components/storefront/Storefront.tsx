@@ -520,7 +520,7 @@ export default function Storefront(props: StorefrontProps) {
           </div>
 
           {/* Search Bar - Compact Neo-Brutalist Pill */}
-          <div className="w-full sm:w-auto sm:max-w-[280px] lg:max-w-[320px] my-1 lg:my-0 flex-1 sm:flex-initial">
+          <div className="relative w-full sm:w-auto sm:max-w-[280px] lg:max-w-[320px] my-1 lg:my-0 flex-1 sm:flex-initial">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -573,11 +573,8 @@ export default function Storefront(props: StorefrontProps) {
               <div className="absolute top-full left-0 right-0 z-50 mt-1.5 rounded-card border-3 border-ink bg-white p-2.5 shadow-hard-4 animate-fadeIn">
                 <div className="flex items-center justify-between text-[12px] font-extrabold text-mute uppercase px-2 pb-1.5 border-b border-ink/10">
                   <span>⚡ {t("search.liveResults")} ({suggestions.length})</span>
-                  <span className="text-[12px] text-brand font-extrabold bg-[#D6E8B0] px-2 py-0.2 rounded-full border border-ink">
-                    {t("search.clickPreview")}
-                  </span>
                 </div>
-                <div className="mt-1 space-y-1.5 max-h-[320px] overflow-y-auto">
+                <div className="sticker-scrollbar mt-1 space-y-1.5 max-h-[320px] overflow-y-auto">
                   {suggestions.map((p) => {
                     const pName = lang === "ta" ? p.name_ta : p.name_en;
                     const isOut = p.stock === 0;

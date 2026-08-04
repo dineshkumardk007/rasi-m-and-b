@@ -44,21 +44,52 @@ export interface DemoDB {
   orderSeq: number;
 }
 
+interface BrandDef {
+  name: string;
+  slug: string;
+  bg: string;
+  textColor: string;
+  tag: string;
+  accentIcon: string;
+}
+
+const TOP_20_BRANDS: BrandDef[] = [
+  { name: "Sebamed", slug: "sebamed", bg: "#E8F4FC", textColor: "#005B96", tag: "pH 5.5 CLINICAL", accentIcon: "🧪" },
+  { name: "Pampers", slug: "pampers", bg: "#E6F8F6", textColor: "#008B8B", tag: "DRY MAX", accentIcon: "☀️" },
+  { name: "Huggies", slug: "huggies", bg: "#FFEBEB", textColor: "#D90429", tag: "WONDER-PANTS", accentIcon: "☁️" },
+  { name: "Chicco", slug: "chicco", bg: "#EBF2FA", textColor: "#003049", tag: "ITALY 1958", accentIcon: "🧸" },
+  { name: "Johnson's", slug: "johnsons", bg: "#E3F2FD", textColor: "#0277BD", tag: "NO MORE TEARS", accentIcon: "💧" },
+  { name: "Himalaya", slug: "himalaya", bg: "#E8F5E9", textColor: "#2E7D32", tag: "HERBAL CARE", accentIcon: "🌿" },
+  { name: "Mee Mee", slug: "mee-mee", bg: "#FCE4EC", textColor: "#C2185B", tag: "JOY OF CARE", accentIcon: "🍼" },
+  { name: "LuvLap", slug: "luvlap", bg: "#F3E5F5", textColor: "#7B1FA2", tag: "STROLLERS & GEAR", accentIcon: "🛒" },
+  { name: "Philips Avent", slug: "philips-avent", bg: "#E0F2F1", textColor: "#00695C", tag: "AVENT NURSING", accentIcon: "✨" },
+  { name: "Mamaearth", slug: "mamaearth", bg: "#F1F8E9", textColor: "#558B2F", tag: "TOXIN FREE", accentIcon: "🌱" },
+  { name: "Mothercare", slug: "mothercare", bg: "#ECEFF1", textColor: "#37474F", tag: "NURSERY & MORE", accentIcon: "🤱" },
+  { name: "Fisher-Price", slug: "fisher-price", bg: "#FFEBEE", textColor: "#C62828", tag: "PLAY & LEARN", accentIcon: "🎪" },
+  { name: "SuperBottoms", slug: "superbottoms", bg: "#F8BBD0", textColor: "#AD1457", tag: "CLOTH DIAPERS", accentIcon: "🎨" },
+  { name: "Pigeon", slug: "pigeon", bg: "#E0F7FA", textColor: "#00838F", tag: "JAPAN QUALITY", accentIcon: "🕊️" },
+  { name: "Beybee", slug: "beybee", bg: "#FFF8E1", textColor: "#F57F17", tag: "DRY MATS", accentIcon: "🐝" },
+  { name: "Skip Hop", slug: "skip-hop", bg: "#FFF3E0", textColor: "#E65100", tag: "MUST-HAVES", accentIcon: "🎒" },
+  { name: "Medela", slug: "medela", bg: "#F8E1EE", textColor: "#880E4F", tag: "BREASTFEEDING", accentIcon: "💖" },
+  { name: "Aveeno Baby", slug: "aveeno", bg: "#FFFDE7", textColor: "#FBC02D", tag: "ACTIVE OAT", accentIcon: "🌾" },
+  { name: "Mustela", slug: "mustela", bg: "#E1F5FE", textColor: "#0288D1", tag: "PARIS DERMO", accentIcon: "⭐" },
+  { name: "Babyhug", slug: "babyhug", bg: "#EDE7F6", textColor: "#512DA8", tag: "LOVED BY MOMS", accentIcon: "🤗" },
+];
+
+function makeBrandLogoSvg(b: BrandDef): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><rect width="200" height="200" rx="36" fill="${b.bg}"/><circle cx="100" cy="100" r="88" fill="none" stroke="${b.textColor}" stroke-width="4" stroke-dasharray="8,5" opacity="0.25"/><text x="100" y="68" text-anchor="middle" font-size="38" font-family="system-ui, -apple-system, sans-serif">${b.accentIcon}</text><text x="100" y="116" text-anchor="middle" font-size="22" font-weight="900" font-family="system-ui, -apple-system, sans-serif" fill="${b.textColor}">${b.name}</text><rect x="25" y="140" width="150" height="28" rx="14" fill="${b.textColor}" opacity="0.12"/><text x="100" y="159" text-anchor="middle" font-size="11" font-weight="800" font-family="system-ui, -apple-system, sans-serif" fill="${b.textColor}" letter-spacing="1.2">${b.tag}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 /**
- * Demo brands, derived from the names already in the seed catalogue so the
- * rail shows the shop's real suppliers. Logos fall back to the store mark:
- * demo mode has no storage bucket to hold real brand artwork.
+ * 20 top baby & mom care brands with custom styled SVG vector logos.
  */
 function buildBrands(): Brand[] {
-  const names = [...new Set(CATALOG.map((row) => row.brand))].filter(Boolean).sort();
-  return names.map((name, i) => ({
+  return TOP_20_BRANDS.map((b, i) => ({
     id: `demo-br${i + 1}`,
-    name,
-    slug: name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, ""),
-    logo_url: "/logo.png",
+    name: b.name,
+    slug: b.slug,
+    logo_url: makeBrandLogoSvg(b),
     sort: i,
     active: true,
   }));

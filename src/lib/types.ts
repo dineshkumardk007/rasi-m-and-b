@@ -120,6 +120,7 @@ export interface Order {
   gift_message?: string | null;
   gift_wrap_fee?: number;
   delivery_mode?: "standard" | "express_3hr" | "store_pickup";
+  razorpay_payment_id?: string | null;
 }
 
 export interface Coupon {

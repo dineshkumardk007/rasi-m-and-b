@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type {
@@ -272,7 +273,12 @@ function Dashboard({ orders, products }: AdminProps) {
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const active = orders.filter((o) => o.status !== "cancelled" && o.status !== "returned");
+  const active = orders.filter(
+    (o) =>
+      o.status !== "cancelled" &&
+      o.status !== "returned" &&
+      (o.payment_method === "cod" || o.payment_status === "paid"),
+  );
   const revenueSince = (d: Date) =>
     active.filter((o) => new Date(o.placed_at) >= d).reduce((s, o) => s + o.total, 0);
   const todayOrders = active.filter((o) => new Date(o.placed_at) >= startOfDay);
@@ -430,6 +436,61 @@ const ORDER_FILTERS: { id: string; label: string; match: (o: Order) => boolean }
   },
 ];
 
+/**
+ * Deliberately NOT built on the shared Badge component — this is the one
+ * thing on the order card staff actually rely on to decide whether it's
+ * safe to ship, so it needs to look and behave differently from the small
+ * decorative badges (coupon code, gift, delivery mode) next to it. Clicking
+ * a Razorpay order copies its razorpay_payment_id, since that's the only
+ * independent way to verify a payment against Razorpay's own dashboard
+ * rather than trusting this screen alone.
+ */
+function PaymentStatusChip({ order }: { order: Order }) {
+  const [copied, setCopied] = useState(false);
+  const isCod = order.payment_method === "cod";
+  const paymentId = isCod ? null : order.razorpay_payment_id;
+
+  const { text, bg, unpaid } = isCod
+    ? { text: "💵 COD", bg: "#FFE1A8", unpaid: false }
+    : order.payment_status === "paid"
+      ? { text: "✅ PAID ONLINE", bg: "#B9EBDD", unpaid: false }
+      : order.payment_status === "refunded"
+        ? { text: "↩️ REFUNDED", bg: "#DDD0FE", unpaid: false }
+        : { text: "⚠️ UNPAID — DO NOT SHIP", bg: "#FF8DA9", unpaid: true };
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (!paymentId) return;
+        navigator.clipboard?.writeText(paymentId).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      disabled={!paymentId}
+      title={
+        paymentId
+          ? `Razorpay payment ID: ${paymentId} — click to copy, verify at dashboard.razorpay.com`
+          : isCod
+            ? "Cash on delivery — nothing to verify with Razorpay"
+            : "No Razorpay payment ID yet — the payment hasn't been captured"
+      }
+      style={{ background: bg }}
+      className={`btn-press inline-flex items-center gap-2 rounded-pill border-3 border-ink px-3.5 py-1.5 font-display text-[12px] font-extrabold text-ink shadow-hard-3 transition-all ${
+        paymentId ? "cursor-pointer hover:scale-105 active:scale-95" : "cursor-default"
+      } ${unpaid ? "animate-pulse" : ""}`}
+    >
+      {text}
+      {paymentId && (
+        <span className="rounded-pill border-2 border-ink/30 bg-white/60 px-1.5 py-[1px] font-mono text-[10px] font-bold text-ink/70">
+          {copied ? "✓ copied" : `#${paymentId.slice(-8)}`}
+        </span>
+      )}
+    </button>
+  );
+}
+
 function OrdersBoard({ orders }: { orders: Order[] }) {
   const router = useRouter();
   const [slip, setSlip] = useState<Order | null>(null);
@@ -539,20 +600,14 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
             </div>
             <div className="font-display font-extrabold text-brand">{inr(o.total)}</div>
           </div>
-          <div className="mt-1 text-[14px] text-mute">
+          <div className="mt-1.5">
+            <PaymentStatusChip order={o} />
+          </div>
+          <div className="mt-1.5 text-[14px] text-mute">
             {o.address_snapshot.line}, {o.address_snapshot.city} — {o.address_snapshot.pin}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[14px]">
             {o.items.map((i) => `${i.name_snapshot} ×${i.qty}`).join(" · ")}{" "}
-            <Badge bg={o.payment_method === "cod" || o.payment_status === "paid" || o.payment_status === "refunded" ? "#FFE1A8" : "#FFCBD9"}>
-              {o.payment_method === "cod"
-                ? "COD"
-                : o.payment_status === "paid"
-                  ? "Paid online"
-                  : o.payment_status === "refunded"
-                    ? "Refunded"
-                    : "⚠️ Payment not received"}
-            </Badge>
             {o.coupon_code && <Badge bg="#D6E8B0">{o.coupon_code}</Badge>}
             {o.is_gift && <Badge bg="#FBD0EA">🎁 GIFT</Badge>}
             {o.delivery_mode === "express_3hr" && <Badge bg="#D6E8B0">⚡ 3-HR EXPRESS</Badge>}
@@ -701,67 +756,86 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
 }
 
 function PackingSlip({ order, onClose }: { order: Order; onClose: () => void }) {
+  const content = (
+    <div>
+      <h3 className="font-display text-[22px] font-extrabold">📦 {order.order_no}</h3>
+      <p className="mt-1 text-[14px] text-mute">{BUSINESS.name}</p>
+      <div className="mt-3 rounded-tile border-2.5 border-ink bg-paper p-3 text-[14px]">
+        <div className="font-extrabold">{order.address_snapshot.name}</div>
+        <div>
+          {order.address_snapshot.line}, {order.address_snapshot.city} —{" "}
+          {order.address_snapshot.pin}
+        </div>
+        <div>📞 {order.address_snapshot.phone}</div>
+      </div>
+      <table className="mt-3 w-full text-[14px]">
+        <tbody>
+          {order.items.map((i, idx) => (
+            <tr key={idx} className="border-b border-dashed border-[#E5DBCC]">
+              <td className="py-1.5">{i.name_snapshot}</td>
+              <td className="py-1.5 text-right font-extrabold">×{i.qty}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="mt-3 flex justify-between font-display font-extrabold">
+        <span>
+          {order.payment_method === "cod"
+            ? `COLLECT ${inr(order.total)}`
+            : order.payment_status === "paid"
+              ? "PAID ONLINE"
+              : order.payment_status === "refunded"
+                ? "REFUNDED"
+                : "⚠️ PAYMENT NOT RECEIVED"}
+        </span>
+        <span>{inr(order.total)}</span>
+      </div>
+    </div>
+  );
+
   return (
-    <Modal onClose={onClose}>
-      <div id="packing-slip">
-        <style>{`@media print { body * { visibility: hidden } #packing-slip, #packing-slip * { visibility: visible } #packing-slip { position: fixed; inset: 0; background: #fff; padding: 24px } }`}</style>
-        <h3 className="font-display text-[22px] font-extrabold">📦 {order.order_no}</h3>
-        <p className="mt-1 text-[14px] text-mute">{BUSINESS.name}</p>
-        <div className="mt-3 rounded-tile border-2.5 border-ink bg-paper p-3 text-[14px]">
-          <div className="font-extrabold">{order.address_snapshot.name}</div>
-          <div>
-            {order.address_snapshot.line}, {order.address_snapshot.city} —{" "}
-            {order.address_snapshot.pin}
-          </div>
-          <div>📞 {order.address_snapshot.phone}</div>
+    <>
+      <Modal onClose={onClose}>
+        {content}
+        <div className="mt-4 flex gap-2.5">
+          <button
+            onClick={() => window.print()}
+            className="btn-press flex-1 rounded-pill border-3 border-ink bg-brand px-5 py-2.5 font-display font-extrabold text-white shadow-hard-3"
+          >
+            🖨️ Print
+          </button>
+          <button
+            onClick={onClose}
+            className="btn-press flex-1 rounded-pill border-3 border-ink bg-[#F2EAE0] px-5 py-2.5 font-display font-extrabold shadow-hard-3"
+          >
+            Close
+          </button>
         </div>
-        <table className="mt-3 w-full text-[14px]">
-          <tbody>
-            {order.items.map((i, idx) => (
-              <tr key={idx} className="border-b border-dashed border-[#E5DBCC]">
-                <td className="py-1.5">{i.name_snapshot}</td>
-                <td className="py-1.5 text-right font-extrabold">×{i.qty}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="mt-3 flex justify-between font-display font-extrabold">
-          <span>
-            {order.payment_method === "cod"
-              ? `COLLECT ${inr(order.total)}`
-              : order.payment_status === "paid"
-                ? "PAID ONLINE"
-                : order.payment_status === "refunded"
-                  ? "REFUNDED"
-                  : "⚠️ PAYMENT NOT RECEIVED"}
-          </span>
-          <span>{inr(order.total)}</span>
-        </div>
-      </div>
-      <div className="mt-4 flex gap-2.5">
-        <button
-          onClick={() => window.print()}
-          className="btn-press flex-1 rounded-pill border-3 border-ink bg-brand px-5 py-2.5 font-display font-extrabold text-white shadow-hard-3"
-        >
-          🖨️ Print
-        </button>
-        <button
-          onClick={onClose}
-          className="btn-press flex-1 rounded-pill border-3 border-ink bg-[#F2EAE0] px-5 py-2.5 font-display font-extrabold shadow-hard-3"
-        >
-          Close
-        </button>
-      </div>
-    </Modal>
+      </Modal>
+
+      {/*
+       * Printed as a separate node ported straight onto <body>, not the on-screen
+       * copy above. That copy sits deep inside the whole (very tall) admin page —
+       * "visibility: hidden" on everything else still leaves that page's full
+       * height in the print layout, which is what was producing extra blank/
+       * broken pages. A body-level portal has none of that page's height to drag
+       * along, so it paginates as just the slip itself.
+       */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <div id="packing-slip-print" className="hidden bg-white p-6 print:block">
+            <style>{`@media print { body > *:not(#packing-slip-print) { display: none !important; } }`}</style>
+            {content}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
 function ShippingLabel({ order, onClose }: { order: Order; onClose: () => void }) {
-  return (
-    <Modal onClose={onClose}>
-      <div id="shipping-label" className="mx-auto max-w-[400px] border-4 border-ink bg-white p-5 shadow-hard-4">
-        <style>{`@media print { body * { visibility: hidden } #shipping-label, #shipping-label * { visibility: visible } #shipping-label { position: fixed; top: 0; left: 0; width: 4in; height: 6in; background: #fff; padding: 16px; border: 3px solid #000; font-family: sans-serif; } }`}</style>
-
+  const content = (
+    <div className="mx-auto max-w-[400px] border-4 border-ink bg-white p-5 shadow-hard-4">
         {/* Header */}
         <div className="flex items-center justify-between border-b-3 border-ink pb-3">
           <div>
@@ -822,22 +896,52 @@ function ShippingLabel({ order, onClose }: { order: Order; onClose: () => void }
         <div className="mt-3 text-center text-[12px] font-bold text-mute border-t border-ink/20 pt-2">
           Hand-packed with care in Thoothukudi · Express Courier Service
         </div>
-      </div>
+    </div>
+  );
 
-      <div className="mt-4 flex gap-2.5">
-        <button
-          onClick={() => window.print()}
-          className="btn-press flex-1 rounded-pill border-3 border-ink bg-brand px-5 py-2.5 font-display font-extrabold text-white shadow-hard-3"
-        >
-          🏷️ Print Shipping Label (4x6&quot;)
-        </button>
-        <button
-          onClick={onClose}
-          className="btn-press flex-1 rounded-pill border-3 border-ink bg-[#F2EAE0] px-5 py-2.5 font-display font-extrabold shadow-hard-3"
-        >
-          Close
-        </button>
-      </div>
-    </Modal>
+  return (
+    <>
+      <Modal onClose={onClose}>
+        {content}
+        <div className="mt-4 flex gap-2.5">
+          <button
+            onClick={() => window.print()}
+            className="btn-press flex-1 rounded-pill border-3 border-ink bg-brand px-5 py-2.5 font-display font-extrabold text-white shadow-hard-3"
+          >
+            🏷️ Print Shipping Label (4x6&quot;)
+          </button>
+          <button
+            onClick={onClose}
+            className="btn-press flex-1 rounded-pill border-3 border-ink bg-[#F2EAE0] px-5 py-2.5 font-display font-extrabold shadow-hard-3"
+          >
+            Close
+          </button>
+        </div>
+      </Modal>
+
+      {/*
+       * Same reasoning as PackingSlip's portal: printing the on-screen copy
+       * directly pulled in the entire (very tall) admin page's layout height
+       * via "visibility: hidden", which doesn't remove hidden elements from
+       * the page-flow the print engine paginates against — hence the label
+       * spilling across several broken pages instead of the one 4x6" sheet
+       * it's meant to be. A body-level portal has no such height to drag
+       * along, and @page pins the physical sheet size to match.
+       */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <div id="shipping-label-print" className="hidden print:block">
+            <style>{`
+              @page { size: 4in 6in; margin: 0; }
+              @media print {
+                body > *:not(#shipping-label-print) { display: none !important; }
+                #shipping-label-print { width: 4in; height: 6in; box-sizing: border-box; }
+              }
+            `}</style>
+            {content}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }

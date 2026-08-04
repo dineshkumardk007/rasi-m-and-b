@@ -344,8 +344,8 @@ const cachedActiveBrands = unstable_cache(
 export async function getActiveBrands(): Promise<Brand[]> {
   if (isDemo()) return demoDB().brands.filter((b) => b.active);
   const cached = await cachedActiveBrands();
-  if (cached === null) {
-    logReadFallback("getActiveBrands", "cache miss/error");
+  if (!cached || cached.length === 0) {
+    logReadFallback("getActiveBrands", "cache miss/empty table");
     return demoDB().brands.filter((b) => b.active);
   }
   return cached;
@@ -359,8 +359,8 @@ export async function getAllBrands(): Promise<Brand[]> {
     .from("brands")
     .select("*")
     .order("sort", { ascending: true });
-  if (error) return demoDB().brands;
-  return (data ?? []).map(mapBrand);
+  if (error || !data || data.length === 0) return demoDB().brands;
+  return data.map(mapBrand);
 }
 
 export async function getBrandBySlug(slug: string): Promise<Brand | null> {

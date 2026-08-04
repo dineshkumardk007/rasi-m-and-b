@@ -150,7 +150,7 @@ function BannerImage({ banner, priority }: { banner: Banner; priority?: boolean 
       fill
       sizes="(max-width: 1240px) 100vw, 1200px"
       priority={priority}
-      className="object-cover"
+      className="object-cover transition-transform duration-500 group-hover:scale-105 group-hover/banner:scale-105 group-hover/midbanner:scale-105"
     />
   );
 }
@@ -367,30 +367,95 @@ export function PromoBanner({ banners }: { banners: Banner[] }) {
  */
 export function BrandRail({ brands }: { brands: Brand[] }) {
   const { t } = useT();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   if (brands.length === 0) return null;
 
+  const scroll = (direction: "left" | "right") => {
+    if (scrollRef.current) {
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+      const cardStep = isMobile ? 122 : 140; // 1 box (width + gap)
+      const amount = (direction === "left" ? -1 : 1) * (cardStep * 7);
+      scrollRef.current.scrollBy({ left: amount, behavior: "smooth" });
+    }
+  };
+
   return (
-    <div className="mx-auto max-w-[1080px] px-5 pb-2 pt-6">
-      <h2 className="mb-3.5 font-display text-[24px] font-extrabold">{t("brand.title")}</h2>
-      <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2">
-        {brands.map((brand) => (
-          <Link
-            key={brand.id}
-            href={`/brand/${brand.slug}`}
-            className="group w-[104px] shrink-0 text-center"
+    <div className="mx-auto max-w-[1240px] px-4 sm:px-5 pb-4 pt-6">
+      <div className="flex items-center justify-between mb-3.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[22px] shrink-0">🏷️</span>
+          <h2 className="font-display text-[22px] sm:text-[26px] font-extrabold text-ink truncate">
+            {t("brand.title")}
+          </h2>
+        </div>
+
+        {/* Header Scroll Navigation Arrows */}
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          <button
+            type="button"
+            onClick={() => scroll("left")}
+            className="btn-press flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border-2 border-ink bg-white text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-90 transition-all cursor-pointer"
+            aria-label="Scroll brands left"
           >
-            <div className="relative h-[104px] w-[104px] overflow-hidden rounded-tile border-2.5 border-ink bg-white transition-transform duration-200 group-hover:-translate-y-1">
-              <Image
-                src={brand.logo_url}
-                alt={brand.name}
-                fill
-                sizes="104px"
-                className="object-contain p-2.5"
-              />
-            </div>
-            <div className="mt-1.5 truncate text-[12px] font-bold">{brand.name}</div>
-          </Link>
-        ))}
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={() => scroll("right")}
+            className="btn-press flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border-2 border-ink bg-white text-[16px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-90 transition-all cursor-pointer"
+            aria-label="Scroll brands right"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+
+      <div className="relative group/rail">
+        {/* Floating Side Arrow Buttons for Desktop */}
+        <button
+          type="button"
+          onClick={() => scroll("left")}
+          className="btn-press absolute -left-2.5 sm:-left-3.5 top-1/2 -translate-y-1/2 z-20 hidden md:flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 sm:border-2.5 border-ink bg-white/95 text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer opacity-0 group-hover/rail:opacity-100 font-extrabold text-[16px]"
+          aria-label="Scroll brands left"
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          onClick={() => scroll("right")}
+          className="btn-press absolute -right-2.5 sm:-right-3.5 top-1/2 -translate-y-1/2 z-20 hidden md:flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 sm:border-2.5 border-ink bg-white/95 text-ink shadow-hard-2 hover:bg-[#FFE1A8] active:scale-95 transition-all cursor-pointer opacity-0 group-hover/rail:opacity-100 font-extrabold text-[16px]"
+          aria-label="Scroll brands right"
+        >
+          ›
+        </button>
+
+        <div
+          ref={scrollRef}
+          className="sticker-scrollbar flex gap-3 sm:gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth"
+        >
+          {brands.map((brand) => (
+            <Link
+              key={brand.id}
+              href={`/brand/${brand.slug}`}
+              className="group relative w-[110px] sm:w-[124px] shrink-0 text-center cursor-pointer select-none"
+            >
+              <div className="relative h-[110px] w-[110px] sm:h-[124px] sm:w-[124px] overflow-hidden rounded-[20px] border-2.5 sm:border-3 border-ink bg-white p-2 shadow-hard-3 transition-all duration-300 group-hover:-translate-y-1.5 group-hover:shadow-[6px_6px_0px_#2B2140] group-hover:border-brand">
+                <Image
+                  src={brand.logo_url}
+                  alt={brand.name}
+                  fill
+                  sizes="(max-width: 640px) 110px, 124px"
+                  unoptimized={brand.logo_url.startsWith("data:")}
+                  className="object-contain p-2 transition-transform duration-300 group-hover:scale-105"
+                />
+              </div>
+              <div className="mt-2 truncate font-display text-[13px] font-extrabold text-ink group-hover:text-brand transition-colors">
+                {brand.name}
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );

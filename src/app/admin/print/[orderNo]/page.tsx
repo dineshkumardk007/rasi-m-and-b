@@ -67,10 +67,20 @@ export default async function AdminOrderPrintPage({
           className={`mb-2.5 rounded border-2 px-2 py-1 text-center font-display text-[13px] font-extrabold uppercase tracking-wide ${
             isCod
               ? "border-black bg-black text-white"
-              : "border-black bg-gray-200 text-black"
+              : order.payment_status === "paid"
+                ? "border-black bg-gray-200 text-black"
+                : order.payment_status === "refunded"
+                  ? "border-black bg-gray-200 text-black"
+                  : "border-red-600 bg-red-600 text-white"
           }`}
         >
-          {isCod ? `⚠️ COLLECT CASH ON DELIVERY: ${inr(order.total)}` : "✓ PAID ONLINE"}
+          {isCod
+            ? `⚠️ COLLECT CASH ON DELIVERY: ${inr(order.total)}`
+            : order.payment_status === "paid"
+              ? "✓ PAID ONLINE"
+              : order.payment_status === "refunded"
+                ? "REFUNDED"
+                : "⚠️ UNPAID — DO NOT DISPATCH"}
         </div>
 
         {/* Deliver To Address Box */}

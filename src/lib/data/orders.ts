@@ -491,6 +491,7 @@ export function mapOrder(row: any): Order {
     is_gift: row.is_gift ?? false,
     gift_message: row.gift_message ?? null,
     delivery_mode: row.delivery_mode ?? "standard",
+    razorpay_payment_id: row.razorpay_payment_id ?? null,
   };
 }
 

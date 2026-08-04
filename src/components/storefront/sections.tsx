@@ -161,8 +161,8 @@ export function Hero({
 
         <div className="relative z-10 grid grid-cols-1 gap-5 md:gap-6 items-center md:grid-cols-2">
           {/* ── LEFT HERO: LARGE FEATURED STORE IMAGE CARD ── */}
-          <div className="relative w-full">
-            <div className="relative rounded-card border-2.5 sm:border-3 border-ink bg-[#FE91E8] p-2.5 sm:p-4 md:p-5 shadow-hard-4 transition-all duration-300">
+          <div className="relative group w-full">
+            <div className="relative rounded-card border-2.5 sm:border-3 border-ink bg-[#FE91E8] p-2.5 sm:p-4 md:p-5 shadow-hard-4 transition-all duration-300 group-hover:shadow-hard-6 group-hover:-translate-y-1">
               <Image
                 src={settings?.box_media?.["hero-store-banner"] || "/hero-store.jpg"}
                 alt="Rasi Mom & Baby Store Front"
@@ -170,7 +170,7 @@ export function Hero({
                 height={576}
                 priority
                 sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 560px"
-                className="w-full h-auto max-h-[260px] sm:max-h-none rounded-[10px] sm:rounded-[14px] object-contain sm:object-cover border-2 sm:border-2.5 border-ink bg-white/40 transition-transform duration-500 group-hover:scale-[1.01]"
+                className="w-full h-auto max-h-[260px] sm:max-h-none rounded-[10px] sm:rounded-[14px] object-contain sm:object-cover border-2 sm:border-2.5 border-ink bg-white/40 transition-transform duration-500 group-hover:scale-105"
               />
               <div className="mt-2.5 sm:mt-3.5 px-0.5 pb-0.5 flex items-center justify-between gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
                 {/* Specific Google Maps Link Button */}
@@ -255,7 +255,7 @@ export function Hero({
                   <div className="relative z-10 flex flex-col justify-between h-full min-h-[92px] sm:min-h-[106px]">
                     <div className="flex items-start justify-between gap-1">
                       {/* Top Category Tag */}
-                      <span className="inline-block rounded-full border border-ink/40 bg-white/90 px-2 py-0.5 font-display text-[12px] sm:text-[12px] font-extrabold text-ink group-hover:bg-[#FFE66D] group-hover:border-ink transition-colors">
+                      <span className="inline-block whitespace-nowrap rounded-full border border-ink/40 bg-white/90 px-2 py-0.5 font-display text-[12px] sm:text-[12px] font-extrabold text-ink group-hover:bg-[#FFE66D] group-hover:border-ink transition-colors">
                         {prod.title}
                       </span>
                       {/* Micro Float Emoji Icon */}

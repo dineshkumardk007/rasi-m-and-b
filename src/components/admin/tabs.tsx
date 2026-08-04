@@ -1680,7 +1680,12 @@ export function AnalyticsTab({
   const router = useRouter();
   const [restocking, setRestocking] = useState<string | null>(null);
 
-  const activeOrders = orders.filter((o) => o.status !== "cancelled" && o.status !== "returned");
+  const activeOrders = orders.filter(
+    (o) =>
+      o.status !== "cancelled" &&
+      o.status !== "returned" &&
+      (o.payment_method === "cod" || o.payment_status === "paid"),
+  );
   const totalRevenue = activeOrders.reduce((s, o) => s + o.total, 0);
   const totalOrders = activeOrders.length;
   const aov = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
@@ -1698,13 +1703,14 @@ export function AnalyticsTab({
   };
 
   const exportOrdersToCSV = () => {
-    const headers = ["Order No", "Customer Name", "Phone", "Status", "Payment Method", "Total (INR)", "Placed At"];
+    const headers = ["Order No", "Customer Name", "Phone", "Status", "Payment Method", "Payment Status", "Total (INR)", "Placed At"];
     const rows = orders.map((o) => [
       o.order_no,
       `"${(o.address_snapshot.name || "").replace(/"/g, '""')}"`,
       `"${o.address_snapshot.phone || ""}"`,
       o.status,
       o.payment_method,
+      o.payment_status,
       o.total,
       new Date(o.placed_at).toLocaleString("en-IN"),
     ]);
@@ -1849,7 +1855,10 @@ export function ReportsTab({ orders, products }: { orders: Order[]; products: Pr
 
   const download = () => {
     const rows = orders.filter(
-      (o) => o.placed_at.startsWith(month) && o.status !== "cancelled",
+      (o) =>
+        o.placed_at.startsWith(month) &&
+        o.status !== "cancelled" &&
+        (o.payment_method === "cod" || o.payment_status === "paid"),
     );
     // Fallback to the product's current rate only for orders placed before
     // gst_rate was snapshotted per line item — every order since then uses
@@ -1889,7 +1898,10 @@ export function ReportsTab({ orders, products }: { orders: Order[]; products: Pr
   };
 
   const monthOrders = orders.filter(
-    (o) => o.placed_at.startsWith(month) && o.status !== "cancelled",
+    (o) =>
+      o.placed_at.startsWith(month) &&
+      o.status !== "cancelled" &&
+      (o.payment_method === "cod" || o.payment_status === "paid"),
   );
   const revenue = monthOrders.reduce((s, o) => s + o.total, 0);
 
