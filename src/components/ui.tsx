@@ -5,7 +5,7 @@
  * cards 3px/r18/shadow4, pills 2.5px/r22/shadow2, buttons 3px/r22/shadow3,
  * modals 4px/r24/shadow6 (bottom sheet on phones), inputs 2.5px/r14.
  */
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { bannerUrlFor } from "@/lib/images";
@@ -551,13 +551,27 @@ export function Modal({
   children,
   wide,
   hideClose,
+  resetScrollKey,
 }: {
   onClose: () => void;
   onChildren?: ReactNode;
   children: ReactNode;
   wide?: boolean;
   hideClose?: boolean;
+  /**
+   * A multi-step modal (e.g. checkout's address → pay) reuses this same
+   * scrollable div across steps, so scrolling down on one step leaves the
+   * next step's content scrolled down too. Pass the current step as this
+   * key and it snaps back to the top whenever it changes.
+   */
+  resetScrollKey?: string | number;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (resetScrollKey !== undefined) scrollRef.current?.scrollTo({ top: 0 });
+  }, [resetScrollKey]);
+
   return (
     <div
       className="animate-backdrop fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
@@ -572,6 +586,7 @@ export function Modal({
       aria-modal="true"
     >
       <div
+        ref={scrollRef}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: wide ? 680 : 460 }}

@@ -979,7 +979,7 @@ export function CheckoutModal({
   };
 
   return (
-    <Modal onClose={() => { if (!paying) onClose(); }}>
+    <Modal onClose={() => { if (!paying) onClose(); }} resetScrollKey={paying ? "paying" : step}>
       {paying ? (
         <PaymentProcessingView
           stage={payStage}
@@ -1507,7 +1507,7 @@ export function AuthModal({
   };
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} resetScrollKey={`${mode}:${otpStep}`}>
       {/* Primary Tab Switcher: Register vs Sign In */}
       <div className="mb-3 flex rounded-pill border-2.5 border-ink bg-paper p-1 shadow-hard-2">
         <button
