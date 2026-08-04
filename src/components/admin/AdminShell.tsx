@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type {
@@ -95,6 +95,39 @@ export function AdminShell(props: AdminProps) {
       tabsRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
     }
   };
+
+  // Keeps the dashboard current without a manual reload: re-runs the same
+  // secure server-side fetch on a timer (no client-side Supabase access, no
+  // RLS changes — staff sessions are a signed cookie, not real Supabase Auth,
+  // so a browser-side Realtime subscription can't be scoped to them safely).
+  // Paused while the tab is hidden so it doesn't burn requests in the
+  // background; catches up immediately when the tab regains focus.
+  useEffect(() => {
+    const REFRESH_MS = 15_000;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const start = () => {
+      if (interval) return;
+      interval = setInterval(() => {
+        if (!document.hidden) router.refresh();
+      }, REFRESH_MS);
+    };
+    const stop = () => {
+      if (interval) clearInterval(interval);
+      interval = null;
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) return;
+      router.refresh();
+    };
+
+    start();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-cream text-ink">
