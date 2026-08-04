@@ -350,7 +350,7 @@ function Dashboard({ orders, products }: AdminProps) {
             <div className="flex items-center gap-3">
               <span className="font-display font-extrabold text-ink">{inr(o.total)}</span>
               <a
-                href={`https://wa.me/91${o.address_snapshot.phone.replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(
+                href={`https://wa.me/91${(o.address_snapshot.phone || "").replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(
                   `Hi ${o.address_snapshot.name}, greeting from Rasi Mom & Baby regarding order #${o.order_no}!`,
                 )}`}
                 target="_blank"
@@ -424,7 +424,7 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
     return orders.filter((o) => {
       if (bucket && !bucket.match(o)) return false;
       if (!q) return true;
-      const phone = o.address_snapshot.phone.replace(/\D/g, "");
+      const phone = (o.address_snapshot.phone || "").replace(/\D/g, "");
       return (
         o.order_no.toLowerCase().includes(q) ||
         o.address_snapshot.name.toLowerCase().includes(q) ||
@@ -559,7 +559,7 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
             <Pill
               bg="#D6E8B0"
               onClick={() => {
-                const phone = o.address_snapshot.phone.replace(/\D/g, "");
+                const phone = (o.address_snapshot.phone || "").replace(/\D/g, "");
                 const cleanPhone = phone.length === 10 ? `91${phone}` : phone;
                 const msg = encodeURIComponent(
                   `Hi ${o.address_snapshot.name}! 👋 Your order #${o.order_no} from Rasi Mom & Baby (Thoothukudi) has been updated to "${o.status.toUpperCase()}"! 🚚\n\nTrack your parcel here: ${window.location.origin}/?track=${o.order_no}`,
