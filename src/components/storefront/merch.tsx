@@ -451,7 +451,7 @@ function PlayableReviewCard({
           <div className="flex items-center gap-1 bg-white border-2 border-ink px-2.5 py-1 rounded-pill shadow-xs">
             <Stars n={review.rating} />
           </div>
-          <span className={`text-[11px] font-extrabold text-ink ${theme.pillBg} border-2 border-ink px-2.5 py-0.5 rounded-pill shadow-xs uppercase tracking-wide`}>
+          <span className={`text-[12px] font-extrabold text-ink ${theme.pillBg} border-2 border-ink px-2.5 py-0.5 rounded-pill shadow-xs uppercase tracking-wide`}>
             {theme.tag}
           </span>
         </div>
@@ -475,7 +475,7 @@ function PlayableReviewCard({
               {review.author_name}
             </div>
             {productName && (
-              <div className="text-[11px] font-bold text-mute truncate max-w-[170px]">
+              <div className="text-[12px] font-bold text-mute truncate max-w-[170px]">
                 {productName}
               </div>
             )}
@@ -628,7 +628,7 @@ export function ReviewsStrip({
                 </span>
               </div>
 
-              <span className="btn-press font-display text-[11px] font-black uppercase tracking-wider text-ink bg-[#B9EBDD] border-2 border-ink px-3 py-1 rounded-pill shadow-hard-2">
+              <span className="btn-press font-display text-[12px] font-black uppercase tracking-wider text-ink bg-[#B9EBDD] border-2 border-ink px-3 py-1 rounded-pill shadow-hard-2">
                 ✓ Verified Buyer
               </span>
             </div>

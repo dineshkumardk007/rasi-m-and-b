@@ -571,9 +571,9 @@ export default function Storefront(props: StorefrontProps) {
             {/* Predictive Instant Live Search Suggestions Panel */}
             {query.trim().length >= 2 && suggestions.length > 0 && (
               <div className="absolute top-full left-0 right-0 z-50 mt-1.5 rounded-card border-3 border-ink bg-white p-2.5 shadow-hard-4 animate-fadeIn">
-                <div className="flex items-center justify-between text-[11px] font-extrabold text-mute uppercase px-2 pb-1.5 border-b border-ink/10">
+                <div className="flex items-center justify-between text-[12px] font-extrabold text-mute uppercase px-2 pb-1.5 border-b border-ink/10">
                   <span>⚡ {t("search.liveResults")} ({suggestions.length})</span>
-                  <span className="text-[10px] text-brand font-extrabold bg-[#D6E8B0] px-2 py-0.2 rounded-full border border-ink">
+                  <span className="text-[12px] text-brand font-extrabold bg-[#D6E8B0] px-2 py-0.2 rounded-full border border-ink">
                     {t("search.clickPreview")}
                   </span>
                 </div>
@@ -600,7 +600,7 @@ export default function Storefront(props: StorefrontProps) {
                             <div className="truncate text-[13px] font-extrabold text-ink group-hover:text-brand transition-colors">
                               {pName}
                             </div>
-                            <div className="flex items-center gap-1.5 text-[11px] text-mute mt-0.5">
+                            <div className="flex items-center gap-1.5 text-[12px] text-mute mt-0.5">
                               {p.brand && <span className="font-bold text-ink">{p.brand}</span>}
                               {p.brand && <span>·</span>}
                               {isOut ? (
@@ -621,7 +621,7 @@ export default function Storefront(props: StorefrontProps) {
                             {inr(p.price)}
                           </div>
                           {p.mrp > p.price && (
-                            <div className="text-[10px] text-mute line-through">
+                            <div className="text-[12px] text-mute line-through">
                               {inr(p.mrp)}
                             </div>
                           )}
@@ -640,7 +640,7 @@ export default function Storefront(props: StorefrontProps) {
               <button
                 type="button"
                 onClick={() => setLang(lang === "en" ? "ta" : "en")}
-                className="btn-press shrink-0 flex items-center rounded-pill border-2 sm:border-2.5 border-ink bg-[#B9EBDD] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] sm:min-h-[44px] cursor-pointer"
+                className="btn-press shrink-0 flex items-center rounded-pill border-2 sm:border-2.5 border-ink bg-[#B9EBDD] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[12px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] sm:min-h-[44px] cursor-pointer"
               >
                 {t("nav.language")}
               </button>
@@ -649,7 +649,7 @@ export default function Storefront(props: StorefrontProps) {
             <button
               type="button"
               onClick={() => setModal({ type: "track" })}
-              className="btn-press shrink-0 flex items-center rounded-pill border-2 sm:border-2.5 border-ink bg-[#FFE1A8] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] sm:min-h-[44px] cursor-pointer"
+              className="btn-press shrink-0 flex items-center rounded-pill border-2 sm:border-2.5 border-ink bg-[#FFE1A8] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[12px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] sm:min-h-[44px] cursor-pointer"
             >
               {t("nav.track")}
             </button>
@@ -657,7 +657,7 @@ export default function Storefront(props: StorefrontProps) {
             <button
               type="button"
               onClick={() => setModal(session ? { type: "profile" } : { type: "auth" })}
-              className="btn-press shrink-0 flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-[#FFE1A8] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] sm:min-h-[44px] cursor-pointer"
+              className="btn-press shrink-0 flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-[#FFE1A8] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[12px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] sm:min-h-[44px] cursor-pointer"
               aria-label={t("nav.profile")}
             >
               <span>👤</span>
@@ -668,13 +668,13 @@ export default function Storefront(props: StorefrontProps) {
             <button
               type="button"
               onClick={() => setModal({ type: "cart" })}
-              className="btn-press shrink-0 relative flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-[#FF6B8B] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] sm:min-h-[44px] cursor-pointer hover:bg-[#FF5A78] transition-colors"
+              className="btn-press shrink-0 relative flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-[#FF6B8B] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[12px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] sm:min-h-[44px] cursor-pointer hover:bg-[#FF5A78] transition-colors"
               aria-label={t("cart.title")}
             >
               <span>🛒</span>
               <span>{t("nav.cart")}</span>
               {cartCount > 0 && (
-                <span className="ml-0.5 flex h-4.5 w-4.5 sm:h-5 sm:w-5 items-center justify-center rounded-full border border-white bg-ink text-[10px] sm:text-[11px] font-extrabold text-white leading-none shadow-sm">
+                <span className="ml-0.5 flex h-4.5 w-4.5 sm:h-5 sm:w-5 items-center justify-center rounded-full border border-white bg-ink text-[12px] sm:text-[12px] font-extrabold text-white leading-none shadow-sm">
                   {cartCount}
                 </span>
               )}
@@ -684,13 +684,13 @@ export default function Storefront(props: StorefrontProps) {
             <button
               type="button"
               onClick={() => setModal({ type: "wishlist" })}
-              className="btn-press shrink-0 relative flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-[#A0D2EB] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[11px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] sm:min-h-[44px] cursor-pointer"
+              className="btn-press shrink-0 relative flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-[#A0D2EB] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[12px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] sm:min-h-[44px] cursor-pointer"
               aria-label="Wishlist"
             >
               <span>♡</span>
               <span>Wishlist</span>
               {wishlist.count > 0 && (
-                <span className="ml-0.5 flex h-4.5 w-4.5 sm:h-5 sm:w-5 items-center justify-center rounded-full border border-white bg-ink text-[10px] sm:text-[11px] font-extrabold text-white leading-none shadow-sm">
+                <span className="ml-0.5 flex h-4.5 w-4.5 sm:h-5 sm:w-5 items-center justify-center rounded-full border border-white bg-ink text-[12px] sm:text-[12px] font-extrabold text-white leading-none shadow-sm">
                   {wishlist.count}
                 </span>
               )}
@@ -1062,7 +1062,7 @@ export default function Storefront(props: StorefrontProps) {
             ))}
           </nav>
           {isDemo && (
-            <div className="mt-1.5 text-[11px] opacity-80">
+            <div className="mt-1.5 text-[12px] opacity-80">
               Demo mode — Supabase & Razorpay keys pending
             </div>
           )}

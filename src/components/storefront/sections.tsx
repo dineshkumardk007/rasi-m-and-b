@@ -119,13 +119,13 @@ export function Hero({
 
       {/* ── INTERACTIVE COLORFUL FLOATING UI STICKERS & BADGES ── */}
       {/* Bottom-Left Interactive Sticker: Happy Moms */}
-      <div className="absolute -bottom-3 left-6 z-20 hidden md:inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#D6E8B0] px-3 py-1 font-display text-[11px] font-extrabold text-ink -rotate-3 shadow-hard-2 transition-all duration-300 hover:rotate-0 hover:scale-110 hover:shadow-hard-4 hover:bg-[#B9EBDD] cursor-pointer select-none">
+      <div className="absolute -bottom-3 left-6 z-20 hidden md:inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#D6E8B0] px-3 py-1 font-display text-[12px] font-extrabold text-ink -rotate-3 shadow-hard-2 transition-all duration-300 hover:rotate-0 hover:scale-110 hover:shadow-hard-4 hover:bg-[#B9EBDD] cursor-pointer select-none">
         <span>⭐</span>
         <span>{displayReviewCount}+ Happy Families</span>
       </div>
 
       {/* Bottom-Right Interactive Sticker: COD Available */}
-      <div className="absolute -bottom-3 right-8 z-20 hidden md:inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#E4D6FF] px-3 py-1 font-display text-[11px] font-extrabold text-ink rotate-3 shadow-hard-2 transition-all duration-300 hover:rotate-0 hover:scale-110 hover:shadow-hard-4 hover:bg-[#C7E9FF] cursor-pointer select-none">
+      <div className="absolute -bottom-3 right-8 z-20 hidden md:inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#E4D6FF] px-3 py-1 font-display text-[12px] font-extrabold text-ink rotate-3 shadow-hard-2 transition-all duration-300 hover:rotate-0 hover:scale-110 hover:shadow-hard-4 hover:bg-[#C7E9FF] cursor-pointer select-none">
         <span>💳</span>
         <span>COD / UPI Available</span>
       </div>
@@ -134,13 +134,13 @@ export function Hero({
       <div className="relative z-[1] rounded-modal border-3 border-ink bg-gradient-to-br from-[#FFFDF8] via-[#FFE1A8]/30 via-[#FFCBD9]/25 to-[#C7E9FF]/35 p-3.5 sm:p-5 md:p-6 shadow-hard-6 backdrop-blur-sm overflow-visible transition-all duration-500 group-hover/hero:shadow-[10px_10px_0px_#2B2140]">
 
         {/* Top-Left Interactive Sticker: 100% Baby-Safe (Extreme outer left corner) */}
-        <div className="absolute -top-3.5 -left-1 sm:-left-2 z-10 hidden sm:inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FFE66D] px-3 py-1 font-display text-[11px] font-extrabold text-ink -rotate-3 shadow-hard-2 transition-all duration-300 hover:rotate-0 hover:scale-110 hover:shadow-hard-4 hover:bg-[#FFE1A8] cursor-pointer select-none">
+        <div className="absolute -top-3.5 -left-1 sm:-left-2 z-10 hidden sm:inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FFE66D] px-3 py-1 font-display text-[12px] font-extrabold text-ink -rotate-3 shadow-hard-2 transition-all duration-300 hover:rotate-0 hover:scale-110 hover:shadow-hard-4 hover:bg-[#FFE1A8] cursor-pointer select-none">
           <span className="text-[14px] animate-bounce">🛡️</span>
           <span>100% Baby-Safe</span>
         </div>
 
         {/* Top-Right Interactive Sticker: Express Delivery (Extreme outer right corner) */}
-        <div className="absolute -top-3.5 -right-1 sm:-right-2 z-10 hidden sm:inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FFCBD9] px-3 py-1 font-display text-[11px] font-extrabold text-ink rotate-3 shadow-hard-2 transition-all duration-300 hover:rotate-0 hover:scale-110 hover:shadow-hard-4 hover:bg-[#FE91E8] cursor-pointer select-none">
+        <div className="absolute -top-3.5 -right-1 sm:-right-2 z-10 hidden sm:inline-flex items-center gap-1.5 rounded-pill border-2.5 border-ink bg-[#FFCBD9] px-3 py-1 font-display text-[12px] font-extrabold text-ink rotate-3 shadow-hard-2 transition-all duration-300 hover:rotate-0 hover:scale-110 hover:shadow-hard-4 hover:bg-[#FE91E8] cursor-pointer select-none">
           <span className="text-[14px] animate-pulse">⚡</span>
           <span>Express Delivery</span>
         </div>
@@ -178,7 +178,7 @@ export function Hero({
                   href={BUSINESS.googleMaps}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-press shrink-0 flex items-center gap-1.5 rounded-pill border-2 sm:border-2.5 border-ink bg-white/95 px-2.5 sm:px-3 py-1 font-display text-[11px] sm:text-[13px] md:text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] transition-all duration-200 cursor-pointer"
+                  className="btn-press shrink-0 flex items-center gap-1.5 rounded-pill border-2 sm:border-2.5 border-ink bg-white/95 px-2.5 sm:px-3 py-1 font-display text-[12px] sm:text-[13px] md:text-[14px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] transition-all duration-200 cursor-pointer"
                   title="Open Rasi Mom & Baby in Google Maps"
                 >
                   <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0">
@@ -193,8 +193,8 @@ export function Hero({
                   <div className="absolute -inset-0.5 sm:-inset-1 rounded-pill bg-gradient-to-r from-[#FF85C0] via-[#FFE1A8] to-[#9A6BE0] opacity-85 blur-[5px] sm:blur-[7px] animate-pulse pointer-events-none group-hover/badge:opacity-100 group-hover/badge:blur-9 transition-all" />
 
                   {/* Main Flagship Store Badge — Decorative Tag */}
-                  <span className="relative z-10 flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-gradient-to-r from-[#FFE1A8] via-[#FFF0B3] to-[#FFCBD9] px-2.5 sm:px-3 py-1 text-[10px] sm:text-[11px] font-extrabold tracking-wider text-ink shadow-hard-2">
-                    <span className="text-[11px] sm:text-[12px]">✨</span>
+                  <span className="relative z-10 flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-gradient-to-r from-[#FFE1A8] via-[#FFF0B3] to-[#FFCBD9] px-2.5 sm:px-3 py-1 text-[12px] sm:text-[12px] font-extrabold tracking-wider text-ink shadow-hard-2">
+                    <span className="text-[12px] sm:text-[12px]">✨</span>
                     <span>FLAGSHIP STORE</span>
                   </span>
                 </div>
@@ -255,7 +255,7 @@ export function Hero({
                   <div className="relative z-10 flex flex-col justify-between h-full min-h-[92px] sm:min-h-[106px]">
                     <div className="flex items-start justify-between gap-1">
                       {/* Top Category Tag */}
-                      <span className="inline-block rounded-full border border-ink/40 bg-white/90 px-2 py-0.5 font-display text-[9px] sm:text-[10px] font-extrabold text-ink group-hover:bg-[#FFE66D] group-hover:border-ink transition-colors">
+                      <span className="inline-block rounded-full border border-ink/40 bg-white/90 px-2 py-0.5 font-display text-[12px] sm:text-[12px] font-extrabold text-ink group-hover:bg-[#FFE66D] group-hover:border-ink transition-colors">
                         {prod.title}
                       </span>
                       {/* Micro Float Emoji Icon */}
@@ -268,17 +268,17 @@ export function Hero({
                       <h4 className="font-display text-[12px] sm:text-[13px] font-extrabold leading-tight text-ink group-hover:text-brand transition-colors">
                         {prod.subtitle}
                       </h4>
-                      <p className="mt-0.5 font-display text-[10px] sm:text-[11px] font-bold text-ink/75">
+                      <p className="mt-0.5 font-display text-[12px] sm:text-[12px] font-bold text-ink/75">
                         {prod.price}
                       </p>
                     </div>
 
                     {/* Bottom Action Pill (Appears Prominently on Hover) */}
                     <div className="mt-1.5 flex items-center justify-between pt-1 border-t border-ink/15">
-                      <span className="font-display text-[9px] font-extrabold tracking-wide uppercase text-ink/60 group-hover:text-ink">
+                      <span className="font-display text-[12px] font-extrabold tracking-wide uppercase text-ink/60 group-hover:text-ink">
                         {prod.tag}
                       </span>
-                      <span className="font-display text-[11px] font-extrabold text-ink opacity-70 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-1 text-brand">
+                      <span className="font-display text-[12px] font-extrabold text-ink opacity-70 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-1 text-brand">
                         Shop →
                       </span>
                     </div>
@@ -438,7 +438,7 @@ export function Marquee({
               <div className="relative">
                 <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} photoCount={p.images?.length} />
                 {showDiscount && discountPercent(p) > 0 && (
-                  <span className="absolute left-1.5 top-1.5 rounded-xl border-2 border-ink bg-brand px-1.5 py-[1px] text-[10px] font-extrabold text-white">
+                  <span className="absolute left-1.5 top-1.5 rounded-xl border-2 border-ink bg-brand px-1.5 py-[1px] text-[12px] font-extrabold text-white">
                     -{discountPercent(p)}%
                   </span>
                 )}
@@ -446,7 +446,7 @@ export function Marquee({
               <div className="mt-2 text-[13px] font-bold leading-[1.15]">{nameOf(p, lang)}</div>
               <div className="mt-1 flex items-baseline gap-1.5">
                 <span className="font-display font-extrabold text-brand">{inr(p.price)}</span>
-                <span className="text-[11px] text-[#B4AABF] line-through">{inr(p.mrp)}</span>
+                <span className="text-[12px] text-[#B4AABF] line-through">{inr(p.mrp)}</span>
               </div>
             </button>
           ))}
@@ -503,7 +503,7 @@ export function FreshPicksSection({
               <h2 className="font-display text-[20px] sm:text-[24px] font-extrabold text-ink leading-none">
                 Fresh Picks
               </h2>
-              <span className="hidden sm:inline-block rounded-pill border-2 border-ink bg-[#B9EBDD] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide shadow-xs">
+              <span className="hidden sm:inline-block rounded-pill border-2 border-ink bg-[#B9EBDD] px-2.5 py-0.5 text-[12px] font-extrabold uppercase tracking-wide shadow-xs">
                 Just Arrived
               </span>
             </div>
@@ -569,7 +569,7 @@ export function FreshPicksSection({
                         {inr(p.price)}
                       </span>
                       {p.mrp > p.price && (
-                        <span className="text-[11px] text-[#B4AABF] line-through">
+                        <span className="text-[12px] text-[#B4AABF] line-through">
                           {inr(p.mrp)}
                         </span>
                       )}
@@ -583,7 +583,7 @@ export function FreshPicksSection({
                       e.stopPropagation();
                       addToCart(p.id);
                     }}
-                    className="btn-press mt-2.5 w-full flex items-center justify-center gap-1 rounded-pill border-2 border-ink bg-brand text-white py-1 sm:py-1.5 font-display text-[11px] sm:text-[12px] font-extrabold shadow-hard-2 hover:bg-[#A62B59] cursor-pointer"
+                    className="btn-press mt-2.5 w-full flex items-center justify-center gap-1 rounded-pill border-2 border-ink bg-brand text-white py-1 sm:py-1.5 font-display text-[12px] sm:text-[12px] font-extrabold shadow-hard-2 hover:bg-[#A62B59] cursor-pointer"
                   >
                     <span>+</span>
                     <span>{t("shop.addToCart")}</span>
@@ -604,7 +604,7 @@ export function FreshPicksSection({
             <div className="absolute -right-4 -bottom-4 h-32 w-32 rounded-full bg-[#FFCBD9]/60 blur-xl pointer-events-none" />
 
             <div className="relative z-10 max-w-[65%]">
-              <span className="inline-block rounded-pill border-2 border-ink bg-white px-2.5 py-0.5 font-display text-[10px] sm:text-[11px] font-extrabold text-ink shadow-hard-1 mb-1.5 uppercase tracking-wide">
+              <span className="inline-block rounded-pill border-2 border-ink bg-white px-2.5 py-0.5 font-display text-[12px] sm:text-[12px] font-extrabold text-ink shadow-hard-1 mb-1.5 uppercase tracking-wide">
                 ⚡ Super Saver
               </span>
               <h3 className="font-display text-[20px] sm:text-[24px] font-extrabold text-ink leading-[1.1]">
@@ -640,7 +640,7 @@ export function FreshPicksSection({
           <div className="relative rounded-modal border-[3.5px] border-ink bg-gradient-to-br from-[#C7E9FF] via-[#E4D6FF] to-[#FFCBD9] p-4 sm:p-5 shadow-[6px_6px_0px_#2B2140] overflow-hidden flex flex-col justify-between min-h-[155px] sm:min-h-[165px] group">
 
             <div className="relative z-10 max-w-[65%]">
-              <span className="inline-block rounded-pill border-2 border-ink bg-white px-2.5 py-0.5 font-display text-[10px] sm:text-[11px] font-extrabold text-ink shadow-hard-1 mb-1.5 uppercase tracking-wide">
+              <span className="inline-block rounded-pill border-2 border-ink bg-white px-2.5 py-0.5 font-display text-[12px] sm:text-[12px] font-extrabold text-ink shadow-hard-1 mb-1.5 uppercase tracking-wide">
                 🎁 Save More
               </span>
               <h3 className="font-display text-[19px] sm:text-[22px] font-extrabold text-ink leading-[1.1]">
@@ -737,7 +737,7 @@ export function CategoryGrid({
               <span className="text-center font-display text-[12px] sm:text-[14px] font-extrabold leading-[1.1]">
                 {lang === "ta" ? meta.ta : meta.en}
               </span>
-              <span className="hidden sm:inline text-[11px] font-bold" style={{ color: meta.pop }}>
+              <span className="hidden sm:inline text-[12px] font-bold" style={{ color: meta.pop }}>
                 {on ? t("category.selected") : t("category.browse")}
               </span>
             </button>
@@ -959,7 +959,7 @@ export function ShopGrid({
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="rounded-pill border border-ink bg-white px-2 py-0.5 text-[11px] font-bold text-ink outline-none focus:border-brand"
+              className="rounded-pill border border-ink bg-white px-2 py-0.5 text-[12px] font-bold text-ink outline-none focus:border-brand"
             >
               <option value="default">{t("shop.sortDefault")}</option>
               <option value="price_asc">{t("shop.sortPriceAsc")}</option>
@@ -976,21 +976,21 @@ export function ShopGrid({
             <button
               type="button"
               onClick={() => setMaxPrice(null)}
-              className={`rounded-pill border border-ink px-2 py-0.5 text-[11px] font-bold ${maxPrice === null ? "bg-ink text-white" : "bg-white text-ink"}`}
+              className={`rounded-pill border border-ink px-2 py-0.5 text-[12px] font-bold ${maxPrice === null ? "bg-ink text-white" : "bg-white text-ink"}`}
             >
               All
             </button>
             <button
               type="button"
               onClick={() => setMaxPrice(500)}
-              className={`rounded-pill border border-ink px-2 py-0.5 text-[11px] font-bold ${maxPrice === 500 ? "bg-ink text-white" : "bg-white text-ink"}`}
+              className={`rounded-pill border border-ink px-2 py-0.5 text-[12px] font-bold ${maxPrice === 500 ? "bg-ink text-white" : "bg-white text-ink"}`}
             >
               &lt; ₹500
             </button>
             <button
               type="button"
               onClick={() => setMaxPrice(1000)}
-              className={`rounded-pill border border-ink px-2 py-0.5 text-[11px] font-bold ${maxPrice === 1000 ? "bg-ink text-white" : "bg-white text-ink"}`}
+              className={`rounded-pill border border-ink px-2 py-0.5 text-[12px] font-bold ${maxPrice === 1000 ? "bg-ink text-white" : "bg-white text-ink"}`}
             >
               &lt; ₹1000
             </button>
@@ -998,7 +998,7 @@ export function ShopGrid({
               <button
                 type="button"
                 onClick={() => setInStockOnly(!inStockOnly)}
-                className={`rounded-pill border border-ink px-2.5 py-0.5 text-[11px] font-bold ${inStockOnly ? "bg-[#D6E8B0] text-ink border-2" : "bg-white text-mute"}`}
+                className={`rounded-pill border border-ink px-2.5 py-0.5 text-[12px] font-bold ${inStockOnly ? "bg-[#D6E8B0] text-ink border-2" : "bg-white text-mute"}`}
               >
                 In-Stock 🟢
               </button>
@@ -1037,16 +1037,16 @@ export function ShopGrid({
                 <div className="mt-1.5 flex items-baseline gap-1.5">
                   <span className="font-display font-extrabold text-brand">{inr(p.price)}</span>
                   {p.mrp > p.price && (
-                    <span className="text-[11px] text-[#B4AABF] line-through">{inr(p.mrp)}</span>
+                    <span className="text-[12px] text-[#B4AABF] line-through">{inr(p.mrp)}</span>
                   )}
                 </div>
                 {p.stock <= p.low_stock_threshold && p.stock > 0 && (
-                  <div className="mt-[3px] text-[11px] font-extrabold text-[#F59E0B]">
+                  <div className="mt-[3px] text-[12px] font-extrabold text-[#F59E0B]">
                     {t("shop.onlyLeft", { count: p.stock })}
                   </div>
                 )}
                 {p.stock === 0 && (
-                  <div className="mt-[3px] text-[11px] font-extrabold text-[#E24B4A]">
+                  <div className="mt-[3px] text-[12px] font-extrabold text-[#E24B4A]">
                     {t("shop.soldOut")}
                   </div>
                 )}

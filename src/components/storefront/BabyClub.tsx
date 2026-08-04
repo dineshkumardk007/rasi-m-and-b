@@ -116,7 +116,7 @@ export function BabyClub({
           {editing && (
             <div className="mt-3 flex flex-wrap items-end gap-2.5">
               <label className="min-w-[200px] flex-1">
-                <span className="font-display text-[11px] font-extrabold uppercase text-mute">
+                <span className="font-display text-[12px] font-extrabold uppercase text-mute">
                   {t("baby.dobLabel")}
                 </span>
                 <input
@@ -193,7 +193,7 @@ export function BabyClub({
         <Card className="mb-3 p-3">
           <div className="flex flex-wrap items-end gap-2.5">
             <label className="min-w-[200px] flex-1">
-              <span className="font-display text-[11px] font-extrabold uppercase text-mute">
+              <span className="font-display text-[12px] font-extrabold uppercase text-mute">
                 {t("baby.dobLabel")}
               </span>
               <input

@@ -171,6 +171,34 @@
     scrollbar-width: none;
   }
 
+  /* Sticker-styled scrollbar — replaces the plain OS scrollbar on modals and
+     other scroll areas with something that matches the ink-border / hard-
+     shadow look used everywhere else, instead of clashing with it. */
+  .sticker-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #be3466 #fff9f0;
+  }
+
+  .sticker-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .sticker-scrollbar::-webkit-scrollbar-track {
+    background: #fff9f0;
+    border-radius: 999px;
+  }
+
+  .sticker-scrollbar::-webkit-scrollbar-thumb {
+    background: #be3466;
+    border: 2px solid #2b2140;
+    border-radius: 999px;
+  }
+
+  .sticker-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #a32c56;
+  }
+
   /* Smooth Modal Entrance Animations */
   @keyframes modalBackdrop {
     from {

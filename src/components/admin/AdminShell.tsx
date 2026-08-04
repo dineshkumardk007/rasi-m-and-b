@@ -339,7 +339,7 @@ function Dashboard({ orders, products }: AdminProps) {
               >
                 <div>
                   <span className="font-bold text-ink">{p.name_en}</span>
-                  <span className="ml-2 rounded-full bg-[#FFE1A8] px-2 py-0.5 text-[11px] font-extrabold text-[#946800]">
+                  <span className="ml-2 rounded-full bg-[#FFE1A8] px-2 py-0.5 text-[12px] font-extrabold text-[#946800]">
                     {p.stock === 0 ? "Out of Stock" : `${p.stock} left`}
                   </span>
                 </div>
@@ -388,7 +388,7 @@ function Dashboard({ orders, products }: AdminProps) {
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-full border border-ink bg-[#D6E8B0] px-2.5 py-0.5 text-[11px] font-extrabold hover:bg-[#B9EBDD] transition-colors"
+                className="rounded-full border border-ink bg-[#D6E8B0] px-2.5 py-0.5 text-[12px] font-extrabold hover:bg-[#B9EBDD] transition-colors"
               >
                 💬 WhatsApp
               </a>
@@ -766,7 +766,7 @@ function ShippingLabel({ order, onClose }: { order: Order; onClose: () => void }
         <div className="flex items-center justify-between border-b-3 border-ink pb-3">
           <div>
             <h2 className="font-display text-[20px] font-extrabold tracking-tight text-ink">{BUSINESS.name}</h2>
-            <p className="text-[11px] font-bold text-mute">Palayamkottai Road, Thoothukudi</p>
+            <p className="text-[12px] font-bold text-mute">Palayamkottai Road, Thoothukudi</p>
           </div>
           <div className="text-right">
             <span
@@ -790,12 +790,12 @@ function ShippingLabel({ order, onClose }: { order: Order; onClose: () => void }
         {/* Order Barcode simulation */}
         <div className="my-3 text-center bg-paper p-2 rounded-tile border-2 border-ink">
           <div className="font-mono text-[22px] font-extrabold tracking-widest text-ink">*{order.order_no}*</div>
-          <div className="text-[10px] font-extrabold uppercase text-mute">Order Barcode / Dispatch Serial</div>
+          <div className="text-[12px] font-extrabold uppercase text-mute">Order Barcode / Dispatch Serial</div>
         </div>
 
         {/* Delivery Address Box */}
         <div className="rounded-tile border-3 border-ink bg-[#FFFDF7] p-3">
-          <div className="text-[11px] font-extrabold uppercase text-mute font-display">
+          <div className="text-[12px] font-extrabold uppercase text-mute font-display">
             DELIVER TO (RECIPIENT):
           </div>
           <div className="mt-1 font-display text-[18px] font-extrabold text-ink leading-tight">
@@ -819,7 +819,7 @@ function ShippingLabel({ order, onClose }: { order: Order; onClose: () => void }
           </div>
         </div>
 
-        <div className="mt-3 text-center text-[10px] font-bold text-mute border-t border-ink/20 pt-2">
+        <div className="mt-3 text-center text-[12px] font-bold text-mute border-t border-ink/20 pt-2">
           Hand-packed with care in Thoothukudi · Express Courier Service
         </div>
       </div>

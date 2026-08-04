@@ -82,7 +82,7 @@ export function CreateRegistryModal({
 
       <form onSubmit={handleSubmit} className="mt-3 space-y-3 font-body">
         <div>
-          <label className="block text-[11px] font-extrabold uppercase text-mute mb-1">
+          <label className="block text-[12px] font-extrabold uppercase text-mute mb-1">
             Registry Title
           </label>
           <input
@@ -96,7 +96,7 @@ export function CreateRegistryModal({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <div>
-            <label className="block text-[11px] font-extrabold uppercase text-mute mb-1">
+            <label className="block text-[12px] font-extrabold uppercase text-mute mb-1">
               Parent(s) Name
             </label>
             <input
@@ -108,7 +108,7 @@ export function CreateRegistryModal({
             />
           </div>
           <div>
-            <label className="block text-[11px] font-extrabold uppercase text-mute mb-1">
+            <label className="block text-[12px] font-extrabold uppercase text-mute mb-1">
               Baby&apos;s Name (or &quot;Baby&quot;)
             </label>
             <input
@@ -120,7 +120,7 @@ export function CreateRegistryModal({
             />
           </div>
           <div>
-            <label className="block text-[11px] font-extrabold uppercase text-mute mb-1">
+            <label className="block text-[12px] font-extrabold uppercase text-mute mb-1">
               Expected Date / Baby Shower Date
             </label>
             <input
@@ -134,7 +134,7 @@ export function CreateRegistryModal({
         </div>
 
         <div>
-          <label className="block text-[11px] font-extrabold uppercase text-mute mb-1">
+          <label className="block text-[12px] font-extrabold uppercase text-mute mb-1">
             Select Items for your Registry ({selectedIds.length} chosen)
           </label>
           <div className="max-h-[220px] overflow-y-auto space-y-1.5 p-1 rounded-tile border-2 border-ink/20 bg-paper">
@@ -156,7 +156,7 @@ export function CreateRegistryModal({
                     </div>
                     <div>
                       <div className="font-display text-[13px] font-extrabold text-ink">{p.name_en}</div>
-                      <div className="text-[11px] font-bold text-brand">{inr(p.price)}</div>
+                      <div className="text-[12px] font-bold text-brand">{inr(p.price)}</div>
                     </div>
                   </div>
                   <span className="font-display text-[16px] font-extrabold">
@@ -248,7 +248,7 @@ export function ViewRegistryModal({
                 <div>
                   <div className="font-display text-[15px] font-extrabold text-ink">{product.name_en}</div>
                   <div className="text-[13px] font-extrabold text-brand">{inr(product.price)}</div>
-                  <div className="text-[11px] font-bold text-mute">
+                  <div className="text-[12px] font-bold text-mute">
                     Got {item.purchased_qty} of {item.desired_qty}
                   </div>
                 </div>

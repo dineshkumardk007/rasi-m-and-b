@@ -86,7 +86,7 @@ export function BoughtTogether({
             onClick={() => openProduct?.(p)}
           >
             <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt={p.name_en} />
-            <div className="mt-1.5 line-clamp-2 text-[11px] font-bold leading-[1.2]">
+            <div className="mt-1.5 line-clamp-2 text-[12px] font-bold leading-[1.2]">
               {lang === "ta" ? p.name_ta : p.name_en}
             </div>
             <div className="mt-0.5 font-display text-[13px] font-extrabold text-brand">

@@ -332,12 +332,12 @@ export function Art({
         </span>
       )}
       {isBundle && (
-        <span className="absolute left-1.5 top-1.5 rounded-xl border-2 border-ink bg-brand px-2 py-[2px] text-[10px] font-extrabold text-white">
+        <span className="absolute left-1.5 top-1.5 rounded-xl border-2 border-ink bg-brand px-2 py-[2px] text-[12px] font-extrabold text-white">
           BUNDLE
         </span>
       )}
       {photoCount && photoCount > 1 && (
-        <span className="absolute right-1.5 top-1.5 rounded-xl border-2 border-ink bg-white/95 px-1.5 py-[1px] text-[9px] font-extrabold text-ink shadow-sm">
+        <span className="absolute right-1.5 top-1.5 rounded-xl border-2 border-ink bg-white/95 px-1.5 py-[1px] text-[12px] font-extrabold text-ink shadow-sm">
           📷 {photoCount}
         </span>
       )}
@@ -480,7 +480,7 @@ export function ProductImageSlider({
 
             {/* Photo Counter Badge */}
             <div className="absolute top-2 left-2 z-20 flex items-center gap-1">
-              <span className="rounded-full border-2 border-ink bg-white/95 px-2 py-0.5 font-display text-[10px] font-extrabold text-ink shadow-sm">
+              <span className="rounded-full border-2 border-ink bg-white/95 px-2 py-0.5 font-display text-[12px] font-extrabold text-ink shadow-sm">
                 📷 {index + 1}/{list.length} {index === 0 ? "· MAIN" : ""}
               </span>
             </div>
@@ -590,7 +590,7 @@ export function Modal({
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: wide ? 680 : 460 }}
-        className="animate-modal relative max-h-[92vh] w-full overflow-y-auto rounded-t-modal border-4 border-ink bg-[#FFF9F2] p-[22px] shadow-hard-6 sm:rounded-modal overflow-hidden"
+        className="sticker-scrollbar animate-modal relative max-h-[92vh] w-full overflow-y-auto rounded-t-modal border-4 border-ink bg-[#FFF9F2] p-[22px] shadow-hard-6 sm:rounded-modal overflow-hidden"
       >
         {/* Soft Pastel Mesh Base Canvas */}
         <div className="absolute inset-0 -z-20 min-h-full w-full bg-gradient-to-br from-[#FFEAF2] via-[#FFF6E5] to-[#E2F0FF] pointer-events-none" />
@@ -615,9 +615,6 @@ export function Modal({
         <div className="relative z-10">
           {!hideClose && (
             <div className="absolute -right-1.5 -top-1.5 z-30 flex items-center gap-1.5">
-              <kbd className="hidden sm:inline-block rounded border border-ink/30 bg-white/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-mute shadow-xs select-none">
-                Esc
-              </kbd>
               <button
                 type="button"
                 onClick={onClose}

@@ -162,9 +162,9 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
               return (
                 <div key={slug} className="flex items-center gap-1 rounded-pill border-2 border-ink px-2.5 py-1" style={{ background: m?.bg }}>
                   <span className="text-[13px] font-extrabold">{m?.emoji} {m?.en}</span>
-                  {m?.ta && <span className="text-[11px] text-mute">({m.ta})</span>}
+                  {m?.ta && <span className="text-[12px] text-mute">({m.ta})</span>}
                   {isBuiltIn ? (
-                    <span className="text-[10px] text-mute ml-1">built-in</span>
+                    <span className="text-[12px] text-mute ml-1">built-in</span>
                   ) : (
                     <button
                       type="button"
@@ -191,27 +191,27 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
             <span className="font-display text-[12px] font-extrabold uppercase text-mute">➕ Add New Category</span>
             <div className="mt-2 flex flex-wrap items-end gap-2">
               <label className="flex-1 min-w-[100px]">
-                <span className="text-[11px] font-bold text-mute">Slug (lowercase)</span>
+                <span className="text-[12px] font-bold text-mute">Slug (lowercase)</span>
                 <input value={newCatSlug} onChange={(e) => setNewCatSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))} placeholder="bedding" className="mt-1 w-full rounded-pill border-2 border-ink px-3 py-1.5 text-[13px] outline-none" />
               </label>
               <label className="flex-1 min-w-[100px]">
-                <span className="text-[11px] font-bold text-mute">English Name</span>
+                <span className="text-[12px] font-bold text-mute">English Name</span>
                 <input value={newCatEn} onChange={(e) => setNewCatEn(e.target.value)} placeholder="Bedding & Nursery" className="mt-1 w-full rounded-pill border-2 border-ink px-3 py-1.5 text-[13px] outline-none" />
               </label>
               <label className="flex-1 min-w-[100px]">
-                <span className="text-[11px] font-bold text-mute">Tamil Name</span>
+                <span className="text-[12px] font-bold text-mute">Tamil Name</span>
                 <input value={newCatTa} onChange={(e) => setNewCatTa(e.target.value)} placeholder="படுக்கை" className="mt-1 w-full rounded-pill border-2 border-ink px-3 py-1.5 text-[13px] outline-none" />
               </label>
               <label className="w-[70px]">
-                <span className="text-[11px] font-bold text-mute">Emoji</span>
+                <span className="text-[12px] font-bold text-mute">Emoji</span>
                 <input value={newCatEmoji} onChange={(e) => setNewCatEmoji(e.target.value)} className="mt-1 w-full rounded-pill border-2 border-ink px-3 py-1.5 text-[13px] outline-none text-center" />
               </label>
               <label className="w-[80px]">
-                <span className="text-[11px] font-bold text-mute">Bg Color</span>
+                <span className="text-[12px] font-bold text-mute">Bg Color</span>
                 <input type="color" value={newCatBg} onChange={(e) => setNewCatBg(e.target.value)} className="mt-1 h-[34px] w-full rounded-pill border-2 border-ink cursor-pointer" />
               </label>
               <label className="w-[80px]">
-                <span className="text-[11px] font-bold text-mute">Pop Color</span>
+                <span className="text-[12px] font-bold text-mute">Pop Color</span>
                 <input type="color" value={newCatPop} onChange={(e) => setNewCatPop(e.target.value)} className="mt-1 h-[34px] w-full rounded-pill border-2 border-ink cursor-pointer" />
               </label>
               <Btn
@@ -250,7 +250,7 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
 
         <div className="flex flex-wrap items-end gap-2.5">
           <label className="min-w-[140px] flex-1">
-            <span className="text-[11px] font-extrabold uppercase text-mute">Target Category</span>
+            <span className="text-[12px] font-extrabold uppercase text-mute">Target Category</span>
             <select
               value={bulkCategory}
               onChange={(e) => setBulkCategory(e.target.value)}
@@ -266,7 +266,7 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
           </label>
 
           <label className="min-w-[120px] flex-1">
-            <span className="text-[11px] font-extrabold uppercase text-mute">Action Mode</span>
+            <span className="text-[12px] font-extrabold uppercase text-mute">Action Mode</span>
             <select
               value={bulkAction}
               onChange={(e) => setBulkAction(e.target.value as "discount" | "increase" | "decrease")}
@@ -279,7 +279,7 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
           </label>
 
           <label className="w-[100px]">
-            <span className="text-[11px] font-extrabold uppercase text-mute">Percentage (%)</span>
+            <span className="text-[12px] font-extrabold uppercase text-mute">Percentage (%)</span>
             <input
               type="number"
               value={bulkPercent}
@@ -352,15 +352,15 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
                   <div className="flex items-center gap-2">
                     <span className="truncate text-[15px] font-bold">{p.name_en}</span>
                     {isOut ? (
-                      <span className="rounded-full bg-[#FFCBD9] px-2 py-0.5 text-[10px] font-extrabold text-[#E24B4A]">
+                      <span className="rounded-full bg-[#FFCBD9] px-2 py-0.5 text-[12px] font-extrabold text-[#E24B4A]">
                         Out of Stock
                       </span>
                     ) : isLow ? (
-                      <span className="rounded-full bg-[#FFE1A8] px-2 py-0.5 text-[10px] font-extrabold text-[#946800]">
+                      <span className="rounded-full bg-[#FFE1A8] px-2 py-0.5 text-[12px] font-extrabold text-[#946800]">
                         Low Stock ({p.stock} left)
                       </span>
                     ) : (
-                      <span className="rounded-full bg-[#D6E8B0] px-2 py-0.5 text-[10px] font-extrabold text-[#386B00]">
+                      <span className="rounded-full bg-[#D6E8B0] px-2 py-0.5 text-[12px] font-extrabold text-[#386B00]">
                         In Stock ({p.stock})
                       </span>
                     )}
@@ -372,7 +372,7 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
                     {p.categories.map((c) => (
                       <span
                         key={c}
-                        className="rounded-[10px] border-[1.5px] border-ink bg-[#D6E8B0] px-2 py-[2px] text-[10px] font-extrabold"
+                        className="rounded-[10px] border-[1.5px] border-ink bg-[#D6E8B0] px-2 py-[2px] text-[12px] font-extrabold"
                       >
                         {allCatMeta[c]?.en ?? c}
                       </span>
@@ -384,7 +384,7 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
               {/* Quick Stock Controls & Actions */}
               <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-dashed border-[#E5DBCC]">
                 <div className="flex items-center rounded-pill border-2 border-ink bg-paper px-2 py-1 gap-1">
-                  <span className="text-[11px] font-extrabold uppercase text-mute mr-1">Stock:</span>
+                  <span className="text-[12px] font-extrabold uppercase text-mute mr-1">Stock:</span>
                   <button
                     type="button"
                     disabled={stockUpdating === p.id || p.stock === 0}
@@ -399,7 +399,7 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
                     type="button"
                     disabled={stockUpdating === p.id}
                     onClick={() => handleStockDelta(p.id, 5)}
-                    className="h-6 px-1.5 rounded-full border border-ink bg-white font-extrabold text-[11px] hover:bg-[#D6E8B0] disabled:opacity-40 cursor-pointer"
+                    className="h-6 px-1.5 rounded-full border border-ink bg-white font-extrabold text-[12px] hover:bg-[#D6E8B0] disabled:opacity-40 cursor-pointer"
                     title="Add 5 items to stock"
                   >
                     +5
@@ -408,7 +408,7 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
                     type="button"
                     disabled={stockUpdating === p.id}
                     onClick={() => handleStockDelta(p.id, 10)}
-                    className="h-6 px-1.5 rounded-full border border-ink bg-white font-extrabold text-[11px] hover:bg-[#D6E8B0] disabled:opacity-40 cursor-pointer"
+                    className="h-6 px-1.5 rounded-full border border-ink bg-white font-extrabold text-[12px] hover:bg-[#D6E8B0] disabled:opacity-40 cursor-pointer"
                     title="Add 10 items to stock"
                   >
                     +10
@@ -901,7 +901,7 @@ function ProductImages({
           📷 Product Photos & Auto-Slideshow Gallery
         </span>
         {images.length > 0 && (
-          <span className="text-[11px] font-bold text-brand bg-[#FFE1A8] px-2 py-0.5 rounded-full border border-ink">
+          <span className="text-[12px] font-bold text-brand bg-[#FFE1A8] px-2 py-0.5 rounded-full border border-ink">
             {images.length} Photo{images.length > 1 ? "s" : ""} Uploaded
           </span>
         )}
@@ -911,7 +911,7 @@ function ProductImages({
         <div className="mt-2.5 rounded-tile border-2 border-ink bg-cream p-3">
           <p className="text-[12px] font-extrabold text-ink mb-1.5 flex items-center gap-1.5">
             <span>✨ Customer Auto-Slideshow Live Preview</span>
-            <span className="text-[10px] bg-brand text-white px-2 py-0.2 rounded-full font-bold">Auto-Slides every 3.5s</span>
+            <span className="text-[12px] bg-brand text-white px-2 py-0.2 rounded-full font-bold">Auto-Slides every 3.5s</span>
           </p>
           <ProductImageSlider images={images} emoji="🧸" bg={tileColor} ratio="banner" />
         </div>
@@ -919,7 +919,7 @@ function ProductImages({
 
       {images.length > 0 && (
         <div className="mt-3">
-          <p className="text-[11px] font-extrabold uppercase tracking-wide text-mute mb-1">
+          <p className="text-[12px] font-extrabold uppercase tracking-wide text-mute mb-1">
             Uploaded Photos (Photo #1 is MAIN static photo, #2+ auto-slide on click)
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -932,18 +932,18 @@ function ProductImages({
                     type="button"
                     onClick={() => remove(url)}
                     aria-label="Remove photo"
-                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-ink bg-white text-[11px] font-extrabold shadow-sm hover:bg-[#FFCBD9]"
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-ink bg-white text-[12px] font-extrabold shadow-sm hover:bg-[#FFCBD9]"
                   >
                     ✕
                   </button>
                   <span
-                    className={`absolute bottom-1 left-1 rounded-xl border border-ink px-1.5 py-[1px] text-[9px] font-extrabold ${i === 0 ? "bg-brand text-white" : "bg-[#FFE1A8] text-ink"
+                    className={`absolute bottom-1 left-1 rounded-xl border border-ink px-1.5 py-[1px] text-[12px] font-extrabold ${i === 0 ? "bg-brand text-white" : "bg-[#FFE1A8] text-ink"
                       }`}
                   >
                     {i === 0 ? "1. MAIN (STATIC)" : `${i + 1}. SLIDE`}
                   </span>
                 </div>
-                <div className="mt-2 flex items-center justify-between gap-1 text-[11px]">
+                <div className="mt-2 flex items-center justify-between gap-1 text-[12px]">
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
@@ -968,12 +968,12 @@ function ProductImages({
                     <button
                       type="button"
                       onClick={() => makeMain(url)}
-                      className="font-extrabold text-brand underline text-[10px]"
+                      className="font-extrabold text-brand underline text-[12px]"
                     >
                       Make Main
                     </button>
                   ) : (
-                    <span className="text-[10px] font-extrabold text-mute">Main Photo</span>
+                    <span className="text-[12px] font-extrabold text-mute">Main Photo</span>
                   )}
                 </div>
               </div>
@@ -1285,9 +1285,9 @@ function NoteField({ customerId, initial }: { customerId: string; initial: strin
         rows={2}
         className="mt-2 w-full rounded-tile border-2.5 border-ink px-3.5 py-2.5 font-body text-[14px] outline-none"
       />
-      {status === "saving" && <p className="mt-1 text-[11px] text-mute">Saving…</p>}
+      {status === "saving" && <p className="mt-1 text-[12px] text-mute">Saving…</p>}
       {status === "error" && (
-        <p className="mt-1 text-[11px] font-bold text-[#E24B4A]">
+        <p className="mt-1 text-[12px] font-bold text-[#E24B4A]">
           ⚠️ Failed to save — check your connection and try again.
         </p>
       )}
@@ -1392,12 +1392,12 @@ export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
                     : ""}
                 </span>
                 {(expired || exhausted) && (
-                  <span className="ml-2 rounded-pill border-2 border-ink bg-[#FFCBD9] px-2 py-0.5 text-[11px] font-extrabold">
+                  <span className="ml-2 rounded-pill border-2 border-ink bg-[#FFCBD9] px-2 py-0.5 text-[12px] font-extrabold">
                     {expired ? "EXPIRED" : "LIMIT REACHED"}
                   </span>
                 )}
                 {c.featured && (
-                  <span className="ml-2 rounded-pill border-2 border-ink bg-[#FFE66D] px-2 py-0.5 text-[11px] font-extrabold">
+                  <span className="ml-2 rounded-pill border-2 border-ink bg-[#FFE66D] px-2 py-0.5 text-[12px] font-extrabold">
                     ON HOME PAGE
                   </span>
                 )}
@@ -1729,7 +1729,7 @@ export function AnalyticsTab({
           <div className="mt-1 font-display text-[26px] font-extrabold text-ink">
             {inr(totalRevenue)}
           </div>
-          <div className="mt-1 text-[11px] font-bold text-ink/80">From {totalOrders} orders</div>
+          <div className="mt-1 text-[12px] font-bold text-ink/80">From {totalOrders} orders</div>
         </Card>
         <Card className="p-4" style={{ background: "#C7E9FF" }}>
           <div className="font-display text-[12px] font-extrabold uppercase text-ink/70">
@@ -1738,7 +1738,7 @@ export function AnalyticsTab({
           <div className="mt-1 font-display text-[26px] font-extrabold text-ink">
             {totalOrders}
           </div>
-          <div className="mt-1 text-[11px] font-bold text-ink/80">Fulfilled & active</div>
+          <div className="mt-1 text-[12px] font-bold text-ink/80">Fulfilled & active</div>
         </Card>
         <Card className="p-4" style={{ background: "#D6E8B0" }}>
           <div className="font-display text-[12px] font-extrabold uppercase text-ink/70">
@@ -1747,7 +1747,7 @@ export function AnalyticsTab({
           <div className="mt-1 font-display text-[26px] font-extrabold text-ink">
             {inr(aov)}
           </div>
-          <div className="mt-1 text-[11px] font-bold text-ink/80">Per customer checkout</div>
+          <div className="mt-1 text-[12px] font-bold text-ink/80">Per customer checkout</div>
         </Card>
         <Card className="p-4" style={{ background: "#FBD0EA" }}>
           <div className="font-display text-[12px] font-extrabold uppercase text-ink/70">
@@ -1756,7 +1756,7 @@ export function AnalyticsTab({
           <div className="mt-1 font-display text-[26px] font-extrabold text-ink">
             {activeCustomersCount}
           </div>
-          <div className="mt-1 text-[11px] font-bold text-ink/80">Registered & repeat buyers</div>
+          <div className="mt-1 text-[12px] font-bold text-ink/80">Registered & repeat buyers</div>
         </Card>
       </div>
 
@@ -1943,7 +1943,7 @@ export function ReportsTab({ orders, products }: { orders: Order[]; products: Pr
           </div>
         </div>
 
-        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+        <div className="sticker-scrollbar space-y-2 max-h-[400px] overflow-y-auto pr-1">
           {logs.length === 0 ? (
             <p className="text-[13px] text-mute text-center py-4">No audit logs found matching filter.</p>
           ) : (
@@ -1952,9 +1952,9 @@ export function ReportsTab({ orders, products }: { orders: Order[]; products: Pr
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge bg="#E4D6FF">{l.entity}</Badge>
                   <span className="font-extrabold text-ink">{l.action}</span>
-                  <span className="text-mute font-mono text-[11px]">{l.entity_id}</span>
+                  <span className="text-mute font-mono text-[12px]">{l.entity_id}</span>
                 </div>
-                <div className="text-[11px] text-mute font-mono">
+                <div className="text-[12px] text-mute font-mono">
                   {new Date(l.at).toLocaleString()}
                 </div>
               </div>
@@ -2382,7 +2382,7 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
           {/* Add Slab Form */}
           <div className="flex flex-wrap items-end gap-2 rounded-card border-2 border-dashed border-ink bg-white p-3">
             <label className="min-w-[100px] flex-1">
-              <span className="text-[11px] font-extrabold uppercase text-mute">Min Order (₹)</span>
+              <span className="text-[12px] font-extrabold uppercase text-mute">Min Order (₹)</span>
               <input
                 type="number"
                 value={newSlabMin}
@@ -2391,7 +2391,7 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
               />
             </label>
             <label className="min-w-[100px] flex-1">
-              <span className="text-[11px] font-extrabold uppercase text-mute">Max Order (₹ / Blank)</span>
+              <span className="text-[12px] font-extrabold uppercase text-mute">Max Order (₹ / Blank)</span>
               <input
                 type="text"
                 placeholder="e.g. 499 (or leave blank)"
@@ -2401,7 +2401,7 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
               />
             </label>
             <label className="min-w-[90px] flex-1">
-              <span className="text-[11px] font-extrabold uppercase text-mute">Delivery Fee (₹)</span>
+              <span className="text-[12px] font-extrabold uppercase text-mute">Delivery Fee (₹)</span>
               <input
                 type="number"
                 value={newSlabFee}
@@ -2594,7 +2594,7 @@ export function SettingsTab({ settings }: { settings: StoreSettings }) {
               {serviceableList.length === 0 ? (
                 <p className="text-[13px] text-mute italic">No serviceable PIN rules configured yet.</p>
               ) : (
-                <div className="flex flex-wrap gap-2 max-h-[160px] overflow-y-auto p-1 border-1 border-ink/10 rounded-tile">
+                <div className="sticker-scrollbar flex flex-wrap gap-2 max-h-[160px] overflow-y-auto p-1 border-1 border-ink/10 rounded-tile">
                   {serviceableList.map((rule) => (
                     <span
                       key={rule}
@@ -2856,7 +2856,7 @@ export function BoxMediaTab({ settings }: { settings: StoreSettings }) {
               <span>📐 Ideal Dimensions:</span>
               <span className="text-brand font-extrabold">{item.width} × {item.height} px</span>
             </div>
-            <div className="mt-0.5 text-[11px]">
+            <div className="mt-0.5 text-[12px]">
               Recommended format: PNG / WebP / JPG. Artwork automatically fits the box frame.
             </div>
           </div>
@@ -2870,17 +2870,17 @@ export function BoxMediaTab({ settings }: { settings: StoreSettings }) {
               <div className="relative w-full h-[110px] rounded-tile border-2 border-ink overflow-hidden bg-white/60">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={currentImg} alt={item.title} className="w-full h-full object-cover" />
-                <span className="absolute top-1 right-1 rounded-pill border border-ink bg-emerald-400 px-2 py-0.5 text-[9px] font-extrabold text-ink">
+                <span className="absolute top-1 right-1 rounded-pill border border-ink bg-emerald-400 px-2 py-0.5 text-[12px] font-extrabold text-ink">
                   CUSTOM ACTIVE ✓
                 </span>
               </div>
             ) : (
               <div className="relative w-full h-[110px] rounded-tile border-2 border-dashed border-ink/40 bg-white/50 flex flex-col items-center justify-center p-2 text-center">
                 <span className="text-[28px] opacity-75">{item.emoji}</span>
-                <span className="mt-1 font-display text-[11px] font-extrabold text-ink/75">
+                <span className="mt-1 font-display text-[12px] font-extrabold text-ink/75">
                   Default Emoji / Pattern Active
                 </span>
-                <span className="text-[9px] text-mute">({item.width} × {item.height} px Wireframe Shape)</span>
+                <span className="text-[12px] text-mute">({item.width} × {item.height} px Wireframe Shape)</span>
               </div>
             )}
           </div>
@@ -2905,13 +2905,13 @@ export function BoxMediaTab({ settings }: { settings: StoreSettings }) {
             <button
               type="button"
               onClick={() => handleResetImage(item.key)}
-              className="btn-press rounded-pill border-2 border-ink bg-[#FFCBD9] px-3 py-1 text-[11px] font-extrabold text-ink shadow-hard-1 hover:bg-[#FF8DA9]"
+              className="btn-press rounded-pill border-2 border-ink bg-[#FFCBD9] px-3 py-1 text-[12px] font-extrabold text-ink shadow-hard-1 hover:bg-[#FF8DA9]"
             >
               🔄 Reset to Default
             </button>
           )}
 
-          {isSaving && <span className="text-[11px] text-center text-brand font-extrabold animate-pulse">Saving picture…</span>}
+          {isSaving && <span className="text-[12px] text-center text-brand font-extrabold animate-pulse">Saving picture…</span>}
         </div>
       </Card>
     );

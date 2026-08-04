@@ -694,7 +694,7 @@ function PaymentProcessingView({
 
       {/* Payment Summary Box */}
       <div className="mx-auto mb-4 max-w-[320px] rounded-card border-3 border-ink bg-paper p-3.5 text-left shadow-hard-4">
-        <div className="flex items-center justify-between text-[11px] font-extrabold tracking-wider text-mute uppercase font-display">
+        <div className="flex items-center justify-between text-[12px] font-extrabold tracking-wider text-mute uppercase font-display">
           <span>{t("checkout.amountToPay")}</span>
           <span className="text-ink font-extrabold">
             {method === "upi" ? "UPI — GPay / PhonePe / Paytm" : method === "card" ? "Credit / Debit Card" : "Online Payment"}
@@ -1069,7 +1069,7 @@ export function CheckoutModal({
                   <div className="font-display text-[13px] font-extrabold text-ink">
                     ⚡ Express 3-Hour Store Delivery (Thoothukudi)
                   </div>
-                  <div className="text-[11px] font-bold text-ink/80">
+                  <div className="text-[12px] font-bold text-ink/80">
                     Direct rider delivery from Palayamkottai Rd store today!
                   </div>
                 </div>
@@ -1093,7 +1093,7 @@ export function CheckoutModal({
                   <div className="font-display text-[13px] font-extrabold text-ink">
                     🚚 Standard Courier Delivery (2-3 Days)
                   </div>
-                  <div className="text-[11px] font-bold text-ink/80">
+                  <div className="text-[12px] font-bold text-ink/80">
                     Safe delivery via courier partner across Tamil Nadu
                   </div>
                 </div>
@@ -1117,7 +1117,7 @@ export function CheckoutModal({
                   <div className="font-display text-[13px] font-extrabold text-ink">
                     🛍️ Store Pickup (Palayamkottai Road Store)
                   </div>
-                  <div className="text-[11px] font-bold text-ink/80">
+                  <div className="text-[12px] font-bold text-ink/80">
                     Pick up in 30 mins at 176, Palayamkottai Rd (FREE)
                   </div>
                 </div>
@@ -1154,7 +1154,7 @@ export function CheckoutModal({
               <div className="mt-2.5">
                 <p className="mb-1.5 text-[12px] text-mute">{t("gift.hint")}</p>
                 <label className="block">
-                  <span className="font-display text-[11px] font-extrabold uppercase text-mute">
+                  <span className="font-display text-[12px] font-extrabold uppercase text-mute">
                     {t("gift.noteLabel")}
                   </span>
                   <textarea
@@ -1166,7 +1166,7 @@ export function CheckoutModal({
                     className="mt-1 w-full rounded-tile border-2.5 border-ink bg-paper px-3.5 py-2 font-body text-[14px] outline-none focus:border-brand"
                   />
                 </label>
-                <div className="mt-0.5 text-right text-[11px] text-mute">
+                <div className="mt-0.5 text-right text-[12px] text-mute">
                   {giftMessage.length}/{GIFT_MESSAGE_MAX}
                 </div>
               </div>
@@ -1913,7 +1913,7 @@ export function ProfileModal({
           <h3 className="font-display text-[22px] font-extrabold text-ink leading-tight">
             {session?.name || "Customer Profile"}
           </h3>
-          <span className="inline-block rounded-pill border-2 border-ink bg-[#C7E9FF] px-2.5 py-0.5 text-[11px] font-extrabold text-ink mt-0.5">
+          <span className="inline-block rounded-pill border-2 border-ink bg-[#C7E9FF] px-2.5 py-0.5 text-[12px] font-extrabold text-ink mt-0.5">
             VERIFIED CUSTOMER
           </span>
         </div>
@@ -1922,7 +1922,7 @@ export function ProfileModal({
       <div className="space-y-3 font-body">
         {/* Mobile Number */}
         <div className="rounded-tile border-2.5 border-ink bg-paper p-3 shadow-hard-2">
-          <div className="text-[11px] font-extrabold uppercase text-mute font-display">
+          <div className="text-[12px] font-extrabold uppercase text-mute font-display">
             📱 Mobile Number
           </div>
           <div className="mt-0.5 text-[15px] font-bold text-ink">
@@ -1932,7 +1932,7 @@ export function ProfileModal({
 
         {/* Email Address */}
         <div className="rounded-tile border-2.5 border-ink bg-paper p-3 shadow-hard-2">
-          <div className="text-[11px] font-extrabold uppercase text-mute font-display">
+          <div className="text-[12px] font-extrabold uppercase text-mute font-display">
             📧 Email Address
           </div>
           <div className="mt-0.5 text-[15px] font-bold text-ink">
@@ -1944,11 +1944,11 @@ export function ProfileModal({
             placeholder. Falls back to a genuine empty state. */}
         <div className="rounded-tile border-2.5 border-ink bg-paper p-3 shadow-hard-2">
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-extrabold uppercase text-mute font-display">
+            <div className="text-[12px] font-extrabold uppercase text-mute font-display">
               📍 Saved Delivery Address
             </div>
             {primaryAddress && (
-              <span className="rounded-pill bg-[#FFCBD9] px-2 py-0.5 text-[10px] font-extrabold border border-ink text-ink">
+              <span className="rounded-pill bg-[#FFCBD9] px-2 py-0.5 text-[12px] font-extrabold border border-ink text-ink">
                 {primaryAddress.is_default ? "PRIMARY" : "SAVED"}
               </span>
             )}
@@ -1967,13 +1967,13 @@ export function ProfileModal({
 
         {/* Account Activity Summary & Perks */}
         <div className="rounded-tile border-2.5 border-ink bg-[#FFFDF7] p-3 shadow-hard-2">
-          <div className="text-[11px] font-extrabold uppercase text-mute font-display mb-1.5">
+          <div className="text-[12px] font-extrabold uppercase text-mute font-display mb-1.5">
             📦 Customer Status & Perks
           </div>
           <div className="grid grid-cols-2 gap-2 text-[12px]">
             <div className="bg-white p-2 rounded-tile border-2 border-ink text-center">
               <div className="font-extrabold text-brand">{t("perks.freeDelivery")}</div>
-              <div className="text-[10px] text-mute">Orders above ₹999</div>
+              <div className="text-[12px] text-mute">Orders above ₹999</div>
             </div>
             <div className="bg-white p-2 rounded-tile border-2 border-ink text-center">
               <div className="font-extrabold text-[#9A6BE0]">{t("perks.storeName")}</div>
@@ -2141,7 +2141,7 @@ export function WishlistModal({
                 <button
                   type="button"
                   onClick={() => onAddToCart(p.id)}
-                  className="btn-press rounded-pill border-2 border-ink bg-[#FF5A78] text-white px-2.5 py-1 text-[11px] font-display font-extrabold shadow-hard-1"
+                  className="btn-press rounded-pill border-2 border-ink bg-[#FF5A78] text-white px-2.5 py-1 text-[12px] font-display font-extrabold shadow-hard-1"
                 >
                   + Cart
                 </button>
