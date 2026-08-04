@@ -152,7 +152,13 @@ export default async function InvoicePage({ params, searchParams }: Props) {
           <span>{inr(order.total)}</span>
         </div>
         <div className="text-[12px] text-mute">
-          {order.payment_method === "cod" ? "Cash on delivery" : "Paid online (Razorpay)"}
+          {order.payment_method === "cod"
+            ? "Cash on delivery"
+            : order.payment_status === "paid"
+              ? "Paid online (Razorpay)"
+              : order.payment_status === "refunded"
+                ? "Refunded"
+                : "Payment pending"}
         </div>
       </section>
 

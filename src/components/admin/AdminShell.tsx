@@ -511,7 +511,15 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[14px]">
             {o.items.map((i) => `${i.name_snapshot} ×${i.qty}`).join(" · ")}{" "}
-            <Badge bg="#FFE1A8">{o.payment_method === "cod" ? "COD" : "Paid online"}</Badge>
+            <Badge bg={o.payment_method === "cod" || o.payment_status === "paid" || o.payment_status === "refunded" ? "#FFE1A8" : "#FFCBD9"}>
+              {o.payment_method === "cod"
+                ? "COD"
+                : o.payment_status === "paid"
+                  ? "Paid online"
+                  : o.payment_status === "refunded"
+                    ? "Refunded"
+                    : "⚠️ Payment not received"}
+            </Badge>
             {o.coupon_code && <Badge bg="#D6E8B0">{o.coupon_code}</Badge>}
             {o.is_gift && <Badge bg="#FBD0EA">🎁 GIFT</Badge>}
             {o.delivery_mode === "express_3hr" && <Badge bg="#D6E8B0">⚡ 3-HR EXPRESS</Badge>}
@@ -685,7 +693,15 @@ function PackingSlip({ order, onClose }: { order: Order; onClose: () => void }) 
           </tbody>
         </table>
         <div className="mt-3 flex justify-between font-display font-extrabold">
-          <span>{order.payment_method === "cod" ? `COLLECT ${inr(order.total)}` : "PAID ONLINE"}</span>
+          <span>
+            {order.payment_method === "cod"
+              ? `COLLECT ${inr(order.total)}`
+              : order.payment_status === "paid"
+                ? "PAID ONLINE"
+                : order.payment_status === "refunded"
+                  ? "REFUNDED"
+                  : "⚠️ PAYMENT NOT RECEIVED"}
+          </span>
           <span>{inr(order.total)}</span>
         </div>
       </div>
@@ -720,8 +736,20 @@ function ShippingLabel({ order, onClose }: { order: Order; onClose: () => void }
             <p className="text-[11px] font-bold text-mute">Palayamkottai Road, Thoothukudi</p>
           </div>
           <div className="text-right">
-            <span className="inline-block rounded-pill border-2 border-ink bg-[#FFE1A8] px-2.5 py-0.5 font-display text-[12px] font-extrabold text-ink">
-              {order.payment_method === "cod" ? `COD: ${inr(order.total)}` : "PAID PREPAID"}
+            <span
+              className={`inline-block rounded-pill border-2 border-ink px-2.5 py-0.5 font-display text-[12px] font-extrabold text-ink ${
+                order.payment_method === "cod" || order.payment_status === "paid" || order.payment_status === "refunded"
+                  ? "bg-[#FFE1A8]"
+                  : "bg-[#FFCBD9]"
+              }`}
+            >
+              {order.payment_method === "cod"
+                ? `COD: ${inr(order.total)}`
+                : order.payment_status === "paid"
+                  ? "PAID PREPAID"
+                  : order.payment_status === "refunded"
+                    ? "REFUNDED"
+                    : "⚠️ UNPAID — DO NOT SHIP"}
             </span>
           </div>
         </div>
