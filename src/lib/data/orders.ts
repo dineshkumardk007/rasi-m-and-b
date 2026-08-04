@@ -153,7 +153,7 @@ async function countRefusedCod(phone: string): Promise<number> {
       (o) =>
         o.payment_method === "cod" &&
         (o.status === "cancelled" || o.status === "returned") &&
-        o.address_snapshot.phone.replace(/\D/g, "").slice(-10) === phone,
+        (o.address_snapshot.phone || "").replace(/\D/g, "").slice(-10) === phone,
     ).length;
   const supabase = createAdminClient();
   const { count, error } = await supabase

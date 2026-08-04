@@ -59,7 +59,7 @@ export async function myOrdersAction(): Promise<Order[]> {
   if (isDemo()) {
     if (!phone) return [];
     return demoDB().orders.filter(
-      (o) => o.address_snapshot.phone.replace(/\D/g, "").slice(-10) === phone,
+      (o) => (o.address_snapshot.phone || "").replace(/\D/g, "").slice(-10) === phone,
     );
   }
 

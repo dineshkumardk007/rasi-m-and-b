@@ -1041,7 +1041,7 @@ export function CustomersTab({
     const now = Date.now();
     const rows = customers.map((c) => {
       const theirOrders = orders.filter(
-        (o) => o.address_snapshot.phone.replace(/\D/g, "").slice(-10) === c.phone,
+        (o) => (o.address_snapshot.phone || "").replace(/\D/g, "").slice(-10) === c.phone,
       );
       const ltv = theirOrders.reduce((s, o) => s + o.total, 0);
       const lastOrderTime = theirOrders[0] ? new Date(theirOrders[0].placed_at).getTime() : 0;

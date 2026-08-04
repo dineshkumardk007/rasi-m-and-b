@@ -427,9 +427,9 @@ function OrdersBoard({ orders }: { orders: Order[] }) {
       const phone = (o.address_snapshot.phone || "").replace(/\D/g, "");
       return (
         o.order_no.toLowerCase().includes(q) ||
-        o.address_snapshot.name.toLowerCase().includes(q) ||
+        (o.address_snapshot.name || "").toLowerCase().includes(q) ||
         (digits.length >= 3 && phone.includes(digits)) ||
-        o.address_snapshot.pin.includes(q)
+        (o.address_snapshot.pin || "").includes(q)
       );
     });
   }, [orders, query, filter]);
