@@ -154,12 +154,21 @@ export default function Storefront(props: StorefrontProps) {
     }
   }, []);
 
+  // /brand/[slug] and /c/[category] reuse this whole component (cart, quick
+  // view, search, age pills all behave exactly as they do everywhere else)
+  // but previously still rendered the full homepage stack — hero, Fresh
+  // Picks, deals, other carousels, all pulling from every product — with
+  // only the grid at the bottom actually filtered. A brand page is supposed
+  // to show just that brand's shelf, not the homepage with a filter buried
+  // in it. breadcrumb is only ever passed by those two pages.
+  const isFocusedListing = Boolean(props.breadcrumb);
+
   // Page-level <h1> text (rendered sr-only below). Computed here so the nested
   // index access narrows cleanly rather than inline in JSX.
   const pageHeading = (() => {
     if (brand !== "all") {
-      const b = brands.find((x) => x.slug === brand);
-      return `${b?.name ?? "Brand"} — ${BUSINESS.name}`;
+      const b = brands.find((x) => x.name === brand);
+      return `${b?.name ?? brand} — ${BUSINESS.name}`;
     }
     if (category !== "all") {
       const cm = (CATEGORY_META as Record<string, { en: string; ta: string } | undefined>)[category];
@@ -590,7 +599,7 @@ export default function Storefront(props: StorefrontProps) {
                         className="flex w-full items-center justify-between gap-3 rounded-tile border-2 border-transparent p-2 text-left hover:border-ink hover:bg-[#FFF6ED] transition-all cursor-pointer group"
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="w-[52px] h-[38px] shrink-0 overflow-hidden rounded-tile border border-ink/40">
+                          <div className="w-[52px] shrink-0">
                             <Art emoji={p.emoji} bg={p.tile_color} ratio="tile" image={p.images[0]} alt="" />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -710,9 +719,74 @@ export default function Storefront(props: StorefrontProps) {
               screen-reader/SEO only — it gives crawlers and heading-navigation a
               real landmark that was previously missing on the site's top URLs. */}
           <h1 className="sr-only">{pageHeading}</h1>
-          {route === "home" && (
+          {route === "home" && isFocusedListing && (
             <div>
               {props.breadcrumb && <Breadcrumbs items={props.breadcrumb} />}
+
+              <div className="mx-auto max-w-[1240px] px-4 sm:px-5 pt-3 sm:pt-5 pb-1">
+                {brand !== "all" ? (
+                  (() => {
+                    const b = brands.find((x) => x.name === brand);
+                    return (
+                      <div className="flex items-center gap-3">
+                        {b?.logo_url && (
+                          <div className="h-[56px] w-[56px] shrink-0 overflow-hidden rounded-tile border-2.5 border-ink bg-white shadow-hard-2">
+                            {/* eslint-disable-next-line @next/next/no-img-element -- small fixed-size logo, not worth Next/Image's overhead here */}
+                            <img src={b.logo_url} alt="" className="h-full w-full object-contain p-1.5" />
+                          </div>
+                        )}
+                        <div>
+                          <h2 className="font-display text-[22px] sm:text-[28px] font-extrabold text-ink">
+                            {b?.name ?? brand}
+                          </h2>
+                          <p className="text-[13px] font-bold text-mute">
+                            {filtered.length} product{filtered.length === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div>
+                    <h2 className="font-display text-[22px] sm:text-[28px] font-extrabold text-ink">
+                      {(() => {
+                        const cm = (CATEGORY_META as Record<string, { en: string; ta: string } | undefined>)[category];
+                        return cm ? (lang === "ta" ? cm.ta : cm.en) : category;
+                      })()}
+                    </h2>
+                    <p className="text-[13px] font-bold text-mute">
+                      {filtered.length} product{filtered.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <ErrorBoundary fallbackTitle="Product grid temporarily unavailable">
+                <ShopGrid
+                  filtered={filtered}
+                  milestone={milestone}
+                  setMilestone={setMilestone}
+                  category={category}
+                  setCategory={setCategory}
+                  query={query}
+                  setQuery={setQuery}
+                  brand={brand}
+                  setBrand={setBrand}
+                  brands={brands}
+                  maxPrice={maxPrice}
+                  setMaxPrice={setMaxPrice}
+                  inStockOnly={inStockOnly}
+                  setInStockOnly={setInStockOnly}
+                  sortBy={sortBy}
+                  setSortBy={setSortBy}
+                  addToCart={addToCart}
+                  openProduct={openProduct}
+                />
+              </ErrorBoundary>
+            </div>
+          )}
+          {route === "home" && !isFocusedListing && (
+            <div>
               <Hero setCategory={setCategory} settings={settings} reviewCount={reviewAggregate?.reviewCount} />
               <OfferStrip settings={settings} />
 

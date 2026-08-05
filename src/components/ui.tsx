@@ -228,6 +228,7 @@ export function Field({
   type = "text",
   inputMode,
   maxLength,
+  list,
 }: {
   label: string;
   value: string;
@@ -236,6 +237,8 @@ export function Field({
   type?: string;
   inputMode?: "text" | "numeric" | "tel" | "email";
   maxLength?: number;
+  /** id of a <datalist> to offer as suggestions, e.g. existing brand names. */
+  list?: string;
 }) {
   const isPhone = inputMode === "tel" || label.toLowerCase().includes("phone") || label.toLowerCase().includes("mobile");
   return (
@@ -248,6 +251,7 @@ export function Field({
         inputMode={inputMode}
         maxLength={maxLength ?? (isPhone ? 10 : undefined)}
         value={value}
+        list={list}
         onChange={(e) => {
           let val = e.target.value;
           if (isPhone) {

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
+  Brand,
   Coupon,
   CustomerRecord,
   DeliverySlab,
@@ -44,7 +45,15 @@ import {
 } from "@/app/admin/actions";
 
 /* ── Products CRUD (archive-not-delete, tile colour picker) ──────────────── */
-export function ProductsTab({ products, settings }: { products: Product[]; settings: StoreSettings }) {
+export function ProductsTab({
+  products,
+  settings,
+  brands,
+}: {
+  products: Product[];
+  settings: StoreSettings;
+  brands: Brand[];
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState<Product | null | "new">(null);
   const [confirmArchive, setConfirmArchive] = useState<Product | null>(null);
@@ -441,6 +450,7 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
         <ProductForm
           product={editing === "new" ? null : editing}
           settings={settings}
+          brands={brands}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -482,11 +492,13 @@ export function ProductsTab({ products, settings }: { products: Product[]; setti
 function ProductForm({
   product,
   settings,
+  brands,
   onClose,
   onSaved,
 }: {
   product: Product | null;
   settings: StoreSettings;
+  brands: Brand[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -575,7 +587,29 @@ function ProductForm({
       />
       <Field label="Product name (Tamil)" value={f.name_ta} onChange={(v) => setF({ ...f, name_ta: v })} placeholder="ஆர்கானிக் பருத்தி உடை" />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Field label="Brand" value={f.brand} onChange={(v) => setF({ ...f, brand: v })} placeholder="Sebamed" />
+        <div>
+          <Field
+            label="Brand"
+            value={f.brand}
+            onChange={(v) => setF({ ...f, brand: v })}
+            placeholder="Sebamed"
+            list="existing-brand-names"
+          />
+          {/*
+           * The match that puts a product on /brand/[slug] is an exact string
+           * compare against the brand's name — "Sebamed" and "sebamed" are two
+           * different brands as far as that filter is concerned. This datalist
+           * offers the brands already added in the Brands tab so picking one
+           * gets the exact spelling; typing a brand that isn't in the list yet
+           * still works, it just won't show up on a brand page until that
+           * brand is added there too.
+           */}
+          <datalist id="existing-brand-names">
+            {brands.map((b) => (
+              <option key={b.id} value={b.name} />
+            ))}
+          </datalist>
+        </div>
         <Field label="Price (₹)" type="number" inputMode="numeric" value={f.price} onChange={(v) => setF({ ...f, price: v })} />
         <Field label="MRP (₹)" type="number" inputMode="numeric" value={f.mrp} onChange={(v) => setF({ ...f, mrp: v })} />
         <div>
@@ -1411,7 +1445,12 @@ export function CouponsTab({ coupons }: { coupons: Coupon[] }) {
                     bg={c.featured ? "#F2EAE0" : "#FFE66D"}
                     color="#2B2140"
                     onClick={async () => {
-                      await setCouponFeaturedAction(c.code, !c.featured);
+                      setCouponError(null);
+                      const res = await setCouponFeaturedAction(c.code, !c.featured);
+                      if (!res.ok) {
+                        setCouponError(res.error ?? "Failed to update coupon. Please try again.");
+                        return;
+                      }
                       router.refresh();
                     }}
                   >

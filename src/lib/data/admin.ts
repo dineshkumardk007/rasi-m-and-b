@@ -102,7 +102,7 @@ export async function getStaffLogs(query?: string, entityFilter?: string): Promi
     const { data, error } = await supabase
       .from("staff_log")
       .select("*")
-      .order("created_at", { ascending: false })
+      .order("at", { ascending: false })
       .limit(100);
     logQueryError("admin", "getStaffLogs", error);
 
@@ -513,15 +513,21 @@ export async function setCouponFeatured(
   staffId: string,
   code: string,
   featured: boolean,
-): Promise<void> {
+): Promise<{ ok: boolean; error?: string }> {
   if (isDemo()) {
     const coupon = demoDB().coupons.find((c) => c.code === code);
-    if (coupon) coupon.featured = featured;
+    if (!coupon) return { ok: false, error: "Coupon not found" };
+    coupon.featured = featured;
   } else {
     const supabase = createAdminClient();
-    await supabase.from("coupons").update({ featured }).eq("code", code);
+    const { error } = await supabase.from("coupons").update({ featured }).eq("code", code);
+    if (error) {
+      logQueryError("admin", "setCouponFeatured", error);
+      return { ok: false, error: "Could not update the coupon. Please try again." };
+    }
   }
   await logStaff(staffId, featured ? "feature" : "unfeature", "coupon", code);
+  return { ok: true };
 }
 
 /* ── Banners ─────────────────────────────────────────────────────────────── */

@@ -20,6 +20,9 @@
 -- Net effect: the entire staff activity audit log has likely been empty in
 -- production this whole time.
 
-alter table staff_log alter column user_id type text using user_id::text;
-
+-- Must drop first: Postgres refuses to alter the type of a column a policy
+-- still depends on. (This ordering bug bit the very first live run of this
+-- migration — caught here so a fresh install never hits it.)
 drop policy if exists "staff_log insert" on staff_log;
+
+alter table staff_log alter column user_id type text using user_id::text;

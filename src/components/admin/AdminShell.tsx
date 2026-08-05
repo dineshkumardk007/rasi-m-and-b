@@ -210,7 +210,7 @@ export function AdminShell(props: AdminProps) {
         {tab === "dashboard" && <Dashboard {...props} />}
         {tab === "analytics" && <AnalyticsTab orders={props.orders} products={props.products} customers={props.customers} />}
         {tab === "orders" && <OrdersBoard orders={props.orders} />}
-        {tab === "products" && <ProductsTab products={props.products} settings={props.settings} />}
+        {tab === "products" && <ProductsTab products={props.products} settings={props.settings} brands={props.brands} />}
         {tab === "approvals" && <ApprovalsTab pendingApprovals={props.pendingApprovals ?? []} />}
         {tab === "staff" && <StaffTab staffAccounts={props.staffAccounts ?? []} />}
         {tab === "boxMedia" && <BoxMediaTab settings={props.settings} />}

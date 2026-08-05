@@ -214,11 +214,13 @@ export async function deleteBrandAction(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function setCouponFeaturedAction(code: string, featured: boolean) {
+export async function setCouponFeaturedAction(code: string, featured: boolean): Promise<ActionResult> {
   const userId = await gate();
-  await setCouponFeatured(userId, code, featured);
+  const res = await setCouponFeatured(userId, code, featured);
+  if (!res.ok) return res;
   revalidatePath("/admin");
   revalidatePath("/");
+  return { ok: true };
 }
 
 export async function setOrderStatusAction(orderId: string, status: OrderStatus) {

@@ -5,7 +5,7 @@ import type { BabyRegistry, Product } from "@/lib/types";
 import { useSession } from "@/lib/store/SessionProvider";
 import { inr } from "@/lib/constants";
 import { Art, Btn, Modal } from "@/components/ui";
-import { createBabyRegistryAction } from "@/app/customer-actions";
+import { createBabyRegistryAction, giftRegistryItemAction } from "@/app/customer-actions";
 
 export function CreateRegistryModal({
   products,
@@ -260,6 +260,11 @@ export function ViewRegistryModal({
                 color="#2B2140"
                 disabled={fulfilled}
                 onClick={() => {
+                  // Mirrors the public /registry/[slug] page's gift flow — that
+                  // one already bumps purchased_qty; this modal previously only
+                  // added to cart, so the registry never learned it was gifted
+                  // and other gift-givers could unknowingly buy the same item.
+                  void giftRegistryItemAction(registry.slug, product.id, 1);
                   onAddToCart(product);
                   onClose();
                 }}
