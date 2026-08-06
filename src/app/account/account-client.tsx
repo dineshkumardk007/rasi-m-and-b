@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { myOrdersAction, myAddressesAction, myBabyDobAction } from "@/app/customer-actions";
 import { Btn } from "@/components/ui";
-import { endCustomerSession } from "@/lib/customer-session";
+import { signOutCustomerAction } from "@/app/actions";
 import type { CustomerAddress, Order } from "@/lib/types";
 import { inr } from "@/lib/constants";
 
@@ -30,7 +30,7 @@ export function AccountDashboard({
   }, []);
 
   const handleSignOut = async () => {
-    await endCustomerSession();
+    await signOutCustomerAction();
     window.location.href = "/";
   };
 
