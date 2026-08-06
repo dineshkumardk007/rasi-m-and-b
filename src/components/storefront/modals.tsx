@@ -1508,15 +1508,23 @@ export function AuthModal({
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError(null);
-    const { createClient } = await import("@/lib/supabase/client");
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/`,
-      },
-    });
-    // no setLoading(false) because page will redirect
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=/`,
+        },
+      });
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setError(err?.message || "Could not start Google Sign-In");
+      setLoading(false);
+    }
   };
 
   const handleRegister = async () => {
