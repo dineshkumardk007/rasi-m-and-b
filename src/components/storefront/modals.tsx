@@ -1521,8 +1521,9 @@ export function AuthModal({
         setError(error.message);
         setLoading(false);
       }
-    } catch (err: any) {
-      setError(err?.message || "Could not start Google Sign-In");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not start Google Sign-In";
+      setError(msg);
       setLoading(false);
     }
   };
