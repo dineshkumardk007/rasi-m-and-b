@@ -10,8 +10,9 @@ import { currentCustomer, currentCustomerPhone } from "@/lib/customer-session";
 import { getLanguage as currentLanguage } from "@/lib/i18n/server";
 import { isValidDob } from "@/lib/baby";
 import { hashPassword } from "@/lib/admin-password";
+import { randomBytes, createHash } from "node:crypto";
+import { allowByCaller } from "@/lib/rate-limit";
 import type { BabyRegistry, CustomerAddress, Order, Product, RegistryItem, Subscription } from "@/lib/types";
-
 /* eslint-disable @typescript-eslint/no-explicit-any -- supabase row shapes */
 function mapOrder(row: any): Order {
   return {
@@ -659,4 +660,123 @@ export async function mySubscriptionsAction(): Promise<Subscription[]> {
     Sentry.captureException(error, { tags: { area: "customer_subscription_read" } });
   }
   return (data ?? demoDB().subscriptions.filter((s) => s.customer_id === customerId)) as Subscription[];
+}
+
+/* ── Password Reset Actions ────────────────────────────────────────────── */
+
+export async function requestPasswordResetAction(emailOrPhone: string): Promise<{ ok: boolean; error?: string }> {
+  if (!(await allowByCaller("password_reset", 3, 3600))) {
+    return { ok: false, error: "Too many attempts. Please try again later." };
+  }
+
+  const supabase = createAdminClient();
+  const digits = emailOrPhone.replace(/\D/g, "");
+  const isPhone = digits.length === 10;
+  const isEmail = emailOrPhone.includes("@");
+
+  if (!isPhone && !isEmail) {
+    return { ok: false, error: "Please enter a valid 10-digit phone number or email address." };
+  }
+
+  const query = supabase.from("customers").select("id");
+  const { data: customer } = await (isPhone
+    ? query.eq("phone", digits)
+    : query.eq("email", emailOrPhone.toLowerCase())
+  ).maybeSingle();
+
+  if (!customer) {
+    // Security: Do not reveal if an account exists or not.
+    return { ok: true };
+  }
+
+  const rawToken = randomBytes(32).toString("hex");
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins
+
+  if (isDemo()) {
+    console.log(`[DEMO] Password Reset Link: /reset-password?token=${rawToken}`);
+    return { ok: true };
+  }
+
+  const { error } = await supabase.from("password_reset_tokens").insert({
+    customer_id: customer.id,
+    token_hash: tokenHash,
+    expires_at: expiresAt,
+  });
+
+  if (error) {
+    console.error("requestPasswordResetAction error:", error);
+    Sentry.captureException(error, { tags: { area: "customer_auth" } });
+    return { ok: false, error: "Could not process request. Please try again." };
+  }
+
+  // In a real app with an email provider, we would send the email here.
+  // We'll log it to console for demo/testing purposes.
+  console.log(`[AUTH] Password Reset Link: /reset-password?token=${rawToken}`);
+
+  return { ok: true };
+}
+
+export async function completePasswordResetAction(token: string, newPassword: string): Promise<{ ok: boolean; error?: string }> {
+  if (!token || !newPassword || newPassword.length < 6) {
+    return { ok: false, error: "Invalid request or password too short." };
+  }
+
+  if (!(await allowByCaller("password_reset_complete", 5, 3600))) {
+    return { ok: false, error: "Too many attempts." };
+  }
+
+  if (isDemo()) {
+    return { ok: true }; // Allow in demo mode
+  }
+
+  const supabase = createAdminClient();
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+
+  // Find the token
+  const { data: resetToken } = await supabase
+    .from("password_reset_tokens")
+    .select("id, customer_id, expires_at, used_at")
+    .eq("token_hash", tokenHash)
+    .maybeSingle();
+
+  if (!resetToken) return { ok: false, error: "Invalid or expired reset link." };
+  if (resetToken.used_at) return { ok: false, error: "This link has already been used." };
+  if (new Date(resetToken.expires_at) < new Date()) return { ok: false, error: "This link has expired." };
+
+  const hashed = hashPassword(newPassword);
+
+  // Update password and mark token as used
+  const { error: updateCustomerError } = await supabase
+    .from("customers")
+    .update({ password: hashed, must_change_password: false })
+    .eq("id", resetToken.customer_id);
+
+  if (updateCustomerError) return { ok: false, error: "Failed to reset password." };
+
+  await supabase
+    .from("password_reset_tokens")
+    .update({ used_at: new Date().toISOString() })
+    .eq("id", resetToken.id);
+
+  return { ok: true };
+}
+
+export async function getCustomerPointsAction(): Promise<number> {
+  const c = await currentCustomer();
+  if (!c) return 0;
+  
+  if (isDemo()) {
+    const customer = demoDB().customers.find((x) => x.id === c.sub || x.phone === c.sub || x.email === c.sub);
+    return customer?.loyalty_points ?? 0;
+  }
+  
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("customers")
+    .select("loyalty_points")
+    .or(`id.eq.${c.sub},phone.eq.${c.sub},email.eq.${c.sub}`)
+    .single();
+    
+  return data?.loyalty_points ?? 0;
 }

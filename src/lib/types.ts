@@ -115,6 +115,8 @@ export interface Order {
   items: OrderItem[];
   placed_at: string;
   language: "en" | "ta";
+  points_earned?: number;
+  points_redeemed?: number;
   /** Gift orders hide prices on the invoice and carry a message. */
   is_gift?: boolean;
   gift_message?: string | null;
@@ -186,6 +188,7 @@ export interface CustomerRecord {
   last_login_at?: string | null;
   login_count?: number;
   created_at: string;
+  loyalty_points?: number;
   addresses?: CustomerAddress[];
 }
 

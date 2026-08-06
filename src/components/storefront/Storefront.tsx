@@ -662,7 +662,13 @@ export default function Storefront(props: StorefrontProps) {
 
             <button
               type="button"
-              onClick={() => setModal(session ? { type: "profile" } : { type: "auth" })}
+              onClick={() => {
+                if (session) {
+                  router.push("/account");
+                } else {
+                  setModal({ type: "auth" });
+                }
+              }}
               className="btn-press shrink-0 flex items-center gap-1 rounded-pill border-2 sm:border-2.5 border-ink bg-[#FFE1A8] px-2.5 sm:px-3.5 py-1 sm:py-[6px] font-display text-[12px] sm:text-[13px] font-extrabold text-ink shadow-hard-2 min-h-[38px] sm:min-h-[44px] cursor-pointer"
               aria-label={t("nav.profile")}
             >

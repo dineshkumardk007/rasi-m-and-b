@@ -317,14 +317,25 @@ export function Art({
       className={`relative flex w-full items-center justify-center overflow-hidden rounded-tile border-2.5 border-ink ${aspect}`}
     >
       {src ? (
-        <Image
-          src={src}
-          alt={alt ?? ""}
-          fill
-          sizes={sizes}
-          priority={priority}
-          className={`${fit === "contain" ? "object-contain p-1.5 drop-shadow-sm" : "object-cover"} transition-transform duration-200 group-hover:scale-105`}
-        />
+        src.endsWith(".mp4") || src.endsWith(".webm") ? (
+          <video
+            src={src}
+            autoPlay
+            muted
+            loop
+            playsInline
+            className={`${fit === "contain" ? "object-contain p-1.5 drop-shadow-sm" : "object-cover"} h-full w-full`}
+          />
+        ) : (
+          <Image
+            src={src}
+            alt={alt ?? ""}
+            fill
+            sizes={sizes}
+            priority={priority}
+            className={`${fit === "contain" ? "object-contain p-1.5 drop-shadow-sm" : "object-cover"} transition-transform duration-200 group-hover:scale-105`}
+          />
+        )
       ) : (
         <span
           aria-hidden
@@ -641,6 +652,7 @@ export function Toast({ message }: { message: string }) {
     <div
       className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-modal border-2.5 border-ink bg-ink px-[22px] py-3 font-display font-extrabold text-ribbon"
       role="status"
+      aria-live="polite"
     >
       {message}
     </div>

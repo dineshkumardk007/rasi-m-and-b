@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from "react";
 import type { CartLine } from "@/lib/types";
+import { useSession } from "@/lib/store/SessionProvider";
+import { fetchCartAction, syncCartAction } from "@/app/cart-actions";
 
 const STORAGE_KEY = "rasi.cart";
 
@@ -30,7 +32,9 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
+  const { session } = useSession();
 
+  // 1. Initial load from localStorage
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -40,11 +44,41 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // 2. Load from remote and merge when session appears
+  useEffect(() => {
+    if (!session) return;
+    let alive = true;
+    fetchCartAction().then((remoteCart) => {
+      if (!alive || !remoteCart) return;
+      setLines((prev) => {
+        // Simple merge: keep remote cart, append local items that aren't in remote
+        const merged = [...remoteCart];
+        for (const local of prev) {
+          if (!merged.some((r) => sameLine(r, local.itemId, local.variantId))) {
+            merged.push(local);
+          }
+        }
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        // Push merged state back to server
+        if (merged.length > remoteCart.length) {
+          syncCartAction(merged).catch(console.error);
+        }
+        return merged;
+      });
+    }).catch(console.error);
+    return () => { alive = false; };
+  }, [session]);
+
   // Functional updates so rapid successive adds never clobber each other.
   const update = useCallback((fn: (prev: CartLine[]) => CartLine[]) => {
     setLines((prev) => {
       const next = fn(prev);
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      
+      // Fire and forget sync if session exists. We don't block the UI update.
+      // In a more robust system, we would debounce this.
+      syncCartAction(next).catch(console.error);
+      
       return next;
     });
   }, []);

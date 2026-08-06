@@ -30,6 +30,7 @@ export interface PlaceOrderInput {
   is_gift?: boolean;
   gift_message?: string;
   delivery_mode?: "standard" | "express_3hr" | "store_pickup";
+  points_redeemed?: number;
 }
 
 export type PlaceOrderResult =
@@ -267,9 +268,13 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   const postDiscountSubtotal = Math.max(0, subtotal - discount);
   const delivery_fee = calculateDeliveryFee(postDiscountSubtotal, settings).fee;
 
+  // 100 points = ₹1 off
+  const pointsRedeemed = input.points_redeemed ?? 0;
+  const loyaltyDiscount = Math.floor(pointsRedeemed / 100);
+
   // discount is already clamped to subtotal in evaluateCoupon; floor here too so
   // the amount charged / collected can never be negative regardless of caller.
-  const total = Math.max(0, postDiscountSubtotal + delivery_fee);
+  const total = Math.max(0, postDiscountSubtotal + delivery_fee - loyaltyDiscount);
   if (input.payment_method === "cod") {
     if (total > settings.cod_limit) return { ok: false, error: "cod_limit" };
     // Blocklist: 2+ refused COD deliveries (cancelled/returned) disables COD.
@@ -415,6 +420,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
     // COD confirms (and decrements stock) immediately; Razorpay waits for the
     // webhook — the webhook is the ONLY thing that marks an order paid.
     p_confirm: input.payment_method === "cod",
+    p_points_redeemed: input.points_redeemed ?? 0,
     // The birthday perk is virtual (no coupons row) — nothing to bump. For
     // Razorpay, DON'T bump here: the order isn't paid yet, and every
     // abandoned/retried checkout would burn a real use of a possibly

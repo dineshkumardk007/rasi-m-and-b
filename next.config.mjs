@@ -65,7 +65,7 @@ const enforcedCsp = [
   `default-src 'self'`,
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} ${[...RAZORPAY, ...META, ...GA].join(" ")}`,
   `style-src 'self' 'unsafe-inline'`,
-  `img-src 'self' data: blob: ${SUPABASE_ORIGIN} https://images.unsplash.com https://i.imgur.com https://res.cloudinary.com ${[...META, ...GA].join(" ")}`,
+  `img-src 'self' data: blob: ${SUPABASE_ORIGIN} ${[...META, ...GA].join(" ")}`,
   `font-src 'self' data:`,
   `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_ORIGIN.replace("https://", "wss://")} ${[...RAZORPAY, ...META, ...GA].join(" ")}${SENTRY_ORIGIN ? ` ${SENTRY_ORIGIN}` : ""}`,
   `frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com`,

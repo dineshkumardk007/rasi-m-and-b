@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useInView } from "react-intersection-observer";
 import Image from "next/image";
 import type { Brand, Bundle, Product, StoreSettings } from "@/lib/types";
 import { useT } from "@/lib/i18n/LanguageProvider";
@@ -870,15 +871,25 @@ export function ShopGrid({
   const { t, lang } = useT();
   const catMeta = category !== "all" ? CATEGORY_META[category as Category] : null;
 
-  // "Load more" pagination: rendering every matching product at once doesn't
-  // scale past a couple hundred SKUs. Resets to the first page whenever a
-  // filter or sort changes, so switching category never leaves you scrolled
-  // past a smaller result set.
+  // "Load more" pagination using infinite scroll
   const PAGE_SIZE = 24;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  
+  const { ref: observerRef, inView } = useInView({
+    rootMargin: "400px", // Trigger when 400px away from the bottom
+    threshold: 0,
+  });
+
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [milestone, category, query, brand, maxPrice, inStockOnly, sortBy]);
+
+  useEffect(() => {
+    if (inView && visibleCount < filtered.length) {
+      setVisibleCount((n) => n + PAGE_SIZE);
+    }
+  }, [inView, filtered.length, visibleCount]);
+
   const visible = filtered.slice(0, visibleCount);
   return (
     <div id="shop" className="mx-auto max-w-[1080px] px-5 pb-2 pt-6">
@@ -1079,18 +1090,14 @@ export function ShopGrid({
       )}
 
       {filtered.length > 0 && (
-        <div className="mt-4 flex flex-col items-center gap-2">
+        <div className="mt-4 flex flex-col items-center gap-2 pb-8">
           <span className="text-[12px] font-bold text-mute">
             {t("shop.showingCount", { shown: visible.length, total: filtered.length })}
           </span>
           {visibleCount < filtered.length && (
-            <button
-              type="button"
-              onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
-              className="btn-press rounded-pill border-2.5 border-ink bg-white px-5 py-2 font-display text-[13px] font-extrabold text-ink shadow-hard-2 hover:bg-[#FFE1A8] cursor-pointer"
-            >
-              {t("shop.loadMore")} ↓
-            </button>
+            <div ref={observerRef} className="h-10 w-full flex items-center justify-center">
+              <span className="text-[13px] font-bold text-mute animate-pulse">Loading more...</span>
+            </div>
           )}
         </div>
       )}

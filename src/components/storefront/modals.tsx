@@ -16,10 +16,19 @@ import {
   submitReviewAction,
   trackOrderAction,
 } from "@/app/actions";
-import { createSubscriptionAction, myAddressesAction, notifyRestockAction, registerRestockReminderAction, saveCustomerAddressAction, updateMyPasswordAction } from "@/app/customer-actions";
+import { 
+  createSubscriptionAction, 
+  myAddressesAction, 
+  notifyRestockAction, 
+  registerRestockReminderAction, 
+  saveCustomerAddressAction, 
+  updateMyPasswordAction,
+  getCustomerPointsAction
+} from "@/app/customer-actions";
 import { ShareButton } from "./ShareButton";
 import { BoughtTogether } from "./BoughtTogether";
 import { GIFT_MESSAGE_MAX } from "@/lib/gift";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 /* ── Interactive Size Guide Modal ────────────────────────────────────────── */
 export function SizeGuideModal({
@@ -798,6 +807,15 @@ export function CheckoutModal({
   const [giftMessage, setGiftMessage] = useState("");
   const [deliveryMode, setDeliveryMode] = useState<"standard" | "express_3hr" | "store_pickup">("standard");
 
+  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  const [redeemPoints, setRedeemPoints] = useState(false);
+
+  useEffect(() => {
+    if (session) {
+      getCustomerPointsAction().then(setLoyaltyPoints).catch(console.error);
+    }
+  }, [session]);
+
   const valid =
     f.name.trim() &&
     f.phone.replace(/\D/g, "").length >= 10 &&
@@ -809,8 +827,13 @@ export function CheckoutModal({
   const deliveryInfo = calculateDeliveryFee(postDiscountSubtotal, settings);
   const delivery = deliveryInfo.fee;
   const giftWrapFee = isGift && (settings.gift_wrap_enabled ?? true) ? (settings.gift_wrap_fee ?? 30) : 0;
-  const total = postDiscountSubtotal + delivery + giftWrapFee;
+  
+  const pointsToUse = redeemPoints && loyaltyPoints >= 100 ? loyaltyPoints - (loyaltyPoints % 100) : 0;
+  const pointsDiscount = Math.floor(pointsToUse / 100);
+  
+  const total = postDiscountSubtotal + delivery + giftWrapFee - pointsDiscount;
   const codAllowed = total <= settings.cod_limit;
+  const pointsEarned = redeemPoints ? 0 : Math.floor(total);
 
   const applyCoupon = async () => {
     const res = await checkCouponAction(code, subtotal);
@@ -858,6 +881,7 @@ export function CheckoutModal({
       is_gift: isGift,
       gift_message: isGift ? giftMessage : undefined,
       delivery_mode: deliveryMode,
+      points_redeemed: pointsToUse > 0 ? pointsToUse : undefined,
     });
     if (!result.ok) {
       setPaying(false);
@@ -980,6 +1004,7 @@ export function CheckoutModal({
 
   return (
     <Modal onClose={() => { if (!paying) onClose(); }} resetScrollKey={paying ? "paying" : step}>
+      <ErrorBoundary fallbackTitle="Checkout temporarily unavailable">
       {paying ? (
         <PaymentProcessingView
           stage={payStage}
@@ -1173,6 +1198,28 @@ export function CheckoutModal({
             )}
           </div>
 
+          {/* Loyalty Points Redemption Box */}
+          {loyaltyPoints >= 100 && (
+            <div className="mb-3.5 rounded-tile border-2.5 border-ink bg-[#F4F9EB] p-3 text-[14px]">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={redeemPoints}
+                  onChange={(e) => setRedeemPoints(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 accent-[#4A8B2C]"
+                />
+                <div>
+                  <div className="font-display font-extrabold text-[#4A8B2C]">
+                    Use {loyaltyPoints - (loyaltyPoints % 100)} Loyalty Points
+                  </div>
+                  <div className="text-[12px] text-[#4A8B2C]/80 font-bold">
+                    Save {inr(Math.floor(loyaltyPoints / 100))} instantly!
+                  </div>
+                </div>
+              </label>
+            </div>
+          )}
+
           <Btn full disabled={!valid} onClick={goToPay}>
             {t("checkout.continue")} →
           </Btn>
@@ -1204,10 +1251,22 @@ export function CheckoutModal({
                 <span>−{inr(discount)}</span>
               </div>
             )}
-            <div className="mt-2 flex justify-between font-display text-[17px] font-extrabold text-brand">
+            {pointsDiscount > 0 && (
+              <div className="mt-1 flex justify-between text-[14px] text-[#7CB342]">
+                <span>Loyalty Discount</span>
+                <span>−{inr(pointsDiscount)}</span>
+              </div>
+            )}
+            <div className="mt-2 border-t-2 border-dashed border-ink/20 pt-2 flex justify-between font-display text-[17px] font-extrabold text-brand">
               <span>{t("checkout.total")}</span>
               <span>{inr(total)}</span>
             </div>
+            {!redeemPoints && (
+              <div className="mt-1 flex justify-between text-[12px] font-bold text-[#4A8B2C]">
+                <span>Points Earned</span>
+                <span>+{pointsEarned}</span>
+              </div>
+            )}
           </div>
 
           {!coupon && (
@@ -1242,6 +1301,7 @@ export function CheckoutModal({
           </div>
         </div>
       )}
+      </ErrorBoundary>
     </Modal>
   );
 }
@@ -1445,6 +1505,20 @@ export function AuthModal({
     setConfirmPassword("");
   };
 
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError(null);
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/`,
+      },
+    });
+    // no setLoading(false) because page will redirect
+  };
+
   const handleRegister = async () => {
     setLoading(true);
     setError(null);
@@ -1536,8 +1610,28 @@ export function AuthModal({
         </button>
       </div>
 
+      {/* Google Sign In (Global) */}
+      {mode !== "otp" && !pendingChange && (
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="flex w-full items-center justify-center gap-3 rounded-pill border-3 border-ink bg-white py-3 font-display text-[15px] font-extrabold text-ink shadow-hard-4 hover:bg-[#F2F2F2] active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+          >
+            <span className="text-[18px]">🌐</span>
+            Continue with Google
+          </button>
+          <div className="mt-4 flex items-center justify-center gap-3 text-mute">
+            <hr className="w-full border-ink/20 border-t-2 border-dashed" />
+            <span className="text-[11px] font-extrabold uppercase tracking-wider">or</span>
+            <hr className="w-full border-ink/20 border-t-2 border-dashed" />
+          </div>
+        </div>
+      )}
+
       {/* Secondary Method Toggle: Phone vs Email */}
-      {mode !== "otp" && (
+      {mode !== "otp" && !pendingChange && (
         <div className="mb-4 flex justify-center gap-2">
           <button
             type="button"

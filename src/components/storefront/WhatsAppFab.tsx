@@ -3,24 +3,17 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { BUSINESS } from "@/lib/constants";
+import { Modal } from "@/components/ui";
 
 /**
  * Floating "chat with us" button.
- *
- * In Thoothukudi a WhatsApp conversation is often more trusted than an online
- * checkout — a parent wants to ask whether a formula is in stock, or which size
- * fits, before paying. Losing that question loses the sale.
- *
- * Renders nothing when the shop has no phone number configured, rather than
- * linking to a broken chat.
+ * Opens an on-site Support Modal first to reduce friction,
+ * offering quick FAQs before kicking them out to WhatsApp.
  */
 export function WhatsAppFab() {
   const { t } = useT();
-  // Collapses to icon-only once the page scrolls, so it stops competing with
-  // content for attention — expands back the moment the visitor scrolls back
-  // up near the top. Mobile already hides the label at every scroll position
-  // (no room for it there), so this only visibly changes anything on sm+.
   const [scrolled, setScrolled] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80);
@@ -32,34 +25,75 @@ export function WhatsAppFab() {
   const digits = (BUSINESS.phone ?? "").replace(/\D/g, "");
   if (digits.length < 10) return null;
 
-  // wa.me wants country code + number, no punctuation.
   const number = digits.length === 10 ? `91${digits}` : digits;
   const href = `https://wa.me/${number}?text=${encodeURIComponent(t("whatsapp.prefill"))}`;
 
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={t("whatsapp.chat")}
-      /*
-       * bottom-20 on phones keeps it clear of the sticky cart bar; sm:bottom-5
-       * drops it back down on desktop where nothing else occupies that corner.
-       */
-      className={`btn-press fixed bottom-20 right-4 z-40 flex items-center rounded-pill border-3 border-ink bg-[#25D366] py-3 font-display text-[14px] font-extrabold text-white shadow-hard-4 transition-all duration-300 sm:bottom-5 print:hidden ${
-        scrolled ? "gap-0 px-3" : "gap-2 px-4"
-      }`}
-    >
-      <span className="text-[18px]" aria-hidden>
-        💬
-      </span>
-      <span
-        className={`hidden overflow-hidden whitespace-nowrap transition-all duration-300 sm:inline ${
-          scrolled ? "max-w-0 opacity-0" : "max-w-[160px] opacity-100"
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        aria-label="Support & Chat"
+        className={`btn-press fixed bottom-20 right-4 z-40 flex items-center rounded-pill border-3 border-ink bg-[#25D366] py-3 font-display text-[14px] font-extrabold text-white shadow-hard-4 transition-all duration-300 sm:bottom-5 print:hidden ${
+          scrolled ? "gap-0 px-3" : "gap-2 px-4"
         }`}
       >
-        {t("whatsapp.chat")}
-      </span>
-    </a>
+        <span className="text-[18px]" aria-hidden>
+          💬
+        </span>
+        <span
+          className={`hidden overflow-hidden whitespace-nowrap transition-all duration-300 sm:inline ${
+            scrolled ? "max-w-0 opacity-0" : "max-w-[160px] opacity-100"
+          }`}
+        >
+          Support & Chat
+        </span>
+      </button>
+
+      {open && (
+        <Modal onClose={() => setOpen(false)}>
+          <div className="w-full max-w-[400px]">
+            <h3 className="mb-4 font-display text-[22px] font-extrabold text-ink">
+              How can we help? 🧸
+            </h3>
+            
+            <div className="mb-5 grid gap-3">
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 rounded-2xl border-3 border-ink bg-[#25D366] p-4 font-display text-[16px] font-extrabold text-white shadow-hard-3 hover:bg-[#20bd5a] active:scale-95 transition-all"
+              >
+                <span className="text-[24px]">💬</span>
+                Chat on WhatsApp
+              </a>
+              
+              <a
+                href={`tel:+91${digits}`}
+                className="flex items-center gap-3 rounded-2xl border-3 border-ink bg-paper p-4 font-display text-[16px] font-extrabold text-ink shadow-hard-3 hover:bg-cream active:scale-95 transition-all"
+              >
+                <span className="text-[24px]">📞</span>
+                Call {BUSINESS.phone}
+              </a>
+            </div>
+
+            <div className="rounded-xl border-2 border-ink bg-[#FFF6ED] p-3">
+              <h4 className="mb-2 font-display text-[14px] font-extrabold text-mute uppercase tracking-wider">
+                Quick Answers
+              </h4>
+              <ul className="grid gap-3 text-[13px] text-ink/80">
+                <li>
+                  <strong className="text-ink">Delivery Time?</strong><br />
+                  Same-day delivery in Thoothukudi. 2-3 days anywhere else in Tamil Nadu.
+                </li>
+                <li>
+                  <strong className="text-ink">Returns & Exchanges?</strong><br />
+                  We accept returns for unworn clothing within 7 days. Toys & diapers are non-returnable.
+                </li>
+              </ul>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }

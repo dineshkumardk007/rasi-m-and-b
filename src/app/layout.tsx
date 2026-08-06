@@ -129,6 +129,24 @@ export default async function RootLayout({
           </SessionProvider>
         </LanguageProvider>
         <Analytics />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: BUSINESS.name,
+              url: siteUrl(),
+              logo: `${siteUrl()}/logo.png`,
+              contactPoint: {
+                "@type": "ContactPoint",
+                telephone: BUSINESS.phone,
+                contactType: "customer service",
+                email: BUSINESS.email,
+              },
+            }),
+          }}
+        />
       </body>
     </html>
   );
